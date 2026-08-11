@@ -1,0 +1,653 @@
+import type { BeatVizMode, Marker, MarkerColor } from "./types";
+import { formatTime } from "./format";
+
+export interface ExportOverlayOptions {
+  mirror: boolean;
+  beatViz: boolean; // 节拍视觉（按 vizModes 决定具体形式）
+  markers: boolean;
+  countIn: boolean;
+}
+
+export interface ExportParams {
+  src: string; // objectURL
+  bpm: number;
+  offset: number;
+  musicStart: number | null;
+  markers: Marker[];
+  options: ExportOverlayOptions;
+  vizModes: Record<BeatVizMode, boolean>; // 用户选中的节拍视觉组合
+  onProgress?: (ratio: number) => void;
+  signal?: AbortSignal;
+}
+
+export interface ExportResult {
+  blob: Blob;
+  ext: "mp4" | "webm";
+}
+
+const MARKER_HEX: Record<MarkerColor, string> = {
+  yellow: "#fde047",
+  white: "#ffffff",
+  pink: "#f9a8d4",
+  blue: "#60a5fa",
+  green: "#6ee7b7",
+};
+
+const DISPLAY = 4.5;
+const MAX_W = 1920;
+
+export class ExportUnsupportedError extends Error {
+  constructor() {
+    super("EXPORT_UNSUPPORTED");
+    this.name = "ExportUnsupportedError";
+  }
+}
+export class ExportAbortedError extends Error {
+  constructor() {
+    super("EXPORT_ABORTED");
+    this.name = "ExportAbortedError";
+  }
+}
+
+/** 选择导出容器，优先 MP4(H.264)，否则回退 WebM。 */
+function pickMime(): { mime: string; ext: "mp4" | "webm" } | null {
+  const candidates: { mime: string; ext: "mp4" | "webm" }[] = [
+    { mime: 'video/mp4;codecs="avc1.640029,mp4a.40.2"', ext: "mp4" },
+    { mime: "video/mp4;codecs=avc1.640029", ext: "mp4" },
+    { mime: "video/mp4", ext: "mp4" },
+    { mime: "video/webm;codecs=vp9,opus", ext: "webm" },
+    { mime: "video/webm;codecs=vp8,opus", ext: "webm" },
+    { mime: "video/webm", ext: "webm" },
+  ];
+  for (const c of candidates) {
+    if (typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported(c.mime)) {
+      return c;
+    }
+  }
+  return null;
+}
+
+export function canExport(): boolean {
+  return (
+    typeof MediaRecorder !== "undefined" &&
+    typeof HTMLCanvasElement.prototype.captureStream === "function" &&
+    pickMime() !== null
+  );
+}
+
+function roundRect(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  r: number,
+) {
+  ctx.beginPath();
+  ctx.roundRect(x, y, w, h, r);
+}
+
+function drawBeatDots(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  t: number,
+  bpm: number,
+  offset: number,
+  musicStart: number | null,
+) {
+  const beat = beatInfo(t, bpm, offset);
+  const musicStarted = musicStart == null || t >= musicStart - 0.02;
+  const segmentNumber = beat
+    ? Math.floor(beat.globalBeat / 8) + 1
+    : 1;
+
+  const r = Math.max(5, h * 0.013);
+  const gap = r * 3.4;
+  const totalW = gap * 7;
+  const padX = r * 2.2;
+  const padY = r * 1.6;
+  const labelH = r * 1.8;
+  const boxW = totalW + r * 2 + padX * 2;
+  const boxH = r * 2 + labelH + padY * 2;
+  const boxX = w / 2 - boxW / 2;
+  const boxY = h * 0.04;
+  const cx0 = w / 2 - totalW / 2;
+  const cy = boxY + padY + r;
+
+  ctx.save();
+  ctx.fillStyle = "rgba(0,0,0,0.55)";
+  roundRect(ctx, boxX, boxY, boxW, boxH, r * 1.4);
+  ctx.fill();
+
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.font = `600 ${r * 1.25}px sans-serif`;
+  for (let i = 0; i < 8; i++) {
+    const x = cx0 + i * gap;
+    const active = beat != null && i === beat.local;
+    const strong = i === 0;
+    ctx.beginPath();
+    ctx.arc(x, cy, r, 0, Math.PI * 2);
+    if (!musicStarted) {
+      ctx.lineWidth = Math.max(1, r * 0.16);
+      ctx.fillStyle = active
+        ? "rgba(82,82,91,0.95)"
+        : strong
+          ? "rgba(113,113,122,0.25)"
+          : "rgba(63,63,70,0.8)";
+      ctx.shadowColor = active ? "rgba(163,163,163,0.6)" : "transparent";
+      ctx.shadowBlur = active ? r * 1.5 : 0;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = active
+        ? "rgba(212,212,216,0.9)"
+        : strong
+          ? "rgba(161,161,170,0.6)"
+          : "rgba(82,82,91,0.9)";
+      ctx.stroke();
+    } else if (active) {
+      ctx.fillStyle = strong ? "#db2777" : "#2563eb";
+      ctx.shadowColor = strong
+        ? "rgba(219,39,119,0.8)"
+        : "rgba(37,99,235,0.8)";
+      ctx.shadowBlur = r * 1.5;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    } else {
+      ctx.lineWidth = Math.max(1, r * 0.16);
+      ctx.fillStyle = strong
+        ? "rgba(219,39,119,0.10)"
+        : "rgba(37,99,235,0.10)";
+      ctx.fill();
+      ctx.strokeStyle = strong
+        ? "rgba(236,72,153,0.55)"
+        : "rgba(59,130,246,0.45)";
+      ctx.stroke();
+    }
+    ctx.fillStyle = !musicStarted
+      ? active
+        ? "#f5f5f5"
+        : strong
+          ? "#a1a1aa"
+          : "#71717a"
+      : strong
+        ? active
+          ? "#fbcfe8"
+          : "rgba(249,168,212,0.55)"
+        : active
+          ? "#bfdbfe"
+          : "rgba(147,197,253,0.45)";
+    ctx.fillText(
+      String(strong ? segmentNumber : i + 1),
+      x,
+      cy + r + labelH * 0.6,
+    );
+  }
+  ctx.restore();
+}
+
+function drawMarkers(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  t: number,
+  markers: Marker[],
+) {
+  const active = markers.filter((m) => t >= m.time && t < m.time + DISPLAY);
+  if (!active.length) return;
+
+  const fontSize = Math.max(13, h * 0.026);
+  const padX = fontSize * 0.8;
+  const padY = fontSize * 0.5;
+  const gapY = fontSize * 0.6;
+  const rowH = fontSize + padY * 2;
+  let y = h * 0.18;
+
+  ctx.save();
+  ctx.textBaseline = "middle";
+  for (const m of active) {
+    const ts = formatTime(m.time);
+    const seg: { text: string; color: string; bold: boolean }[] = [
+      { text: ts, color: MARKER_HEX[m.color], bold: false },
+    ];
+    if (m.label) seg.push({ text: m.label, color: "#ffffff", bold: true });
+    if (m.text) seg.push({ text: m.text, color: "rgba(255,255,255,0.92)", bold: false });
+
+    // 量取总宽
+    let contentW = 0;
+    const gapBetween = fontSize * 0.45;
+    for (let i = 0; i < seg.length; i++) {
+      ctx.font = `${seg[i].bold ? "700" : "500"} ${fontSize}px sans-serif`;
+      contentW += ctx.measureText(seg[i].text).width;
+      if (i < seg.length - 1) contentW += gapBetween;
+    }
+    const boxW = contentW + padX * 2;
+    const boxX = w / 2 - boxW / 2;
+
+    ctx.fillStyle = "rgba(0,0,0,0.62)";
+    roundRect(ctx, boxX, y, boxW, rowH, rowH / 2);
+    ctx.fill();
+
+    let x = boxX + padX;
+    ctx.textAlign = "left";
+    for (let i = 0; i < seg.length; i++) {
+      ctx.font = `${seg[i].bold ? "700" : "500"} ${fontSize}px sans-serif`;
+      ctx.fillStyle = seg[i].color;
+      ctx.fillText(seg[i].text, x, y + rowH / 2);
+      x += ctx.measureText(seg[i].text).width + gapBetween;
+    }
+    y += rowH + gapY;
+  }
+  ctx.restore();
+}
+
+function beatInfo(t: number, bpm: number, offset: number) {
+  const firstBeat = Math.max(0, offset);
+  if (t < firstBeat) return null;
+  const spb = 60 / bpm;
+  const rel = (t - firstBeat) / spb;
+  const fl = Math.floor(rel);
+  const local = ((fl % 8) + 8) % 8;
+  return { phase: rel - fl, isDownbeat: local === 0, local, globalBeat: fl };
+}
+
+function drawCountTiles(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  t: number,
+  bpm: number,
+  offset: number,
+  musicStart: number | null,
+) {
+  const beat = beatInfo(t, bpm, offset);
+  const musicStarted = musicStart == null || t >= musicStart - 0.02;
+
+  const activeTile = beat ? beat.local % 4 : -1;
+  const secondHalf = beat ? beat.local >= 4 : false;
+  const segmentNumber = beat
+    ? Math.floor(beat.globalBeat / 8) + 1
+    : 1;
+  const pulse = beat ? Math.max(0, 1 - beat.phase) : 0;
+  const railW = Math.max(64, Math.min(w * 0.105, 150));
+  const railH = h * 0.68;
+  const gap = Math.max(5, h * 0.009);
+  const tileH = (railH - gap * 3) / 4;
+  const x = Math.max(10, w * 0.018);
+  const y = (h - railH) / 2;
+  const radius = Math.max(8, railW * 0.1);
+
+  ctx.save();
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.font = `800 ${Math.max(20, railW * 0.27)}px sans-serif`;
+
+  for (let index = 0; index < 4; index++) {
+    const top = y + index * (tileH + gap);
+    const isDownbeat = !secondHalf && index === 0;
+    const isActive = index === activeTile;
+    const color = isDownbeat ? "219,39,119" : "37,99,235";
+    const edge = isDownbeat ? "244,114,182" : "103,232,249";
+
+    roundRect(ctx, x, top, railW, tileH, radius);
+    if (!musicStarted) {
+      if (isActive) {
+        const gradient = ctx.createLinearGradient(x, top, x + railW, top + tileH);
+        gradient.addColorStop(0, "#737373");
+        gradient.addColorStop(1, "#404040");
+        ctx.fillStyle = gradient;
+        ctx.shadowColor = "rgba(163,163,163,0.55)";
+        ctx.shadowBlur = 34 * (0.65 + pulse * 0.35);
+      } else {
+        ctx.fillStyle = isDownbeat
+          ? "rgba(113,113,122,0.25)"
+          : "rgba(63,63,70,0.8)";
+        ctx.shadowColor = "transparent";
+        ctx.shadowBlur = 0;
+      }
+    } else if (isActive) {
+      const gradient = ctx.createLinearGradient(x, top, x + railW, top + tileH);
+      if (isDownbeat) {
+        gradient.addColorStop(0, "#db2777");
+        gradient.addColorStop(1, "#9333ea");
+      } else {
+        gradient.addColorStop(0, "#2563eb");
+        gradient.addColorStop(1, "#22d3ee");
+      }
+      ctx.fillStyle = gradient;
+      ctx.shadowColor = isDownbeat
+        ? "rgba(219,39,119,0.7)"
+        : "rgba(37,99,235,0.6)";
+      ctx.shadowBlur = (isDownbeat ? 40 : 34) * (0.65 + pulse * 0.35);
+    } else {
+      ctx.fillStyle = isDownbeat
+        ? "rgba(219,39,119,0.07)"
+        : "rgba(37,99,235,0.06)";
+      ctx.shadowColor = "transparent";
+      ctx.shadowBlur = 0;
+    }
+    ctx.fill();
+    ctx.shadowColor = "transparent";
+    ctx.shadowBlur = 0;
+
+    ctx.lineWidth = Math.max(1.5, railW * 0.015);
+    ctx.strokeStyle = !musicStarted
+      ? isDownbeat
+        ? isActive
+          ? "rgba(229,229,229,0.95)"
+          : "rgba(161,161,170,0.6)"
+        : isActive
+          ? "rgba(212,212,216,0.9)"
+          : "rgba(82,82,91,0.9)"
+      : isActive
+        ? `rgba(${edge},${0.72 + pulse * 0.28})`
+        : `rgba(${color},${isDownbeat ? 0.28 : 0.22})`;
+    ctx.stroke();
+
+    ctx.fillStyle = !musicStarted
+      ? isDownbeat
+        ? isActive
+          ? "#ffffff"
+          : "#a1a1aa"
+        : isActive
+          ? "#ffffff"
+          : "#71717a"
+      : isActive
+        ? "#ffffff"
+        : "rgba(255,255,255,0.25)";
+    ctx.fillText(
+      secondHalf
+        ? String(index + 5)
+        : index === 0
+          ? String(segmentNumber)
+          : String(index + 1),
+      x + railW / 2,
+      top + tileH / 2,
+    );
+  }
+
+  ctx.restore();
+}
+
+/** 边缘脉冲：四边发光，第 1 拍紫色更强，其余蓝色。 */
+function drawBeatPulse(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  t: number,
+  bpm: number,
+  offset: number,
+  musicStart: number | null,
+) {
+  const b = beatInfo(t, bpm, offset);
+  if (!b) return;
+  const musicStarted = musicStart == null || t >= musicStart - 0.02;
+  const i = Math.max(0, 1 - b.phase);
+  const intensity = i * i;
+  const alpha = musicStarted
+    ? (b.isDownbeat ? 0.9 : 0.55) * intensity
+    : (b.isDownbeat ? 0.65 : 0.42) * intensity;
+  if (alpha <= 0.01) return;
+  const c = musicStarted
+    ? b.isDownbeat
+      ? "168,85,247"
+      : "59,130,246"
+    : "82,82,91";
+  const th = (b?.isDownbeat ? 0.18 : 0.12) * Math.min(w, h);
+  const mk = (x0: number, y0: number, x1: number, y1: number) => {
+    const g = ctx.createLinearGradient(x0, y0, x1, y1);
+    g.addColorStop(0, `rgba(${c},${alpha})`);
+    g.addColorStop(1, `rgba(${c},0)`);
+    return g;
+  };
+  ctx.save();
+  ctx.fillStyle = mk(0, 0, 0, th);
+  ctx.fillRect(0, 0, w, th);
+  ctx.fillStyle = mk(0, h, 0, h - th);
+  ctx.fillRect(0, h - th, w, th);
+  ctx.fillStyle = mk(0, 0, th, 0);
+  ctx.fillRect(0, 0, th, h);
+  ctx.fillStyle = mk(w, 0, w - th, 0);
+  ctx.fillRect(w - th, 0, th, h);
+  ctx.restore();
+}
+
+/** 呼吸灯：顶部居中蓝色光球 + 四角星，第 1 拍扩散更大。 */
+function drawBeatBreath(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  t: number,
+  bpm: number,
+  offset: number,
+  musicStart: number | null,
+) {
+  const b = beatInfo(t, bpm, offset);
+  if (!b) return;
+  const musicStarted = musicStart == null || t >= musicStart - 0.02;
+  const intensity = Math.max(0, 1 - b.phase);
+  const base = b.isDownbeat ? 0.72 : 0.46;
+  const amp = b.isDownbeat ? 1.05 : 0.3;
+  const scale = base + amp * intensity;
+  const opacity = (b.isDownbeat ? 0.5 : 0.4) + 0.5 * intensity;
+  const R0 = h * 0.15;
+  const R = R0 * scale;
+  const cx = w / 2;
+  const cy = h * 0.05 + R0;
+
+  ctx.save();
+  ctx.globalAlpha = opacity;
+  const bloom = ctx.createRadialGradient(cx, cy, 0, cx, cy, R);
+  bloom.addColorStop(0, musicStarted ? "rgba(255,255,255,0.95)" : "rgba(229,229,229,0.7)");
+  bloom.addColorStop(0.25, musicStarted ? "rgba(186,230,253,0.8)" : "rgba(163,163,163,0.55)");
+  bloom.addColorStop(0.55, musicStarted ? "rgba(96,165,250,0.45)" : "rgba(115,115,115,0.35)");
+  bloom.addColorStop(1, musicStarted ? "rgba(59,130,246,0)" : "rgba(82,82,82,0)");
+  ctx.fillStyle = bloom;
+  ctx.beginPath();
+  ctx.arc(cx, cy, R, 0, Math.PI * 2);
+  ctx.fill();
+
+  const pts: [number, number][] = [
+    [0, -0.92], [0.06, -0.06], [0.92, 0], [0.06, 0.06],
+    [0, 0.92], [-0.06, 0.06], [-0.92, 0], [-0.06, -0.06],
+  ];
+  const star = ctx.createRadialGradient(cx, cy, 0, cx, cy, R);
+  star.addColorStop(0, musicStarted ? "rgba(255,255,255,1)" : "rgba(229,229,229,0.8)");
+  star.addColorStop(0.45, musicStarted ? "rgba(147,197,253,1)" : "rgba(163,163,163,0.65)");
+  star.addColorStop(1, musicStarted ? "rgba(59,130,246,0.15)" : "rgba(82,82,82,0.15)");
+  ctx.fillStyle = star;
+  ctx.beginPath();
+  pts.forEach(([ox, oy], idx) => {
+    const x = cx + ox * R;
+    const y = cy + oy * R;
+    if (idx === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  });
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.fillStyle = "#ffffff";
+  ctx.beginPath();
+  ctx.arc(cx, cy, R * 0.13, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+/** 起播跟拍 count-in：第 1 拍前 3 拍内绘制 3/2/1 + 半透明蓝边脉冲。 */
+function drawCountIn(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  t: number,
+  bpm: number,
+  offset: number,
+) {
+  const firstBeat = Math.max(0, offset);
+  if (firstBeat <= 0.05) return;
+  const spb = 60 / bpm;
+  const remaining = firstBeat - t;
+  if (remaining <= 0.02 || remaining > spb * 3 + 0.02) return;
+  const n = Math.max(1, Math.min(3, Math.ceil(remaining / spb)));
+
+  ctx.save();
+  // 半透明蓝色边框，每拍脉冲（刚过拍点最亮）
+  const frac = (remaining / spb) % 1;
+  const pulse = 0.2 + 0.5 * frac;
+  ctx.lineWidth = Math.max(8, h * 0.025);
+  ctx.strokeStyle = `rgba(59,130,246,${pulse})`;
+  ctx.strokeRect(ctx.lineWidth / 2, ctx.lineWidth / 2, w - ctx.lineWidth, h - ctx.lineWidth);
+
+  // 数字 + 柔和暗晕（仅为可读性）
+  const fs = h * 0.28;
+  ctx.beginPath();
+  ctx.fillStyle = "rgba(0,0,0,0.32)";
+  ctx.arc(w / 2, h / 2, fs * 0.62, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.font = `700 ${fs}px sans-serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.shadowColor = "rgba(0,0,0,0.7)";
+  ctx.shadowBlur = fs * 0.15;
+  ctx.fillStyle = "#ffffff";
+  ctx.fillText(String(n), w / 2, h / 2);
+  ctx.restore();
+}
+
+/**
+ * 在浏览器本地把叠加图层「烧录」进视频并导出。实时录制，耗时约等于视频时长。
+ */
+export async function exportVideoWithOverlays(params: ExportParams): Promise<ExportResult> {
+  const picked = pickMime();
+  if (!picked || typeof HTMLCanvasElement.prototype.captureStream !== "function") {
+    throw new ExportUnsupportedError();
+  }
+  const {
+    src,
+    bpm,
+    offset,
+    musicStart,
+    markers,
+    options,
+    vizModes,
+    onProgress,
+    signal,
+  } = params;
+
+  const video = document.createElement("video");
+  video.src = src;
+  video.muted = false;
+  video.playsInline = true;
+  video.preload = "auto";
+
+  await new Promise<void>((resolve, reject) => {
+    video.onloadedmetadata = () => resolve();
+    video.onerror = () => reject(new Error("LOAD_FAILED"));
+  });
+
+  const vw = video.videoWidth || 1280;
+  const vh = video.videoHeight || 720;
+  const scale = Math.min(1, MAX_W / vw);
+  const w = Math.round(vw * scale);
+  const h = Math.round(vh * scale);
+  const duration = video.duration || 0;
+
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d")!;
+
+  // 音频：经 Web Audio 捕获，但不连扬声器（导出时静音）
+  let audioCtx: AudioContext | null = null;
+  let audioTrack: MediaStreamTrack | null = null;
+  try {
+    audioCtx = new AudioContext();
+    await audioCtx.resume().catch(() => {});
+    const srcNode = audioCtx.createMediaElementSource(video);
+    const dest = audioCtx.createMediaStreamDestination();
+    srcNode.connect(dest);
+    audioTrack = dest.stream.getAudioTracks()[0] ?? null;
+  } catch {
+    audioTrack = null;
+  }
+
+  const canvasStream = canvas.captureStream(30);
+  const tracks: MediaStreamTrack[] = [...canvasStream.getVideoTracks()];
+  if (audioTrack) tracks.push(audioTrack);
+  const stream = new MediaStream(tracks);
+
+  const recorder = new MediaRecorder(stream, {
+    mimeType: picked.mime,
+    videoBitsPerSecond: 8_000_000,
+  });
+  const chunks: Blob[] = [];
+  recorder.ondataavailable = (e) => {
+    if (e.data.size) chunks.push(e.data);
+  };
+
+  let raf = 0;
+  let aborted = false;
+
+  const draw = () => {
+    const t = video.currentTime;
+    ctx.save();
+    if (options.mirror) {
+      ctx.translate(w, 0);
+      ctx.scale(-1, 1);
+    }
+    ctx.drawImage(video, 0, 0, w, h);
+    ctx.restore();
+    if (options.beatViz) {
+      if (vizModes.pulse) drawBeatPulse(ctx, w, h, t, bpm, offset, musicStart);
+      if (vizModes.breath) drawBeatBreath(ctx, w, h, t, bpm, offset, musicStart);
+      if (vizModes.dots) drawBeatDots(ctx, w, h, t, bpm, offset, musicStart);
+      if (vizModes.tiles) drawCountTiles(ctx, w, h, t, bpm, offset, musicStart);
+    }
+    if (options.markers) drawMarkers(ctx, w, h, t, markers);
+    if (options.countIn) drawCountIn(ctx, w, h, t, bpm, offset);
+    if (duration) onProgress?.(Math.min(1, t / duration));
+    raf = requestAnimationFrame(draw);
+  };
+
+  const cleanup = () => {
+    cancelAnimationFrame(raf);
+    video.pause();
+    video.removeAttribute("src");
+    video.load();
+    audioCtx?.close().catch(() => {});
+  };
+
+  const result = new Promise<ExportResult>((resolve, reject) => {
+    recorder.onstop = () => {
+      cleanup();
+      if (aborted) {
+        reject(new ExportAbortedError());
+        return;
+      }
+      resolve({ blob: new Blob(chunks, { type: picked.mime.split(";")[0] }), ext: picked.ext });
+    };
+    recorder.onerror = () => {
+      cleanup();
+      reject(new Error("RECORD_FAILED"));
+    };
+  });
+
+  const stop = () => {
+    if (recorder.state !== "inactive") recorder.stop();
+  };
+
+  signal?.addEventListener("abort", () => {
+    aborted = true;
+    stop();
+  });
+  video.onended = () => {
+    onProgress?.(1);
+    stop();
+  };
+
+  recorder.start();
+  draw();
+  await video.play();
+
+  return result;
+}
