@@ -24,16 +24,17 @@ export function TooltipProvider() {
     };
     const show = (button: HTMLButtonElement, immediate = false) => {
       clearTimer();
-      const label = button.dataset.tooltip;
-      if (!label) return;
       const rect = button.getBoundingClientRect();
-      const reveal = () =>
+      const reveal = () => {
+        const label = button.dataset.tooltip;
+        if (!label) return;
         setTooltip({
           label,
           left: rect.left + rect.width / 2,
           top: rect.top < 48 ? rect.bottom + 8 : rect.top - 8,
           below: rect.top < 48,
         });
+      };
       if (immediate) reveal();
       else timerRef.current = setTimeout(reveal, 350);
     };

@@ -365,13 +365,24 @@ function RateButton({
   }, [open]);
 
   return (
-    <div ref={ref} className="relative">
+    <div
+      ref={ref}
+      className="relative"
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+      onFocusCapture={() => setOpen(true)}
+      onBlurCapture={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node)) {
+          setOpen(false);
+        }
+      }}
+    >
       <button
         type="button"
         title="播放速度"
         aria-label={`播放速度 ${value}倍`}
         aria-expanded={open}
-        onClick={() => setOpen((current) => !current)}
+        onClick={() => setOpen(true)}
         className={cn(
           "flex h-9 min-w-12 items-center justify-center rounded-lg px-2.5 text-xs font-medium tabular-nums text-neutral-200 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400",
           open && "bg-white/10 text-white",
@@ -380,31 +391,116 @@ function RateButton({
         {value}×
       </button>
       {open && (
-        <div
-          role="menu"
-          className="absolute bottom-full right-0 z-30 mb-2 w-24 rounded-xl border border-white/10 bg-neutral-900 p-1.5 shadow-2xl"
-        >
-          {RATES.map((rate) => (
-            <button
-              type="button"
-              role="menuitemradio"
-              aria-checked={rate === value}
-              key={rate}
-              onClick={() => {
-                onChange(rate);
-                setOpen(false);
-              }}
-              className={cn(
-                "flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-xs tabular-nums transition-colors hover:bg-white/10",
-                rate === value
-                  ? "bg-blue-500/15 text-blue-300"
-                  : "text-neutral-300",
-              )}
-            >
-              {rate}×
-              {rate === value && <Check className="h-3.5 w-3.5" />}
-            </button>
-          ))}
+        <div className="absolute bottom-full right-0 z-30 pb-2">
+          <div
+            role="menu"
+            className="w-24 rounded-xl border border-white/10 bg-neutral-900 p-1.5 shadow-2xl"
+          >
+            {RATES.map((rate) => (
+              <button
+                type="button"
+                role="menuitemradio"
+                aria-checked={rate === value}
+                key={rate}
+                onClick={() => {
+                  onChange(rate);
+                  setOpen(false);
+                }}
+                className={cn(
+                  "flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-xs tabular-nums transition-colors hover:bg-white/10",
+                  rate === value
+                    ? "bg-blue-500/15 text-blue-300"
+                    : "text-neutral-300",
+                )}
+              >
+                {rate}×
+                {rate === value && <Check className="h-3.5 w-3.5" />}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function VolumeControl(props: {
+  volume: number;
+  muted: boolean;
+  onToggleMute: () => void;
+  onChange: (volume: number) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const displayedVolume = props.muted ? 0 : props.volume;
+  const muteLabel = props.muted || props.volume === 0 ? "取消静音" : "静音";
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (event: MouseEvent) => {
+      if (ref.current && !ref.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [open]);
+
+  return (
+    <div
+      ref={ref}
+      className="relative"
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+      onFocusCapture={() => setOpen(true)}
+      onBlurCapture={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node)) {
+          setOpen(false);
+        }
+      }}
+    >
+      <button
+        type="button"
+        onClick={props.onToggleMute}
+        data-tooltip={open ? undefined : muteLabel}
+        aria-label={muteLabel}
+        aria-expanded={open}
+        className="flex h-9 items-center justify-center rounded-lg px-2.5 text-neutral-300 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+      >
+        {props.muted || props.volume === 0 ? (
+          <VolumeX className="h-5 w-5" />
+        ) : (
+          <Volume2 className="h-5 w-5" />
+        )}
+      </button>
+      {open && (
+        <div className="absolute bottom-full right-0 z-30 pb-2">
+          <div className="flex w-14 flex-col items-center rounded-xl border border-white/10 bg-neutral-900 px-2 py-3 shadow-2xl">
+            <span className="mb-2 text-xs font-medium tabular-nums text-neutral-300">
+              {Math.round(displayedVolume * 100)}
+            </span>
+            <div className="relative flex h-24 w-8 items-center justify-center">
+              <input
+                type="range"
+                min={0}
+                max={1}
+                step={0.01}
+                value={displayedVolume}
+                onChange={(event) =>
+                  props.onChange(parseFloat(event.target.value))
+                }
+                aria-label="音量"
+                className="absolute h-1 w-24 -rotate-90 cursor-pointer appearance-none rounded-full bg-white/15 accent-blue-500"
+              />
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -808,28 +904,12 @@ export function Controls(props: ControlsProps) {
 
           <RateButton value={playbackRate} onChange={props.onSetRate} />
 
-          <div className="flex items-center gap-1">
-            <IconBtn title="静音" onClick={props.onToggleMute}>
-            {muted || volume === 0 ? (
-              <VolumeX className="h-5 w-5" />
-            ) : (
-              <Volume2 className="h-5 w-5" />
-            )}
-            </IconBtn>
-            {!compact && (
-              <input
-                type="range"
-                min={0}
-                max={1}
-                step={0.01}
-                value={muted ? 0 : volume}
-                onChange={(e) => props.onSetVolume(parseFloat(e.target.value))}
-                title="音量"
-                aria-label="音量"
-                className="h-1 w-14 cursor-pointer appearance-none rounded-full bg-white/15 accent-blue-500 xl:w-20"
-              />
-            )}
-          </div>
+          <VolumeControl
+            volume={volume}
+            muted={muted}
+            onToggleMute={props.onToggleMute}
+            onChange={props.onSetVolume}
+          />
 
           {compact && (
             <>

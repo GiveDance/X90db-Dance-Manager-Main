@@ -34,6 +34,8 @@ npm run lint
 npm run build
 ```
 
+See [CHANGELOG.md](./CHANGELOG.md) for the complete list of changes made since the DancePlayer baseline.
+
 ## Technology
 
 - Next.js 16
