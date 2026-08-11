@@ -26,6 +26,7 @@ interface CurrentDance {
   id: string;
   url: string;
   meta: SavedDanceMeta;
+  openCalibrationOnEnter: boolean;
 }
 
 export default function HomePage() {
@@ -108,6 +109,8 @@ export default function HomePage() {
         offset,
         analysisBpm: bpm,
         analysisOffset: offset,
+        detectedBpm: bpm,
+        detectedOffset: offset,
         musicStart,
         duration,
         size: file.size,
@@ -116,7 +119,7 @@ export default function HomePage() {
         markers: [],
       };
 
-      setCurrent({ id: meta.id, url, meta });
+      setCurrent({ id: meta.id, url, meta, openCalibrationOnEnter: true });
       setPhase("player");
 
       // Persist independently so a large IndexedDB write cannot hold the analysis screen open.
@@ -159,31 +162,35 @@ export default function HomePage() {
           return;
         }
         let resolvedMeta = meta;
-        if (meta.musicStart == null) {
+        if (
+          meta.musicStart == null ||
+          meta.detectedBpm == null ||
+          meta.detectedOffset == null
+        ) {
           try {
             const analysis = await analyzeAudio(blob);
-            if (analysis.musicStart != null) {
-              resolvedMeta = {
-                ...meta,
-                bpm: analysis.bpm,
-                offset: analysis.offset,
-                analysisBpm: analysis.bpm,
-                analysisOffset: analysis.offset,
-                musicStart: analysis.musicStart,
-                updatedAt: Date.now(),
-              };
-              await updateDanceMeta(id, {
-                bpm: analysis.bpm,
-                offset: analysis.offset,
-                analysisBpm: analysis.bpm,
-                analysisOffset: analysis.offset,
-                musicStart: analysis.musicStart,
-                updatedAt: resolvedMeta.updatedAt,
-              });
-              setDances((prev) =>
-                prev.map((dance) => (dance.id === id ? resolvedMeta : dance)),
-              );
-            }
+            const analysisPatch: Partial<SavedDanceMeta> = {
+              detectedBpm: meta.detectedBpm ?? analysis.bpm,
+              detectedOffset: meta.detectedOffset ?? analysis.offset,
+              updatedAt: Date.now(),
+              ...(meta.musicStart == null
+                ? {
+                    bpm: analysis.bpm,
+                    offset: analysis.offset,
+                    analysisBpm: analysis.bpm,
+                    analysisOffset: analysis.offset,
+                    musicStart: analysis.musicStart,
+                  }
+                : {}),
+            };
+            resolvedMeta = {
+              ...meta,
+              ...analysisPatch,
+            };
+            await updateDanceMeta(id, analysisPatch);
+            setDances((prev) =>
+              prev.map((dance) => (dance.id === id ? resolvedMeta : dance)),
+            );
           } catch (error) {
             console.error("Failed to detect the saved dance audio onset.", error);
           }
@@ -191,7 +198,12 @@ export default function HomePage() {
         revoke();
         const url = URL.createObjectURL(blob);
         urlRef.current = url;
-        setCurrent({ id, url, meta: resolvedMeta });
+        setCurrent({
+          id,
+          url,
+          meta: resolvedMeta,
+          openCalibrationOnEnter: false,
+        });
         setPhase("player");
       } catch (error) {
         console.error("Failed to open the saved dance.", error);
@@ -288,6 +300,14 @@ export default function HomePage() {
           offset: current.meta.analysisOffset ?? current.meta.offset,
           musicStart: current.meta.musicStart ?? null,
         }}
+        defaultAnalysis={{
+          bpm: current.meta.detectedBpm ?? current.meta.analysisBpm ?? current.meta.bpm,
+          offset:
+            current.meta.detectedOffset ??
+            current.meta.analysisOffset ??
+            current.meta.offset,
+        }}
+        initialCalibrationOpen={current.openCalibrationOnEnter}
         initialMarkers={current.meta.markers}
         initialSections={current.meta.sections}
         onReset={backToHome}

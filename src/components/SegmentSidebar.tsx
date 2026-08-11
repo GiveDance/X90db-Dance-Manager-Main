@@ -4,6 +4,7 @@ import { memo, useEffect, useRef, useState } from "react";
 import {
   Repeat,
   Plus,
+  Crosshair,
   BarChart3,
   Pencil,
   Loader2,
@@ -11,6 +12,8 @@ import {
   List,
   LayoutGrid,
 } from "lucide-react";
+import { AnimatePresence } from "framer-motion";
+import { CalibrationPanel } from "./CalibrationPanel";
 import { SegmentThumbnail } from "./SegmentThumbnail";
 import type { ThumbnailGenerator } from "@/lib/thumbnailGenerator";
 import { MARKER_COLORS, type DanceSection, type Marker, type Segment } from "@/lib/types";
@@ -24,6 +27,16 @@ type BeatView = "list" | "tile";
 interface SegmentSidebarProps {
   tab: SidebarTab;
   onTabChange: (t: SidebarTab) => void;
+  calibrating: boolean;
+  onToggleCalibration: () => void;
+  bpm: number;
+  offset: number;
+  currentCount: number;
+  onSetBpm: (bpm: number) => void;
+  onSetOffset: (offset: number) => void;
+  onShiftOffset: (deltaSeconds: number) => void;
+  onSetDownbeat: () => void;
+  onResetCalibration: () => void;
 
   segments: Segment[];
   markers: Marker[];
@@ -53,6 +66,16 @@ function SegmentSidebarImpl(props: SegmentSidebarProps) {
   const {
     tab,
     onTabChange,
+    calibrating,
+    onToggleCalibration,
+    bpm,
+    offset,
+    currentCount,
+    onSetBpm,
+    onSetOffset,
+    onShiftOffset,
+    onSetDownbeat,
+    onResetCalibration,
     segments,
     markers,
     generator,
@@ -97,27 +120,61 @@ function SegmentSidebarImpl(props: SegmentSidebarProps) {
 
   return (
     <aside className="flex h-full w-[clamp(300px,28vw,380px)] shrink-0 flex-col border-l border-white/5 bg-neutral-950">
-      <div className="flex items-center justify-between px-5 py-4">
+      <div className="relative flex items-center justify-between py-4 pl-5 pr-3">
         <h2 className="text-base font-semibold text-white">舞蹈分段</h2>
-        <div className="flex rounded-lg bg-neutral-900 p-0.5 text-sm">
-          {(
-            [
-              ["beat", "八拍"],
-              ["section", "段落"],
-            ] as [SidebarTab, string][]
-          ).map(([key, label]) => (
-            <button
-              key={key}
-              onClick={() => onTabChange(key)}
-              className={cn(
-                "rounded-md px-3 py-1 transition-colors",
-                tab === key ? "bg-blue-500 text-white" : "text-neutral-400 hover:text-white",
-              )}
-            >
-              {label}
-            </button>
-          ))}
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            data-tooltip="节奏校准"
+            aria-label="节奏校准"
+            aria-expanded={calibrating}
+            onClick={onToggleCalibration}
+            className={cn(
+              "flex h-8 w-8 items-center justify-center rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400",
+              calibrating
+                ? "bg-blue-500/20 text-blue-300"
+                : "text-neutral-500 hover:bg-white/10 hover:text-white",
+            )}
+          >
+            <Crosshair className="h-4 w-4" />
+          </button>
+          <div className="flex rounded-lg bg-neutral-900 p-0.5 text-sm">
+            {(
+              [
+                ["beat", "八拍"],
+                ["section", "段落"],
+              ] as [SidebarTab, string][]
+            ).map(([key, label]) => (
+              <button
+                key={key}
+                onClick={() => onTabChange(key)}
+                className={cn(
+                  "rounded-md px-3 py-1 transition-colors",
+                  tab === key ? "bg-blue-500 text-white" : "text-neutral-400 hover:text-white",
+                )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
+        <AnimatePresence>
+          {calibrating && (
+            <div className="absolute left-2 right-2 top-full z-30 mt-2">
+              <CalibrationPanel
+                bpm={bpm}
+                offset={offset}
+                currentCount={currentCount}
+                onSetBpm={onSetBpm}
+                onSetOffset={onSetOffset}
+                onShiftOffset={onShiftOffset}
+                onSetDownbeat={onSetDownbeat}
+                onReset={onResetCalibration}
+                onClose={onToggleCalibration}
+              />
+            </div>
+          )}
+        </AnimatePresence>
       </div>
 
       {tab === "beat" ? (
@@ -131,7 +188,7 @@ function SegmentSidebarImpl(props: SegmentSidebarProps) {
             >
               <button
                 type="button"
-                title="列表视图"
+                data-tooltip="列表视图"
                 aria-label="列表视图"
                 aria-pressed={beatView === "list"}
                 onClick={() => setBeatView("list")}
@@ -146,7 +203,7 @@ function SegmentSidebarImpl(props: SegmentSidebarProps) {
               </button>
               <button
                 type="button"
-                title="方格视图"
+                data-tooltip="方格视图"
                 aria-label="方格视图"
                 aria-pressed={beatView === "tile"}
                 onClick={() => setBeatView("tile")}
@@ -216,7 +273,7 @@ function SegmentSidebarImpl(props: SegmentSidebarProps) {
                     aria-checked={isSelected}
                     aria-label={isSelected ? `取消选择第 ${seg.num} 个八拍` : `选择第 ${seg.num} 个八拍`}
                     tabIndex={0}
-                    title={isSelected ? "取消选择" : "选择该八拍"}
+                    data-tooltip={isSelected ? "取消选择" : "选择该八拍"}
                     onClick={(event) => {
                       event.stopPropagation();
                       onToggleBeatSelection(i);
@@ -240,7 +297,7 @@ function SegmentSidebarImpl(props: SegmentSidebarProps) {
                   <span
                     role="button"
                     tabIndex={0}
-                    title={isLooping ? "关闭单段循环" : "循环当前 8 拍"}
+                    data-tooltip={isLooping ? "关闭单段循环" : "循环当前 8 拍"}
                     onClick={(e) => {
                       e.stopPropagation();
                       onToggleBeatLoop(i, seg);
@@ -333,7 +390,7 @@ function SegmentSidebarImpl(props: SegmentSidebarProps) {
                                     : `选择第 ${seg.num} 个八拍`
                                 }
                                 aria-pressed={isSelected}
-                                title={isSelected ? "取消选择" : "选择该八拍"}
+                                data-tooltip={isSelected ? "取消选择" : "选择该八拍"}
                                 onClick={() => onToggleBeatSelection(index)}
                                 className={cn(
                                   "absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-200",
@@ -352,7 +409,7 @@ function SegmentSidebarImpl(props: SegmentSidebarProps) {
                                     ? `关闭第 ${seg.num} 个八拍循环`
                                     : `循环第 ${seg.num} 个八拍`
                                 }
-                                title={isLooping ? "关闭单段循环" : "循环当前 8 拍"}
+                                data-tooltip={isLooping ? "关闭单段循环" : "循环当前 8 拍"}
                                 onClick={() => onToggleBeatLoop(index, seg)}
                                 className={cn(
                                   "absolute bottom-1.5 right-1.5 flex h-5 w-5 items-center justify-center rounded transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-200",

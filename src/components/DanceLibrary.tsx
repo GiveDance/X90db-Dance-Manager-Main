@@ -113,7 +113,8 @@ export function DanceLibrary({
               <div className="absolute right-2 top-2 flex gap-1.5 opacity-0 transition-opacity group-hover:opacity-100">
                 <button
                   onClick={() => onExport(d.id)}
-                  title="导出视频"
+                  data-tooltip="导出视频"
+                  aria-label="导出视频"
                   className="flex h-7 w-7 items-center justify-center rounded-lg bg-black/60 text-neutral-300 hover:bg-blue-500/80 hover:text-white"
                 >
                   <Download className="h-3.5 w-3.5" />
@@ -122,7 +123,8 @@ export function DanceLibrary({
                   onClick={() => {
                     if (confirm(`删除「${d.name}」？此操作不可恢复。`)) onDelete(d.id);
                   }}
-                  title="删除"
+                  data-tooltip="删除"
+                  aria-label="删除"
                   className="flex h-7 w-7 items-center justify-center rounded-lg bg-black/60 text-neutral-300 hover:bg-red-500/80 hover:text-white"
                 >
                   <Trash2 className="h-3.5 w-3.5" />

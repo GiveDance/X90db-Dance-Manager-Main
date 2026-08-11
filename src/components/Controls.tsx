@@ -10,7 +10,6 @@ import {
   Volume2,
   VolumeX,
   Plus,
-  Crosshair,
   Sparkles,
   CircleDot,
   Radio,
@@ -20,6 +19,7 @@ import {
   Ellipsis,
   Repeat,
   X,
+  MessageSquareText,
 } from "lucide-react";
 import { ProgressBar } from "./ProgressBar";
 import { formatTime } from "@/lib/format";
@@ -28,9 +28,18 @@ import type {
   BeatVizConfig,
   CountPointPosition,
   CountPointStyle,
+  MarkerColor,
 } from "@/lib/types";
+import { MARKER_COLORS } from "@/lib/types";
 
 const RATES = [0.5, 0.75, 0.8, 1, 1.25, 1.5, 2];
+const MARKER_COLOR_OPTIONS: MarkerColor[] = [
+  "yellow",
+  "white",
+  "pink",
+  "blue",
+  "green",
+];
 
 const AMBIENT_VIZ_MODES: {
   key: "pulse" | "breath";
@@ -80,7 +89,7 @@ function VizModeButton({
     <div ref={ref} className="relative">
       <button
         type="button"
-        title="节拍视觉设置"
+        data-tooltip="节拍视觉设置"
         aria-label="节拍视觉设置"
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
@@ -264,42 +273,15 @@ interface ControlsProps {
   onSetRate: (r: number) => void;
   onToggleMirror: () => void;
   onToggleDanmaku: () => void;
-  onAddMarker: () => void;
+  onOpenHints: () => void;
+  onAddMarker: (data: {
+    time: number;
+    label: string;
+    text: string;
+    color: MarkerColor;
+  }) => void;
   beatLoopName: string | null;
   onStopLoop: () => void;
-  calibrating: boolean;
-  onToggleCalibration: () => void;
-}
-
-/** B 站风格弹幕图标：电视形外框 +「弹」字，关闭时右下角带禁止圈。 */
-function DanmakuIcon({ off }: { off: boolean }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className="h-5 w-5"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.6"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      {/* 天线 */}
-      <path d="M9.5 6 L7.5 3 M14.5 6 L16.5 3" />
-      {/* 屏幕 */}
-      <rect x="3.5" y="6" width="17" height="12" rx="3" />
-      {/* 弹 */}
-      <text x="12" y="13.7" textAnchor="middle" fontSize="8.5" fontWeight="700" fill="currentColor" stroke="none">
-        弹
-      </text>
-      {off && (
-        <>
-          <circle cx="18.5" cy="17.5" r="4.2" fill="#0a0a0a" />
-          <circle cx="18.5" cy="17.5" r="3.1" />
-          <path d="M16.3 15.3 L20.7 19.7" />
-        </>
-      )}
-    </svg>
-  );
 }
 
 function IconBtn({
@@ -318,7 +300,8 @@ function IconBtn({
   return (
     <button
       type="button"
-      title={title}
+      data-tooltip={title}
+      aria-label={title}
       onClick={onClick}
       className={cn(
         "flex h-9 items-center justify-center rounded-lg px-2.5 text-neutral-300 transition-colors hover:bg-white/10 hover:text-white",
@@ -331,14 +314,292 @@ function IconBtn({
   );
 }
 
+function parseTimeInput(value: string): number | null {
+  const parts = value.trim().split(":");
+  if (parts.length === 1) {
+    const seconds = Number(parts[0]);
+    return Number.isFinite(seconds) && seconds >= 0 ? seconds : null;
+  }
+  if (parts.length === 2) {
+    const minutes = Number(parts[0]);
+    const seconds = Number(parts[1]);
+    if (
+      Number.isFinite(minutes) &&
+      Number.isFinite(seconds) &&
+      minutes >= 0 &&
+      seconds >= 0 &&
+      seconds < 60
+    ) {
+      return minutes * 60 + seconds;
+    }
+  }
+  return null;
+}
+
+function RateButton({
+  value,
+  onChange,
+}: {
+  value: number;
+  onChange: (rate: number) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (event: MouseEvent) => {
+      if (ref.current && !ref.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [open]);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        title="播放速度"
+        aria-label={`播放速度 ${value}倍`}
+        aria-expanded={open}
+        onClick={() => setOpen((current) => !current)}
+        className={cn(
+          "flex h-9 min-w-12 items-center justify-center rounded-lg px-2.5 text-xs font-medium tabular-nums text-neutral-200 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400",
+          open && "bg-white/10 text-white",
+        )}
+      >
+        {value}×
+      </button>
+      {open && (
+        <div
+          role="menu"
+          className="absolute bottom-full right-0 z-30 mb-2 w-24 rounded-xl border border-white/10 bg-neutral-900 p-1.5 shadow-2xl"
+        >
+          {RATES.map((rate) => (
+            <button
+              type="button"
+              role="menuitemradio"
+              aria-checked={rate === value}
+              key={rate}
+              onClick={() => {
+                onChange(rate);
+                setOpen(false);
+              }}
+              className={cn(
+                "flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-xs tabular-nums transition-colors hover:bg-white/10",
+                rate === value
+                  ? "bg-blue-500/15 text-blue-300"
+                  : "text-neutral-300",
+              )}
+            >
+              {rate}×
+              {rate === value && <Check className="h-3.5 w-3.5" />}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function HintMenu(props: {
+  currentTime: number;
+  duration: number;
+  enabled: boolean;
+  showTrigger: boolean;
+  showToggle: boolean;
+  initiallyOpen: boolean;
+  onToggle: () => void;
+  onOpen: () => void;
+  onAdd: ControlsProps["onAddMarker"];
+}) {
+  const [open, setOpen] = useState(props.initiallyOpen);
+  const [time, setTime] = useState(() => formatTime(props.currentTime));
+  const [label, setLabel] = useState("");
+  const [text, setText] = useState("");
+  const [color, setColor] = useState<MarkerColor>("yellow");
+  const ref = useRef<HTMLDivElement>(null);
+  const parsedTime = parseTimeInput(time);
+  const validTime = parsedTime != null && parsedTime <= props.duration;
+  const canAdd = validTime && Boolean(label.trim() || text.trim());
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (event: MouseEvent) => {
+      if (ref.current && !ref.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [open]);
+
+  const toggleOpen = () => {
+    if (open) {
+      setOpen(false);
+      return;
+    }
+    setTime(formatTime(props.currentTime));
+    props.onOpen();
+    setOpen(true);
+  };
+
+  const addHint = () => {
+    if (!canAdd || parsedTime == null) return;
+    props.onAdd({
+      time: parsedTime,
+      label: label.trim(),
+      text: text.trim(),
+      color,
+    });
+    setLabel("");
+    setText("");
+    setOpen(false);
+  };
+
+  const inputClass =
+    "h-9 w-full rounded-lg border border-white/10 bg-black/30 px-2.5 text-sm text-white outline-none placeholder:text-neutral-600 focus:border-blue-500/60 focus:ring-1 focus:ring-blue-500/40";
+
+  return (
+    <div ref={ref} className="relative">
+      {props.showTrigger && (
+        <IconBtn
+          title="动作提示"
+          onClick={toggleOpen}
+          active={open || props.enabled}
+        >
+          <MessageSquareText className="h-5 w-5" />
+        </IconBtn>
+      )}
+      {open && (
+        <div className="absolute bottom-full right-0 z-30 mb-2 max-h-[calc(100dvh-5rem)] w-80 max-w-[calc(100vw-1.5rem)] overflow-y-auto rounded-xl border border-white/10 bg-neutral-900 p-3 shadow-2xl">
+          <h3 className="mb-3 text-sm font-semibold text-white">
+            {props.showToggle ? "动作提示" : "添加提示"}
+          </h3>
+
+          {props.showToggle && (
+            <>
+              <div className="flex items-center justify-between rounded-lg bg-white/5 px-3 py-2.5">
+                <div>
+                  <div className="text-sm text-neutral-200">显示提示</div>
+                  <div className="text-[11px] text-neutral-500">
+                    在视频上显示已添加的动作提示
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={props.enabled}
+                  aria-label="显示动作提示"
+                  onClick={props.onToggle}
+                  className={cn(
+                    "relative h-6 w-11 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400",
+                    props.enabled ? "bg-blue-500" : "bg-neutral-600",
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "absolute left-1 top-1 h-4 w-4 rounded-full bg-white shadow transition-transform",
+                      props.enabled ? "translate-x-5" : "translate-x-0",
+                    )}
+                  />
+                </button>
+              </div>
+              <div className="my-3 h-px bg-white/10" />
+              <div className="mb-2 text-xs font-medium text-neutral-300">
+                添加提示
+              </div>
+            </>
+          )}
+          <div className="space-y-2.5">
+            <label className="block">
+              <span className="mb-1 block text-[11px] text-neutral-500">时间点</span>
+              <input
+                value={time}
+                onChange={(event) => setTime(event.target.value)}
+                aria-invalid={!validTime}
+                className={cn(inputClass, !validTime && "border-red-500/60")}
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-[11px] text-neutral-500">提示</span>
+              <input
+                value={label}
+                onChange={(event) => setLabel(event.target.value)}
+                placeholder="转身"
+                className={inputClass}
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-[11px] text-neutral-500">说明</span>
+              <input
+                value={text}
+                onChange={(event) => setText(event.target.value)}
+                onKeyDown={(event) => event.key === "Enter" && addHint()}
+                placeholder="注意走位"
+                className={inputClass}
+              />
+            </label>
+            <fieldset>
+              <legend className="mb-1.5 text-[11px] text-neutral-500">颜色</legend>
+              <div className="flex gap-2">
+                {MARKER_COLOR_OPTIONS.map((option) => (
+                  <button
+                    type="button"
+                    key={option}
+                    data-tooltip={`选择${option}颜色`}
+                    aria-label={`提示颜色 ${option}`}
+                    aria-pressed={color === option}
+                    onClick={() => setColor(option)}
+                    className={cn(
+                      "h-7 w-7 rounded-full border-2 transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400",
+                      MARKER_COLORS[option].dot,
+                      color === option
+                        ? "scale-110 border-white"
+                        : "border-transparent",
+                    )}
+                  />
+                ))}
+              </div>
+            </fieldset>
+          </div>
+          <button
+            type="button"
+            disabled={!canAdd}
+            onClick={addHint}
+            className="mt-4 flex h-9 w-full items-center justify-center gap-1.5 rounded-lg bg-blue-500 text-sm font-medium text-white transition-colors hover:bg-blue-600 disabled:cursor-not-allowed disabled:bg-neutral-600 disabled:text-white"
+          >
+            <Plus className="h-4 w-4" />
+            添加提示
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function MoreMenu(props: {
-  calibrating: boolean;
   mirrored: boolean;
-  danmakuOn: boolean;
-  onToggleCalibration: () => void;
+  hintsEnabled: boolean;
   onToggleMirror: () => void;
-  onToggleDanmaku: () => void;
-  onAddMarker: () => void;
+  onToggleHints: () => void;
+  onAddHint: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -367,6 +628,18 @@ function MoreMenu(props: {
   };
   const itemClass =
     "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm text-neutral-200 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400";
+  const checkbox = (checked: boolean) => (
+    <span
+      className={cn(
+        "flex h-4 w-4 items-center justify-center rounded border",
+        checked
+          ? "border-blue-500 bg-blue-500 text-white"
+          : "border-white/25 text-transparent",
+      )}
+    >
+      <Check className="h-3 w-3" />
+    </span>
+  );
 
   return (
     <div ref={ref} className="relative">
@@ -384,39 +657,34 @@ function MoreMenu(props: {
         >
           <button
             type="button"
-            role="menuitem"
-            onClick={() => run(props.onToggleCalibration)}
-            className={cn(itemClass, props.calibrating && "bg-blue-500/15 text-blue-300")}
-          >
-            <Crosshair className="h-4 w-4" />
-            节拍校准
-          </button>
-          <button
-            type="button"
-            role="menuitem"
-            onClick={() => run(props.onToggleMirror)}
-            className={cn(itemClass, props.mirrored && "bg-blue-500/15 text-blue-300")}
+            role="menuitemcheckbox"
+            aria-checked={props.mirrored}
+            onClick={props.onToggleMirror}
+            className={cn(itemClass, props.mirrored && "text-blue-300")}
           >
             <FlipHorizontal2 className="h-4 w-4" />
-            镜像跟练
+            <span className="flex-1">镜像跟练</span>
+            {checkbox(props.mirrored)}
           </button>
           <button
             type="button"
-            role="menuitem"
-            onClick={() => run(props.onToggleDanmaku)}
-            className={cn(itemClass, props.danmakuOn && "bg-blue-500/15 text-blue-300")}
+            role="menuitemcheckbox"
+            aria-checked={props.hintsEnabled}
+            onClick={props.onToggleHints}
+            className={cn(itemClass, props.hintsEnabled && "text-blue-300")}
           >
-            <DanmakuIcon off={!props.danmakuOn} />
-            {props.danmakuOn ? "关闭弹幕" : "开启弹幕"}
+            <MessageSquareText className="h-4 w-4" />
+            <span className="flex-1">显示提示</span>
+            {checkbox(props.hintsEnabled)}
           </button>
           <button
             type="button"
             role="menuitem"
-            onClick={() => run(props.onAddMarker)}
+            onClick={() => run(props.onAddHint)}
             className={itemClass}
           >
             <Plus className="h-4 w-4" />
-            添加动作标记
+            添加提示
           </button>
         </div>
       )}
@@ -436,12 +704,16 @@ export function Controls(props: ControlsProps) {
     danmakuOn,
   } = props;
   const rowRef = useRef<HTMLDivElement>(null);
-  const [compact, setCompact] = useState(false);
+  const [hintOpenRequest, setHintOpenRequest] = useState(0);
+  const [rowWidth, setRowWidth] = useState(Number.POSITIVE_INFINITY);
+  const compact = rowWidth < 790;
+  const narrow = rowWidth < 480;
+  const tiny = rowWidth < 420;
 
   useEffect(() => {
     const row = rowRef.current;
     if (!row) return;
-    const update = (width: number) => setCompact(width < 790);
+    const update = (width: number) => setRowWidth(width);
     const observer = new ResizeObserver(([entry]) => {
       update(entry.contentRect.width);
     });
@@ -462,7 +734,7 @@ export function Controls(props: ControlsProps) {
                 循环: {props.beatLoopName}
                 <button
                   type="button"
-                  title="取消循环"
+                  data-tooltip="取消循环"
                   aria-label="取消八拍循环"
                   onClick={props.onStopLoop}
                   className="ml-0.5 rounded-sm hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
@@ -477,7 +749,13 @@ export function Controls(props: ControlsProps) {
       )}
 
       {/* 按钮行 */}
-      <div ref={rowRef} className="flex min-w-0 items-center gap-1 px-3 py-2.5 sm:px-5">
+      <div
+        ref={rowRef}
+        className={cn(
+          "flex min-w-0 items-center py-2.5",
+          compact ? "gap-0.5 px-2" : "gap-1 px-3 sm:px-5",
+        )}
+      >
         <IconBtn title="播放 / 暂停 (Space)" onClick={props.onTogglePlay}>
           {isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
         </IconBtn>
@@ -488,55 +766,47 @@ export function Controls(props: ControlsProps) {
           <SkipForward className="h-4 w-4" />
         </IconBtn>
 
-        <span className="ml-2 whitespace-nowrap text-xs tabular-nums text-neutral-400">
-          {formatTime(currentTime)} / {formatTime(duration)}
-        </span>
+        {!tiny && (
+          <span
+            className={cn(
+              "whitespace-nowrap text-xs tabular-nums text-neutral-400",
+              narrow ? "ml-1" : "ml-2",
+            )}
+          >
+            {formatTime(currentTime)}
+            {!narrow && ` / ${formatTime(duration)}`}
+          </span>
+        )}
 
         <div className="min-w-2 flex-1" />
 
-        <div className="flex shrink-0 items-center gap-1">
+        <div className={cn("flex shrink-0 items-center", compact ? "gap-0.5" : "gap-1")}>
           <VizModeButton
             config={props.vizConfig}
             onChange={props.onVizConfigChange}
           />
 
           {!compact && (
-            <>
-              <IconBtn title="节拍校准（八拍对不上时用）" onClick={props.onToggleCalibration} active={props.calibrating}>
-                <Crosshair className="h-5 w-5" />
-              </IconBtn>
-              <IconBtn title="镜像跟练" onClick={props.onToggleMirror} active={mirrored}>
-                <FlipHorizontal2 className="h-5 w-5" />
-              </IconBtn>
-              <IconBtn
-                title={danmakuOn ? "关闭弹幕 (D)" : "开启弹幕 (D)"}
-                onClick={props.onToggleDanmaku}
-                active={danmakuOn}
-              >
-                <DanmakuIcon off={!danmakuOn} />
-              </IconBtn>
-              <IconBtn title="在当前时间添加动作标记" onClick={props.onAddMarker}>
-                <span className="flex items-center gap-1 text-xs">
-                  <Plus className="h-4 w-4" />标记
-                </span>
-              </IconBtn>
-              <div className="mx-1 h-5 w-px bg-white/10" />
-            </>
+            <IconBtn title="镜像跟练" onClick={props.onToggleMirror} active={mirrored}>
+              <FlipHorizontal2 className="h-5 w-5" />
+            </IconBtn>
           )}
 
-          <select
-            title="播放速度"
-            aria-label="播放速度"
-            value={playbackRate}
-            onChange={(e) => props.onSetRate(parseFloat(e.target.value))}
-            className="h-9 cursor-pointer rounded-lg bg-white/5 px-2 text-xs text-neutral-200 outline-none transition-colors hover:bg-white/10 focus:ring-1 focus:ring-blue-500"
-          >
-            {RATES.map((r) => (
-              <option key={r} value={r} className="bg-neutral-900">
-                {r}×
-              </option>
-            ))}
-          </select>
+          {!compact && (
+            <HintMenu
+              currentTime={currentTime}
+              duration={duration}
+              enabled={danmakuOn}
+              showTrigger
+              showToggle
+              initiallyOpen={false}
+              onToggle={props.onToggleDanmaku}
+              onOpen={props.onOpenHints}
+              onAdd={props.onAddMarker}
+            />
+          )}
+
+          <RateButton value={playbackRate} onChange={props.onSetRate} />
 
           <div className="flex items-center gap-1">
             <IconBtn title="静音" onClick={props.onToggleMute}>
@@ -546,29 +816,46 @@ export function Controls(props: ControlsProps) {
               <Volume2 className="h-5 w-5" />
             )}
             </IconBtn>
-            <input
-              type="range"
-              min={0}
-              max={1}
-              step={0.01}
-              value={muted ? 0 : volume}
-              onChange={(e) => props.onSetVolume(parseFloat(e.target.value))}
-              title="音量"
-              aria-label="音量"
-              className="h-1 w-14 cursor-pointer appearance-none rounded-full bg-white/15 accent-blue-500 xl:w-20"
-            />
+            {!compact && (
+              <input
+                type="range"
+                min={0}
+                max={1}
+                step={0.01}
+                value={muted ? 0 : volume}
+                onChange={(e) => props.onSetVolume(parseFloat(e.target.value))}
+                title="音量"
+                aria-label="音量"
+                className="h-1 w-14 cursor-pointer appearance-none rounded-full bg-white/15 accent-blue-500 xl:w-20"
+              />
+            )}
           </div>
 
           {compact && (
-            <MoreMenu
-              calibrating={props.calibrating}
-              mirrored={mirrored}
-              danmakuOn={danmakuOn}
-              onToggleCalibration={props.onToggleCalibration}
-              onToggleMirror={props.onToggleMirror}
-              onToggleDanmaku={props.onToggleDanmaku}
-              onAddMarker={props.onAddMarker}
-            />
+            <>
+              <MoreMenu
+                mirrored={mirrored}
+                hintsEnabled={danmakuOn}
+                onToggleMirror={props.onToggleMirror}
+                onToggleHints={props.onToggleDanmaku}
+                onAddHint={() => {
+                  props.onOpenHints();
+                  setHintOpenRequest((request) => request + 1);
+                }}
+              />
+              <HintMenu
+                key={hintOpenRequest}
+                currentTime={currentTime}
+                duration={duration}
+                enabled={danmakuOn}
+                showTrigger={false}
+                showToggle={false}
+                initiallyOpen={hintOpenRequest > 0}
+                onToggle={props.onToggleDanmaku}
+                onOpen={props.onOpenHints}
+                onAdd={props.onAddMarker}
+              />
+            </>
           )}
         </div>
       </div>

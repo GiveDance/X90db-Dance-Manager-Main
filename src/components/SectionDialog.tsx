@@ -34,6 +34,8 @@ function Row({
       <span className="w-12 shrink-0 text-xs text-neutral-400">{label}</span>
       <button
         onClick={() => set(clamp(value - 1))}
+        data-tooltip="前一个八拍"
+        aria-label="前一个八拍"
         className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 text-neutral-300 hover:bg-white/10"
       >
         −
@@ -41,6 +43,8 @@ function Row({
       <span className="w-20 text-center text-sm tabular-nums text-white">第 {value + 1} 个八拍</span>
       <button
         onClick={() => set(clamp(value + 1))}
+        data-tooltip="后一个八拍"
+        aria-label="后一个八拍"
         className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 text-neutral-300 hover:bg-white/10"
       >
         +
@@ -86,7 +90,13 @@ export function SectionDialog({
       >
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-base font-semibold text-white">{isNew ? "添加段落" : "编辑段落"}</h3>
-          <button onClick={onClose} className="text-neutral-500 hover:text-white">
+          <button
+            type="button"
+            onClick={onClose}
+            data-tooltip="关闭"
+            aria-label="关闭段落编辑"
+            className="text-neutral-500 hover:text-white"
+          >
             <X className="h-5 w-5" />
           </button>
         </div>

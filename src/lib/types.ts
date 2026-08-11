@@ -62,6 +62,8 @@ export interface SavedDanceMeta {
   offset: number; // 校准后的第 1 拍位置
   analysisBpm?: number; // Canonical analyzed or calibrated BPM.
   analysisOffset?: number; // Canonical analyzed or calibrated beat offset.
+  detectedBpm?: number; // Immutable BPM from the first successful video analysis.
+  detectedOffset?: number; // Immutable offset from the first successful video analysis.
   musicStart?: number | null; // Optional for compatibility with saved dances created before onset detection.
   duration: number;
   size: number;

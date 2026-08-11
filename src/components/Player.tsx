@@ -7,9 +7,7 @@ import { VideoStage } from "./VideoStage";
 import { Controls } from "./Controls";
 import { SegmentSidebar, type SidebarTab } from "./SegmentSidebar";
 import { SectionTimeline } from "./SectionTimeline";
-import { MarkerDialog } from "./MarkerDialog";
 import { SectionDialog } from "./SectionDialog";
-import { CalibrationPanel } from "./CalibrationPanel";
 import { ExportDialog } from "./ExportDialog";
 import { DevToolsButton } from "./DevToolsButton";
 import { usePlayer } from "@/hooks/usePlayer";
@@ -62,6 +60,8 @@ interface PlayerProps {
   src: string;
   fileName: string;
   analysis: BeatAnalysis;
+  defaultAnalysis: Pick<BeatAnalysis, "bpm" | "offset">;
+  initialCalibrationOpen?: boolean;
   initialMarkers?: Marker[];
   initialSections?: DanceSection[];
   onReset: () => void;
@@ -81,6 +81,8 @@ export function Player({
   src,
   fileName,
   analysis,
+  defaultAnalysis,
+  initialCalibrationOpen = false,
   initialMarkers,
   initialSections,
   onReset,
@@ -112,8 +114,8 @@ export function Player({
     }),
     [activeVizConfig],
   );
-  const [dialogOpen, setDialogOpen] = useState(false);
   const [calibOpen, setCalibOpen] = useState(false);
+  const calibrationTimerRef = useRef<number | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
   const [detecting, setDetecting] = useState(false);
   const [selectedBeatIndices, setSelectedBeatIndices] = useState<number[]>([]);
@@ -121,6 +123,28 @@ export function Player({
     { mode: "new" | "edit"; index: number; draft: DanceSection } | null
   >(null);
   const [loopTarget, setLoopTarget] = useState<LoopTarget>(null);
+
+  useEffect(() => {
+    if (!initialCalibrationOpen) return;
+    calibrationTimerRef.current = window.setTimeout(() => {
+      calibrationTimerRef.current = null;
+      setCalibOpen(true);
+    }, 1000);
+    return () => {
+      if (calibrationTimerRef.current != null) {
+        window.clearTimeout(calibrationTimerRef.current);
+        calibrationTimerRef.current = null;
+      }
+    };
+  }, [initialCalibrationOpen]);
+
+  const toggleCalibration = useCallback(() => {
+    if (calibrationTimerRef.current != null) {
+      window.clearTimeout(calibrationTimerRef.current);
+      calibrationTimerRef.current = null;
+    }
+    setCalibOpen((open) => !open);
+  }, []);
 
   // 可校准的节拍参数：初始为 AI 检测值，校准面板可手动修正。
   const [bpm, setBpm] = useState(analysis.bpm);
@@ -356,16 +380,18 @@ export function Player({
   }, [actions]);
 
   // —— 标记 ——
-  const addMarker = (data: { label: string; text: string; color: MarkerColor }) => {
+  const addMarker = (data: {
+    time: number;
+    label: string;
+    text: string;
+    color: MarkerColor;
+  }) => {
     setMarkers((prev) =>
-      [...prev, { id: crypto.randomUUID(), time: currentTime, ...data }].sort((a, b) => a.time - b.time),
+      [...prev, { id: crypto.randomUUID(), ...data }].sort(
+        (a, b) => a.time - b.time,
+      ),
     );
-    setDialogOpen(false);
   };
-  const openMarkerDialog = useCallback(() => {
-    actions.pause();
-    setDialogOpen(true);
-  }, [actions]);
   const removeMarker = useCallback((id: string) => {
     setMarkers((prev) => prev.filter((m) => m.id !== id));
   }, []);
@@ -404,15 +430,19 @@ export function Player({
     setOffset((o) => o + delta);
     setTempoChanged(true);
   }, []);
+  const setOffsetValue = useCallback((value: number) => {
+    setOffset(value);
+    setTempoChanged(true);
+  }, []);
   const setDownbeatToNow = useCallback(() => {
     setOffset(currentTime);
     setTempoChanged(true);
   }, [currentTime]);
   const resetCalibration = useCallback(() => {
-    setBpm(analysis.bpm);
-    setOffset(analysis.offset);
+    setBpm(defaultAnalysis.bpm);
+    setOffset(defaultAnalysis.offset);
     setTempoChanged(true);
-  }, [analysis]);
+  }, [defaultAnalysis]);
 
   // 自动保存：校准 / 标记 / 段落 / 时长变化后防抖写入舞蹈库（跳过首次）。
   const onPersistRef = useRef(onPersist);
@@ -442,7 +472,7 @@ export function Player({
   // 键盘快捷键：Space / ← / →，忽略输入框与任何弹窗
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (dialogOpen || sectionDialog || exportOpen) return;
+      if (sectionDialog || exportOpen) return;
       const t = e.target as HTMLElement;
       const tag = t.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || t.isContentEditable) return;
@@ -464,7 +494,6 @@ export function Player({
     return () => window.removeEventListener("keydown", onKey);
   }, [
     actions,
-    dialogOpen,
     sectionDialog,
     exportOpen,
     toggleDanmaku,
@@ -566,42 +595,15 @@ export function Player({
           onSetRate={actions.setPlaybackRate}
           onToggleMirror={actions.toggleMirror}
           onToggleDanmaku={toggleDanmaku}
-          onAddMarker={openMarkerDialog}
+          onOpenHints={actions.pause}
+          onAddMarker={addMarker}
           beatLoopName={
             beatLoopKey != null && segments[beatLoopKey]
               ? `8拍 ${segments[beatLoopKey].num}`
               : null
           }
           onStopLoop={cancelLoop}
-          calibrating={calibOpen}
-          onToggleCalibration={() => setCalibOpen((v) => !v)}
         />
-
-        {/* 校准面板：浮在控制条上方，不遮挡视频中心 */}
-        <div className="pointer-events-none absolute bottom-[92px] left-1/2 z-10 -translate-x-1/2">
-          <AnimatePresence>
-            {calibOpen && (
-              <div className="pointer-events-auto">
-                <CalibrationPanel
-                  bpm={bpm}
-                  offset={offset}
-                  currentCount={activeBeat >= 0 ? activeBeat + 1 : 0}
-                  onSetBpm={setBpmClamped}
-                  onShiftOffset={shiftOffset}
-                  onSetDownbeat={setDownbeatToNow}
-                  onReset={resetCalibration}
-                  onClose={() => setCalibOpen(false)}
-                />
-              </div>
-            )}
-          </AnimatePresence>
-        </div>
-
-        <AnimatePresence>
-          {dialogOpen && (
-            <MarkerDialog time={currentTime} onClose={() => setDialogOpen(false)} onAdd={addMarker} />
-          )}
-        </AnimatePresence>
 
         <AnimatePresence>
           {sectionDialog && (
@@ -635,6 +637,16 @@ export function Player({
       <SegmentSidebar
         tab={tab}
         onTabChange={setTab}
+        calibrating={calibOpen}
+        onToggleCalibration={toggleCalibration}
+        bpm={bpm}
+        offset={offset}
+        currentCount={activeBeat >= 0 ? activeBeat + 1 : 0}
+        onSetBpm={setBpmClamped}
+        onSetOffset={setOffsetValue}
+        onShiftOffset={shiftOffset}
+        onSetDownbeat={setDownbeatToNow}
+        onResetCalibration={resetCalibration}
         segments={segments}
         markers={markers}
         generator={generator}

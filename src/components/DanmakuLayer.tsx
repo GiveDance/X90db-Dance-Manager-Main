@@ -52,7 +52,8 @@ export function DanmakuLayer({ markers, currentTime, enabled, onRemove }: Danmak
                 {m.text && <span className="text-white/90">{m.text}</span>}
                 <button
                   onClick={() => onRemove(m.id)}
-                  title="删除标记"
+                  data-tooltip="删除提示"
+                  aria-label="删除提示"
                   className="ml-0.5 hidden h-5 w-5 items-center justify-center rounded-full bg-white/10 text-white/70 transition-colors hover:bg-red-500/80 hover:text-white group-hover:flex"
                 >
                   <X className="h-3 w-3" />

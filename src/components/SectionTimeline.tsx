@@ -131,7 +131,13 @@ export function SectionTimeline({
             <span className="flex items-center gap-1 rounded-md bg-blue-500/20 px-2 py-0.5 text-xs text-blue-300">
               <Repeat className="h-3 w-3" />
               循环: {loopName}
-              <button onClick={onStopLoop} title="取消循环" className="ml-0.5 hover:text-white">
+              <button
+                type="button"
+                onClick={onStopLoop}
+                data-tooltip="取消循环"
+                aria-label="取消循环"
+                className="ml-0.5 hover:text-white"
+              >
                 <X className="h-3 w-3" />
               </button>
             </span>

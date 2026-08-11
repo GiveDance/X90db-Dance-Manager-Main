@@ -124,7 +124,13 @@ export function ExportDialog({
       >
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-base font-semibold text-white">导出视频</h3>
-          <button onClick={onClose} className="text-neutral-500 hover:text-white">
+          <button
+            type="button"
+            onClick={onClose}
+            data-tooltip="关闭"
+            aria-label="关闭导出"
+            className="text-neutral-500 hover:text-white"
+          >
             <X className="h-5 w-5" />
           </button>
         </div>
