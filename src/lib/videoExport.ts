@@ -1,11 +1,28 @@
-import type { BeatVizMode, Marker, MarkerColor } from "./types";
+import type {
+  BeatVizConfig,
+  FormationAudiencePosition,
+  FormationChange,
+  FormationPosition,
+  Marker,
+  MarkerColor,
+} from "./types";
 import { formatTime } from "./format";
+import { FORMATION_COLORS, formationAtTime } from "./formations";
+
+export type FormationExportPlacement =
+  | "top"
+  | "bottom"
+  | "left"
+  | "right"
+  | "overlay";
 
 export interface ExportOverlayOptions {
   mirror: boolean;
-  beatViz: boolean; // 节拍视觉（按 vizModes 决定具体形式）
+  beatViz: boolean;
   markers: boolean;
   countIn: boolean;
+  formation: boolean;
+  formationPlacement: FormationExportPlacement;
 }
 
 export interface ExportParams {
@@ -14,8 +31,10 @@ export interface ExportParams {
   offset: number;
   musicStart: number | null;
   markers: Marker[];
+  formationChanges: FormationChange[];
+  formationAudiencePosition: FormationAudiencePosition;
   options: ExportOverlayOptions;
-  vizModes: Record<BeatVizMode, boolean>; // 用户选中的节拍视觉组合
+  vizConfig: BeatVizConfig;
   onProgress?: (ratio: number) => void;
   signal?: AbortSignal;
 }
@@ -35,6 +54,8 @@ const MARKER_HEX: Record<MarkerColor, string> = {
 
 const DISPLAY = 4.5;
 const MAX_W = 1920;
+const evenDimension = (value: number) =>
+  Math.max(2, Math.round(value / 2) * 2);
 
 export class ExportUnsupportedError extends Error {
   constructor() {
@@ -95,6 +116,7 @@ function drawBeatDots(
   bpm: number,
   offset: number,
   musicStart: number | null,
+  orientation: "horizontal" | "vertical",
 ) {
   const beat = beatInfo(t, bpm, offset);
   const musicStarted = musicStart == null || t >= musicStart - 0.02;
@@ -102,33 +124,31 @@ function drawBeatDots(
     ? Math.floor(beat.globalBeat / 8) + 1
     : 1;
 
-  const r = Math.max(5, h * 0.013);
-  const gap = r * 3.4;
-  const totalW = gap * 7;
-  const padX = r * 2.2;
-  const padY = r * 1.6;
+  const vertical = orientation === "vertical";
+  const r = Math.max(
+    5,
+    Math.min(
+      vertical ? w * 0.12 : h * 0.14,
+      vertical ? h * 0.035 : w * 0.022,
+    ),
+  );
+  const available = vertical ? h : w;
+  const gap = Math.min(r * 3.4, (available - r * 5) / 7);
+  const total = gap * 7;
   const labelH = r * 1.8;
-  const boxW = totalW + r * 2 + padX * 2;
-  const boxH = r * 2 + labelH + padY * 2;
-  const boxX = w / 2 - boxW / 2;
-  const boxY = h * 0.04;
-  const cx0 = w / 2 - totalW / 2;
-  const cy = boxY + padY + r;
+  const start = available / 2 - total / 2;
 
   ctx.save();
-  ctx.fillStyle = "rgba(0,0,0,0.55)";
-  roundRect(ctx, boxX, boxY, boxW, boxH, r * 1.4);
-  ctx.fill();
-
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.font = `600 ${r * 1.25}px sans-serif`;
   for (let i = 0; i < 8; i++) {
-    const x = cx0 + i * gap;
+    const x = vertical ? w * 0.38 : start + i * gap;
+    const y = vertical ? start + i * gap : h * 0.42;
     const active = beat != null && i === beat.local;
     const strong = i === 0;
     ctx.beginPath();
-    ctx.arc(x, cy, r, 0, Math.PI * 2);
+    ctx.arc(x, y, r, 0, Math.PI * 2);
     if (!musicStarted) {
       ctx.lineWidth = Math.max(1, r * 0.16);
       ctx.fillStyle = active
@@ -180,8 +200,8 @@ function drawBeatDots(
           : "rgba(147,197,253,0.45)";
     ctx.fillText(
       String(strong ? segmentNumber : i + 1),
-      x,
-      cy + r + labelH * 0.6,
+      vertical ? x + r + labelH * 0.65 : x,
+      vertical ? y : y + r + labelH * 0.6,
     );
   }
   ctx.restore();
@@ -260,40 +280,55 @@ function drawCountTiles(
   bpm: number,
   offset: number,
   musicStart: number | null,
+  orientation: "horizontal" | "vertical",
 ) {
   const beat = beatInfo(t, bpm, offset);
   const musicStarted = musicStart == null || t >= musicStart - 0.02;
-
   const activeTile = beat ? beat.local % 4 : -1;
   const secondHalf = beat ? beat.local >= 4 : false;
   const segmentNumber = beat
     ? Math.floor(beat.globalBeat / 8) + 1
     : 1;
   const pulse = beat ? Math.max(0, 1 - beat.phase) : 0;
-  const railW = Math.max(64, Math.min(w * 0.105, 150));
-  const railH = h * 0.68;
-  const gap = Math.max(5, h * 0.009);
-  const tileH = (railH - gap * 3) / 4;
-  const x = Math.max(10, w * 0.018);
+  const vertical = orientation === "vertical";
+  const railW = vertical
+    ? w * 0.72
+    : Math.min(w * 0.78, h * 5.8);
+  const railH = vertical
+    ? h * 0.74
+    : Math.min(h * 0.68, railW * 0.22);
+  const gap = Math.max(
+    6,
+    (vertical ? railH : railW) * 0.018,
+  );
+  const tileW = vertical ? railW : (railW - gap * 3) / 4;
+  const tileH = vertical ? (railH - gap * 3) / 4 : railH;
+  const x = (w - railW) / 2;
   const y = (h - railH) / 2;
-  const radius = Math.max(8, railW * 0.1);
+  const radius = Math.max(8, Math.min(tileW, tileH) * 0.14);
 
   ctx.save();
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.font = `800 ${Math.max(20, railW * 0.27)}px sans-serif`;
+  ctx.font = `800 ${Math.max(18, tileH * 0.38)}px sans-serif`;
 
   for (let index = 0; index < 4; index++) {
-    const top = y + index * (tileH + gap);
+    const left = vertical ? x : x + index * (tileW + gap);
+    const top = vertical ? y + index * (tileH + gap) : y;
     const isDownbeat = !secondHalf && index === 0;
     const isActive = index === activeTile;
     const color = isDownbeat ? "219,39,119" : "37,99,235";
     const edge = isDownbeat ? "244,114,182" : "103,232,249";
 
-    roundRect(ctx, x, top, railW, tileH, radius);
+    roundRect(ctx, left, top, tileW, tileH, radius);
     if (!musicStarted) {
       if (isActive) {
-        const gradient = ctx.createLinearGradient(x, top, x + railW, top + tileH);
+        const gradient = ctx.createLinearGradient(
+          left,
+          top,
+          left + tileW,
+          top + tileH,
+        );
         gradient.addColorStop(0, "#737373");
         gradient.addColorStop(1, "#404040");
         ctx.fillStyle = gradient;
@@ -307,7 +342,12 @@ function drawCountTiles(
         ctx.shadowBlur = 0;
       }
     } else if (isActive) {
-      const gradient = ctx.createLinearGradient(x, top, x + railW, top + tileH);
+      const gradient = ctx.createLinearGradient(
+        left,
+        top,
+        left + tileW,
+        top + tileH,
+      );
       if (isDownbeat) {
         gradient.addColorStop(0, "#db2777");
         gradient.addColorStop(1, "#9333ea");
@@ -331,7 +371,7 @@ function drawCountTiles(
     ctx.shadowColor = "transparent";
     ctx.shadowBlur = 0;
 
-    ctx.lineWidth = Math.max(1.5, railW * 0.015);
+    ctx.lineWidth = Math.max(1.5, tileH * 0.025);
     ctx.strokeStyle = !musicStarted
       ? isDownbeat
         ? isActive
@@ -362,7 +402,7 @@ function drawCountTiles(
         : index === 0
           ? String(segmentNumber)
           : String(index + 1),
-      x + railW / 2,
+      left + tileW / 2,
       top + tileH / 2,
     );
   }
@@ -514,6 +554,266 @@ function drawCountIn(
   ctx.restore();
 }
 
+interface ExportRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+function containRect(rect: ExportRect, ratio: number, padding: number): ExportRect {
+  const availableWidth = Math.max(1, rect.width - padding * 2);
+  const availableHeight = Math.max(1, rect.height - padding * 2);
+  const width = Math.min(availableWidth, availableHeight * ratio);
+  const height = width / ratio;
+  return {
+    x: rect.x + (rect.width - width) / 2,
+    y: rect.y + (rect.height - height) / 2,
+    width,
+    height,
+  };
+}
+
+function drawFormationAudience(
+  ctx: CanvasRenderingContext2D,
+  stage: ExportRect,
+  audiencePosition: FormationAudiencePosition,
+) {
+  const horizontal =
+    audiencePosition === "top" || audiencePosition === "bottom";
+  const pillWidth = horizontal ? stage.width * 0.18 : stage.width * 0.09;
+  const pillHeight = horizontal ? stage.height * 0.1 : stage.height * 0.2;
+  const inset = Math.max(4, Math.min(stage.width, stage.height) * 0.025);
+  const x =
+    audiencePosition === "left"
+      ? stage.x + inset
+      : audiencePosition === "right"
+        ? stage.x + stage.width - pillWidth - inset
+        : stage.x + (stage.width - pillWidth) / 2;
+  const y =
+    audiencePosition === "top"
+      ? stage.y + inset
+      : audiencePosition === "bottom"
+        ? stage.y + stage.height - pillHeight - inset
+        : stage.y + (stage.height - pillHeight) / 2;
+
+  ctx.fillStyle = "rgba(255,255,255,0.1)";
+  ctx.strokeStyle = "rgba(255,255,255,0.18)";
+  ctx.lineWidth = Math.max(1, Math.min(stage.width, stage.height) * 0.004);
+  roundRect(ctx, x, y, pillWidth, pillHeight, pillHeight / 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = "rgba(255,255,255,0.82)";
+  ctx.font = `600 ${Math.max(8, pillHeight * 0.46)}px sans-serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("观众", x + pillWidth / 2, y + pillHeight / 2);
+}
+
+function drawFormation(
+  ctx: CanvasRenderingContext2D,
+  rect: ExportRect,
+  positions: FormationPosition[],
+  audiencePosition: FormationAudiencePosition,
+  overlay: boolean,
+) {
+  const radius = Math.max(10, Math.min(rect.width, rect.height) * 0.045);
+  const panelRadius = Math.max(10, Math.min(rect.width, rect.height) * 0.045);
+  ctx.save();
+  ctx.fillStyle = overlay ? "rgba(8,8,8,0.76)" : "#080808";
+  ctx.strokeStyle = overlay
+    ? "rgba(255,255,255,0.2)"
+    : "rgba(255,255,255,0.12)";
+  ctx.lineWidth = Math.max(1, Math.min(rect.width, rect.height) * 0.006);
+  if (overlay) {
+    roundRect(ctx, rect.x, rect.y, rect.width, rect.height, panelRadius);
+  } else {
+    ctx.beginPath();
+    ctx.rect(rect.x, rect.y, rect.width, rect.height);
+  }
+  ctx.fill();
+  ctx.stroke();
+
+  const stage = containRect(
+    rect,
+    16 / 9,
+    Math.max(8, Math.min(rect.width, rect.height) * 0.07),
+  );
+  ctx.save();
+  roundRect(ctx, stage.x, stage.y, stage.width, stage.height, panelRadius * 0.5);
+  ctx.clip();
+  ctx.strokeStyle = "rgba(255,255,255,0.055)";
+  ctx.lineWidth = 1;
+  for (let index = 1; index < 10; index += 1) {
+    const x = stage.x + (stage.width * index) / 10;
+    ctx.beginPath();
+    ctx.moveTo(x, stage.y);
+    ctx.lineTo(x, stage.y + stage.height);
+    ctx.stroke();
+  }
+  for (let index = 1; index < 6; index += 1) {
+    const y = stage.y + (stage.height * index) / 6;
+    ctx.beginPath();
+    ctx.moveTo(stage.x, y);
+    ctx.lineTo(stage.x + stage.width, y);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  drawFormationAudience(ctx, stage, audiencePosition);
+  for (const position of positions) {
+    const x = stage.x + position.x * stage.width;
+    const y = stage.y + position.y * stage.height;
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, Math.PI * 2);
+    ctx.fillStyle =
+      FORMATION_COLORS[
+        (position.dancer - 1 + FORMATION_COLORS.length) %
+          FORMATION_COLORS.length
+      ];
+    ctx.fill();
+    ctx.strokeStyle = "rgba(255,255,255,0.94)";
+    ctx.lineWidth = Math.max(2, radius * 0.14);
+    ctx.stroke();
+    ctx.fillStyle = "#ffffff";
+    ctx.font = `600 ${Math.max(10, radius * 0.92)}px sans-serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(String(position.dancer), x, y);
+  }
+  ctx.restore();
+}
+
+function exportLayout(
+  width: number,
+  height: number,
+  placement: FormationExportPlacement,
+  formationEnabled: boolean,
+  beatVizEnabled: boolean,
+  vizConfig: BeatVizConfig,
+) {
+  let contentLayout;
+  if (!formationEnabled || placement === "overlay") {
+    const overlayWidth = width * 0.32;
+    const overlayHeight = overlayWidth * (9 / 16);
+    contentLayout = {
+      outputWidth: width,
+      outputHeight: height,
+      video: { x: 0, y: 0, width, height },
+      formation: {
+        x: width - overlayWidth - width * 0.025,
+        y: height - overlayHeight - height * 0.04,
+        width: overlayWidth,
+        height: overlayHeight,
+      },
+    };
+  } else if (placement === "top" || placement === "bottom") {
+    const panelHeight = evenDimension(height * 0.34);
+    contentLayout = {
+      outputWidth: width,
+      outputHeight: height + panelHeight,
+      video: {
+        x: 0,
+        y: placement === "top" ? panelHeight : 0,
+        width,
+        height,
+      },
+      formation: {
+        x: 0,
+        y: placement === "top" ? 0 : height,
+        width,
+        height: panelHeight,
+      },
+    };
+  } else {
+    const panelWidth = evenDimension(width * 0.34);
+    contentLayout = {
+      outputWidth: width + panelWidth,
+      outputHeight: height,
+      video: {
+        x: placement === "left" ? panelWidth : 0,
+        y: 0,
+        width,
+        height,
+      },
+      formation: {
+        x: placement === "left" ? 0 : width,
+        y: 0,
+        width: panelWidth,
+        height,
+      },
+    };
+  }
+
+  const countPointsEnabled = beatVizEnabled && vizConfig.countPoints;
+  const countPointPosition = vizConfig.countPointPosition;
+  const verticalDock =
+    countPointsEnabled &&
+    (countPointPosition === "left" || countPointPosition === "right");
+  const horizontalDock = countPointsEnabled && !verticalDock;
+  const dockWidth = verticalDock
+    ? evenDimension(
+        contentLayout.outputWidth *
+          (vizConfig.countPointStyle === "tiles" ? 1 / 6 : 0.1),
+      )
+    : 0;
+  const dockHeight = horizontalDock ? evenDimension(height * 0.24) : 0;
+  const contentOffsetX =
+    verticalDock && countPointPosition === "left" ? dockWidth : 0;
+  const contentOffsetY =
+    horizontalDock && countPointPosition === "top" ? dockHeight : 0;
+  const shiftContent = (rect: ExportRect): ExportRect => ({
+    ...rect,
+    x: rect.x + contentOffsetX,
+    y: rect.y + contentOffsetY,
+  });
+  const content = {
+    x: contentOffsetX,
+    y: contentOffsetY,
+    width: contentLayout.outputWidth,
+    height: contentLayout.outputHeight,
+  };
+
+  let countPointVisual: ExportRect | null = null;
+  if (countPointsEnabled) {
+    if (horizontalDock) {
+      countPointVisual = {
+        x: 0,
+        y:
+          countPointPosition === "top"
+            ? 0
+            : contentLayout.outputHeight,
+        width: contentLayout.outputWidth + dockWidth,
+        height: dockHeight,
+      };
+    } else {
+      countPointVisual = {
+        x:
+          countPointPosition === "left"
+            ? 0
+            : contentLayout.outputWidth,
+        y: 0,
+        width: dockWidth,
+        height: contentLayout.outputHeight,
+      };
+    }
+  }
+  const countPointLayer: ExportRect | null =
+    countPointsEnabled
+      ? countPointVisual
+      : null;
+
+  return {
+    outputWidth: contentLayout.outputWidth + dockWidth,
+    outputHeight: contentLayout.outputHeight + dockHeight,
+    video: shiftContent(contentLayout.video),
+    formation: shiftContent(contentLayout.formation),
+    content,
+    countPointLayer,
+    countPointVisual,
+  };
+}
+
 /**
  * 在浏览器本地把叠加图层「烧录」进视频并导出。实时录制，耗时约等于视频时长。
  */
@@ -528,8 +828,10 @@ export async function exportVideoWithOverlays(params: ExportParams): Promise<Exp
     offset,
     musicStart,
     markers,
+    formationChanges,
+    formationAudiencePosition,
     options,
-    vizModes,
+    vizConfig,
     onProgress,
     signal,
   } = params;
@@ -547,15 +849,41 @@ export async function exportVideoWithOverlays(params: ExportParams): Promise<Exp
 
   const vw = video.videoWidth || 1280;
   const vh = video.videoHeight || 720;
-  const scale = Math.min(1, MAX_W / vw);
-  const w = Math.round(vw * scale);
-  const h = Math.round(vh * scale);
+  const formationWidthFactor =
+    options.formation &&
+    (options.formationPlacement === "left" ||
+      options.formationPlacement === "right")
+      ? 1.34
+      : 1;
+  const countPointWidthFactor =
+    options.beatViz &&
+    vizConfig.countPoints &&
+    (vizConfig.countPointPosition === "left" ||
+      vizConfig.countPointPosition === "right")
+      ? 1 + (vizConfig.countPointStyle === "tiles" ? 1 / 6 : 0.1)
+      : 1;
+  const widthFactor = formationWidthFactor * countPointWidthFactor;
+  const scale = Math.min(1, MAX_W / (vw * widthFactor));
+  const w = evenDimension(vw * scale);
+  const h = evenDimension(vh * scale);
   const duration = video.duration || 0;
+  const layout = exportLayout(
+    w,
+    h,
+    options.formationPlacement,
+    options.formation && formationChanges.length > 0,
+    options.beatViz,
+    vizConfig,
+  );
 
   const canvas = document.createElement("canvas");
-  canvas.width = w;
-  canvas.height = h;
+  canvas.width = layout.outputWidth;
+  canvas.height = layout.outputHeight;
   const ctx = canvas.getContext("2d")!;
+  const videoCanvas = document.createElement("canvas");
+  videoCanvas.width = w;
+  videoCanvas.height = h;
+  const videoCtx = videoCanvas.getContext("2d")!;
 
   // 音频：经 Web Audio 捕获，但不连扬声器（导出时静音）
   let audioCtx: AudioContext | null = null;
@@ -571,8 +899,14 @@ export async function exportVideoWithOverlays(params: ExportParams): Promise<Exp
     audioTrack = null;
   }
 
-  const canvasStream = canvas.captureStream(30);
-  const tracks: MediaStreamTrack[] = [...canvasStream.getVideoTracks()];
+  const supportsManualFrames =
+    typeof CanvasCaptureMediaStreamTrack !== "undefined" &&
+    "requestFrame" in CanvasCaptureMediaStreamTrack.prototype;
+  const canvasStream = canvas.captureStream(supportsManualFrames ? 0 : 30);
+  const canvasTrack = canvasStream.getVideoTracks()[0] as
+    | CanvasCaptureMediaStreamTrack
+    | undefined;
+  const tracks: MediaStreamTrack[] = canvasTrack ? [canvasTrack] : [];
   if (audioTrack) tracks.push(audioTrack);
   const stream = new MediaStream(tracks);
 
@@ -585,32 +919,170 @@ export async function exportVideoWithOverlays(params: ExportParams): Promise<Exp
     if (e.data.size) chunks.push(e.data);
   };
 
-  let raf = 0;
+  let videoFrameCallback = 0;
+  let fallbackTimer = 0;
+  let watchdogTimer = 0;
   let aborted = false;
+  let renderError: Error | null = null;
+  let lastRenderedTime = -1;
 
   const draw = () => {
     const t = video.currentTime;
-    ctx.save();
+    videoCtx.clearRect(0, 0, w, h);
+    videoCtx.save();
     if (options.mirror) {
-      ctx.translate(w, 0);
-      ctx.scale(-1, 1);
+      videoCtx.translate(w, 0);
+      videoCtx.scale(-1, 1);
     }
-    ctx.drawImage(video, 0, 0, w, h);
-    ctx.restore();
-    if (options.beatViz) {
-      if (vizModes.pulse) drawBeatPulse(ctx, w, h, t, bpm, offset, musicStart);
-      if (vizModes.breath) drawBeatBreath(ctx, w, h, t, bpm, offset, musicStart);
-      if (vizModes.dots) drawBeatDots(ctx, w, h, t, bpm, offset, musicStart);
-      if (vizModes.tiles) drawCountTiles(ctx, w, h, t, bpm, offset, musicStart);
+    videoCtx.drawImage(video, 0, 0, w, h);
+    videoCtx.restore();
+    if (options.markers) drawMarkers(videoCtx, w, h, t, markers);
+    if (options.countIn) drawCountIn(videoCtx, w, h, t, bpm, offset);
+
+    ctx.fillStyle = "#050505";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(
+      videoCanvas,
+      layout.video.x,
+      layout.video.y,
+      layout.video.width,
+      layout.video.height,
+    );
+    if (options.formation && formationChanges.length > 0) {
+      drawFormation(
+        ctx,
+        layout.formation,
+        formationAtTime(formationChanges, t),
+        formationAudiencePosition,
+        options.formationPlacement === "overlay",
+      );
     }
-    if (options.markers) drawMarkers(ctx, w, h, t, markers);
-    if (options.countIn) drawCountIn(ctx, w, h, t, bpm, offset);
+    if (
+      layout.countPointLayer &&
+      layout.countPointVisual &&
+      options.beatViz &&
+      vizConfig.countPoints
+    ) {
+      ctx.fillStyle = "#0e0e10";
+      ctx.fillRect(
+        layout.countPointLayer.x,
+        layout.countPointLayer.y,
+        layout.countPointLayer.width,
+        layout.countPointLayer.height,
+      );
+      ctx.strokeStyle = "rgba(255,255,255,0.12)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      if (vizConfig.countPointPosition === "top") {
+        ctx.moveTo(0, layout.countPointLayer.height);
+        ctx.lineTo(layout.countPointLayer.width, layout.countPointLayer.height);
+      } else if (vizConfig.countPointPosition === "bottom") {
+        ctx.moveTo(0, layout.countPointLayer.y);
+        ctx.lineTo(layout.countPointLayer.width, layout.countPointLayer.y);
+      } else if (vizConfig.countPointPosition === "left") {
+        ctx.moveTo(layout.countPointLayer.width, 0);
+        ctx.lineTo(layout.countPointLayer.width, layout.countPointLayer.height);
+      } else {
+        ctx.moveTo(layout.countPointLayer.x, 0);
+        ctx.lineTo(layout.countPointLayer.x, layout.countPointLayer.height);
+      }
+      ctx.stroke();
+      ctx.save();
+      ctx.translate(layout.countPointVisual.x, layout.countPointVisual.y);
+      const countPointOrientation =
+        vizConfig.countPointPosition === "left" ||
+        vizConfig.countPointPosition === "right"
+          ? "vertical"
+          : "horizontal";
+      if (vizConfig.countPointStyle === "tiles") {
+        drawCountTiles(
+          ctx,
+          layout.countPointVisual.width,
+          layout.countPointVisual.height,
+          t,
+          bpm,
+          offset,
+          musicStart,
+          countPointOrientation,
+        );
+      } else {
+        drawBeatDots(
+          ctx,
+          layout.countPointVisual.width,
+          layout.countPointVisual.height,
+          t,
+          bpm,
+          offset,
+          musicStart,
+          countPointOrientation,
+        );
+      }
+      ctx.restore();
+    }
+    if (options.beatViz && vizConfig.pulse) {
+      ctx.save();
+      ctx.translate(layout.content.x, layout.content.y);
+      drawBeatPulse(
+        ctx,
+        layout.content.width,
+        layout.content.height,
+        t,
+        bpm,
+        offset,
+        musicStart,
+      );
+      ctx.restore();
+    }
+    if (options.beatViz && vizConfig.breath) {
+      ctx.save();
+      ctx.translate(layout.content.x, layout.content.y);
+      drawBeatBreath(
+        ctx,
+        layout.content.width,
+        layout.content.height,
+        t,
+        bpm,
+        offset,
+        musicStart,
+      );
+      ctx.restore();
+    }
     if (duration) onProgress?.(Math.min(1, t / duration));
-    raf = requestAnimationFrame(draw);
+    if (supportsManualFrames) canvasTrack?.requestFrame();
+    lastRenderedTime = t;
+  };
+
+  const stop = () => {
+    if (recorder.state !== "inactive") recorder.stop();
+  };
+
+  const renderFrame = () => {
+    try {
+      draw();
+      return true;
+    } catch (error) {
+      renderError =
+        error instanceof Error ? error : new Error("EXPORT_RENDER_FAILED");
+      stop();
+      return false;
+    }
+  };
+
+  const drawNextVideoFrame = () => {
+    if (!renderFrame()) return;
+    if ("requestVideoFrameCallback" in video) {
+      videoFrameCallback = video.requestVideoFrameCallback(drawNextVideoFrame);
+    } else {
+      fallbackTimer = window.setTimeout(drawNextVideoFrame, 1000 / 30);
+    }
   };
 
   const cleanup = () => {
-    cancelAnimationFrame(raf);
+    if (videoFrameCallback) {
+      video.cancelVideoFrameCallback(videoFrameCallback);
+    }
+    if (fallbackTimer) window.clearTimeout(fallbackTimer);
+    if (watchdogTimer) window.clearInterval(watchdogTimer);
     video.pause();
     video.removeAttribute("src");
     video.load();
@@ -624,6 +1096,10 @@ export async function exportVideoWithOverlays(params: ExportParams): Promise<Exp
         reject(new ExportAbortedError());
         return;
       }
+      if (renderError) {
+        reject(renderError);
+        return;
+      }
       resolve({ blob: new Blob(chunks, { type: picked.mime.split(";")[0] }), ext: picked.ext });
     };
     recorder.onerror = () => {
@@ -631,10 +1107,6 @@ export async function exportVideoWithOverlays(params: ExportParams): Promise<Exp
       reject(new Error("RECORD_FAILED"));
     };
   });
-
-  const stop = () => {
-    if (recorder.state !== "inactive") recorder.stop();
-  };
 
   signal?.addEventListener("abort", () => {
     aborted = true;
@@ -645,9 +1117,22 @@ export async function exportVideoWithOverlays(params: ExportParams): Promise<Exp
     stop();
   };
 
-  recorder.start();
-  draw();
+  recorder.start(5000);
+  renderFrame();
   await video.play();
+  watchdogTimer = window.setInterval(() => {
+    if (
+      !video.paused &&
+      video.currentTime > lastRenderedTime + 0.2
+    ) {
+      renderFrame();
+    }
+  }, 250);
+  if ("requestVideoFrameCallback" in video) {
+    videoFrameCallback = video.requestVideoFrameCallback(drawNextVideoFrame);
+  } else {
+    fallbackTimer = window.setTimeout(drawNextVideoFrame, 1000 / 30);
+  }
 
   return result;
 }

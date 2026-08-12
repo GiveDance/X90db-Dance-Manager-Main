@@ -18,7 +18,13 @@ import {
   updateDanceMeta,
   DanceStoreTimeoutError,
 } from "@/lib/danceStore";
-import type { DanceSection, Marker, SavedDanceMeta } from "@/lib/types";
+import type {
+  DanceSection,
+  FormationAudiencePosition,
+  FormationChange,
+  Marker,
+  SavedDanceMeta,
+} from "@/lib/types";
 
 type Phase = "home" | "analyzing" | "player";
 
@@ -117,6 +123,8 @@ export default function HomePage() {
         type: file.type,
         cover,
         markers: [],
+        formationChanges: [],
+        formationAudiencePosition: "bottom",
       };
 
       setCurrent({ id: meta.id, url, meta, openCalibrationOnEnter: true });
@@ -246,6 +254,8 @@ export default function HomePage() {
       tempoChanged: boolean;
       markers: Marker[];
       sections: DanceSection[];
+      formationChanges: FormationChange[];
+      formationAudiencePosition: FormationAudiencePosition;
       duration: number;
     }) => {
       setCurrent((cur) => {
@@ -310,6 +320,10 @@ export default function HomePage() {
         initialCalibrationOpen={current.openCalibrationOnEnter}
         initialMarkers={current.meta.markers}
         initialSections={current.meta.sections}
+        initialFormationChanges={current.meta.formationChanges}
+        initialFormationAudiencePosition={
+          current.meta.formationAudiencePosition
+        }
         onReset={backToHome}
         onPersist={handlePersist}
       />
@@ -335,7 +349,17 @@ export default function HomePage() {
           offset={exportTarget.meta.analysisOffset ?? exportTarget.meta.offset}
           musicStart={exportTarget.meta.musicStart ?? null}
           markers={exportTarget.meta.markers}
-          vizModes={{ dots: false, pulse: false, breath: false, tiles: true }}
+          formationChanges={exportTarget.meta.formationChanges ?? []}
+          formationAudiencePosition={
+            exportTarget.meta.formationAudiencePosition ?? "bottom"
+          }
+          vizConfig={{
+            countPoints: true,
+            countPointStyle: "tiles",
+            countPointPosition: "left",
+            pulse: false,
+            breath: false,
+          }}
           onClose={closeExport}
         />
       )}

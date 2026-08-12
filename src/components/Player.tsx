@@ -10,6 +10,7 @@ import { SectionTimeline } from "./SectionTimeline";
 import { SectionDialog } from "./SectionDialog";
 import { ExportDialog } from "./ExportDialog";
 import { DevToolsButton } from "./DevToolsButton";
+import { FormationEditorPage } from "./FormationEditorPage";
 import { usePlayer } from "@/hooks/usePlayer";
 import { ThumbnailGenerator } from "@/lib/thumbnailGenerator";
 import { detectSectionsFromUrl } from "@/lib/sectionDetection";
@@ -23,8 +24,9 @@ import {
 import type {
   BeatAnalysis,
   BeatVizConfig,
-  BeatVizMode,
   DanceSection,
+  FormationAudiencePosition,
+  FormationChange,
   Marker,
   MarkerColor,
   Segment,
@@ -35,7 +37,7 @@ type LoopTarget = { kind: "beat" | "section"; key: number } | null;
 const DEFAULT_BEAT_VIZ_CONFIG: BeatVizConfig = {
   countPoints: true,
   countPointStyle: "tiles",
-  countPointPosition: "top",
+  countPointPosition: "left",
   pulse: false,
   breath: false,
 };
@@ -64,6 +66,8 @@ interface PlayerProps {
   initialCalibrationOpen?: boolean;
   initialMarkers?: Marker[];
   initialSections?: DanceSection[];
+  initialFormationChanges?: FormationChange[];
+  initialFormationAudiencePosition?: FormationAudiencePosition;
   onReset: () => void;
   /** 校准 / 标记 / 段落 / 时长变化时回调，用于自动保存到舞蹈库（防抖后触发）。 */
   onPersist?: (data: {
@@ -73,6 +77,8 @@ interface PlayerProps {
     tempoChanged: boolean;
     markers: Marker[];
     sections: DanceSection[];
+    formationChanges: FormationChange[];
+    formationAudiencePosition: FormationAudiencePosition;
     duration: number;
   }) => void;
 }
@@ -85,6 +91,8 @@ export function Player({
   initialCalibrationOpen = false,
   initialMarkers,
   initialSections,
+  initialFormationChanges,
+  initialFormationAudiencePosition = "bottom",
   onReset,
   onPersist,
 }: PlayerProps) {
@@ -93,27 +101,21 @@ export function Player({
 
   const [markers, setMarkers] = useState<Marker[]>(initialMarkers ?? []);
   const [sections, setSections] = useState<DanceSection[]>(initialSections ?? []);
+  const [formationChanges, setFormationChanges] = useState<FormationChange[]>(
+    initialFormationChanges ?? [],
+  );
+  const [formationAudiencePosition, setFormationAudiencePosition] =
+    useState<FormationAudiencePosition>(initialFormationAudiencePosition);
   const [tab, setTab] = useState<SidebarTab>("beat");
   const [danmakuOn, setDanmakuOn] = useState(true);
+  const [formationOpen, setFormationOpen] = useState(false);
+  const [formationEditing, setFormationEditing] = useState(false);
   const [vizConfig, setVizConfig] = useState<BeatVizConfig>(
     DEFAULT_BEAT_VIZ_CONFIG,
   );
   const activeVizConfig = isBeatVizConfig(vizConfig)
     ? vizConfig
     : DEFAULT_BEAT_VIZ_CONFIG;
-  const exportVizModes = useMemo<Record<BeatVizMode, boolean>>(
-    () => ({
-      dots:
-        activeVizConfig.countPoints &&
-        activeVizConfig.countPointStyle === "dots",
-      tiles:
-        activeVizConfig.countPoints &&
-        activeVizConfig.countPointStyle === "tiles",
-      pulse: activeVizConfig.pulse,
-      breath: activeVizConfig.breath,
-    }),
-    [activeVizConfig],
-  );
   const [calibOpen, setCalibOpen] = useState(false);
   const calibrationTimerRef = useRef<number | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
@@ -444,35 +446,48 @@ export function Player({
     setTempoChanged(true);
   }, [defaultAnalysis]);
 
-  // 自动保存：校准 / 标记 / 段落 / 时长变化后防抖写入舞蹈库（跳过首次）。
+  // 自动保存：播放器数据变化后防抖写入舞蹈库（跳过首次）。
   const onPersistRef = useRef(onPersist);
   useEffect(() => {
     onPersistRef.current = onPersist;
   }, [onPersist]);
+  const persistCurrentState = useCallback(() => {
+    onPersistRef.current?.({
+      bpm,
+      offset,
+      ...(musicStart != null ? { musicStart } : {}),
+      tempoChanged,
+      markers,
+      sections,
+      formationChanges,
+      formationAudiencePosition,
+      duration,
+    });
+  }, [
+    bpm,
+    offset,
+    musicStart,
+    tempoChanged,
+    markers,
+    sections,
+    formationChanges,
+    formationAudiencePosition,
+    duration,
+  ]);
   const firstPersist = useRef(true);
   useEffect(() => {
     if (firstPersist.current) {
       firstPersist.current = false;
       return;
     }
-    const t = setTimeout(() => {
-      onPersistRef.current?.({
-        bpm,
-        offset,
-        ...(musicStart != null ? { musicStart } : {}),
-        tempoChanged,
-        markers,
-        sections,
-        duration,
-      });
-    }, 600);
+    const t = setTimeout(persistCurrentState, 600);
     return () => clearTimeout(t);
-  }, [bpm, offset, musicStart, tempoChanged, markers, sections, duration]);
+  }, [persistCurrentState]);
 
   // 键盘快捷键：Space / ← / →，忽略输入框与任何弹窗
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (sectionDialog || exportOpen) return;
+      if (sectionDialog || exportOpen || formationEditing) return;
       const t = e.target as HTMLElement;
       const tag = t.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || t.isContentEditable) return;
@@ -496,10 +511,55 @@ export function Player({
     actions,
     sectionDialog,
     exportOpen,
+    formationEditing,
     toggleDanmaku,
     prevSegment,
     nextSegment,
   ]);
+
+  const enterFormationEditor = () => {
+    actions.pause();
+    setFormationEditing(true);
+  };
+
+  const exitFormationEditor = () => {
+    actions.pause();
+    setFormationEditing(false);
+  };
+
+  if (formationEditing) {
+    return (
+      <FormationEditorPage
+        src={src}
+        videoRef={videoRef}
+        videoProps={videoProps}
+        mirrored={state.mirrored}
+        isPlaying={state.isPlaying}
+        currentTime={currentTime}
+        duration={duration}
+        volume={state.volume}
+        muted={state.muted}
+        playbackRate={state.playbackRate}
+        initialChanges={formationChanges}
+        initialAudiencePosition={formationAudiencePosition}
+        activeSegmentNumber={activeSegmentNumber}
+        activeBeat={activeBeat}
+        bpm={bpm}
+        offset={offset}
+        onTogglePlay={actions.togglePlay}
+        onSeek={actions.seek}
+        onSetVolume={actions.setVolume}
+        onToggleMute={actions.toggleMute}
+        onSetRate={actions.setPlaybackRate}
+        onToggleMirror={actions.toggleMirror}
+        onBack={exitFormationEditor}
+        onChange={(changes, audiencePosition) => {
+          setFormationChanges(changes);
+          setFormationAudiencePosition(audiencePosition);
+        }}
+      />
+    );
+  }
 
   return (
     <div className="flex h-full w-full bg-black">
@@ -507,7 +567,10 @@ export function Player({
         <header className="flex h-12 shrink-0 items-center gap-2 border-b border-white/5 bg-neutral-950 px-4">
           <button
             type="button"
-            onClick={onReset}
+            onClick={() => {
+              persistCurrentState();
+              onReset();
+            }}
             title="返回首页"
             className="flex items-center gap-1.5 rounded-lg bg-white/5 px-3 py-1.5 text-xs text-neutral-300 transition-colors hover:bg-white/10 hover:text-white"
           >
@@ -555,6 +618,11 @@ export function Player({
           secondsPerBeat={secondsPerBeat}
           onTogglePlay={actions.togglePlay}
           onRemoveMarker={removeMarker}
+          formationOpen={formationOpen}
+          formationChanges={formationChanges}
+          formationAudiencePosition={formationAudiencePosition}
+          onEditFormation={enterFormationEditor}
+          onDismissFormation={() => setFormationOpen(false)}
         />
 
         {/* 段落 tab：底部出现可拖拽段落时间轴（替代普通进度条） */}
@@ -582,6 +650,7 @@ export function Player({
           muted={state.muted}
           playbackRate={state.playbackRate}
           mirrored={state.mirrored}
+          formationOpen={formationOpen}
           danmakuOn={danmakuOn}
           showProgress={tab === "beat"}
           vizConfig={activeVizConfig}
@@ -594,6 +663,7 @@ export function Player({
           onToggleMute={actions.toggleMute}
           onSetRate={actions.setPlaybackRate}
           onToggleMirror={actions.toggleMirror}
+          onToggleFormation={() => setFormationOpen((open) => !open)}
           onToggleDanmaku={toggleDanmaku}
           onOpenHints={actions.pause}
           onAddMarker={addMarker}
@@ -627,7 +697,12 @@ export function Player({
             offset={offset}
             musicStart={musicStart}
             markers={markers}
-            vizModes={exportVizModes}
+            formationChanges={formationChanges}
+            formationAudiencePosition={formationAudiencePosition}
+            vizConfig={activeVizConfig}
+            mirrorEnabled={state.mirrored}
+            formationEnabled={formationOpen}
+            markersEnabled={danmakuOn}
             onClose={() => setExportOpen(false)}
           />
         )}

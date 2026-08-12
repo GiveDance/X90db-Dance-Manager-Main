@@ -20,6 +20,7 @@ import {
   Repeat,
   X,
   MessageSquareText,
+  UsersRound,
 } from "lucide-react";
 import { ProgressBar } from "./ProgressBar";
 import { formatTime } from "@/lib/format";
@@ -260,6 +261,7 @@ interface ControlsProps {
   muted: boolean;
   playbackRate: number;
   mirrored: boolean;
+  formationOpen: boolean;
   danmakuOn: boolean;
   showProgress: boolean;
   vizConfig: BeatVizConfig;
@@ -272,6 +274,7 @@ interface ControlsProps {
   onToggleMute: () => void;
   onSetRate: (r: number) => void;
   onToggleMirror: () => void;
+  onToggleFormation: () => void;
   onToggleDanmaku: () => void;
   onOpenHints: () => void;
   onAddMarker: (data: {
@@ -487,6 +490,11 @@ function VolumeControl(props: {
               {Math.round(displayedVolume * 100)}
             </span>
             <div className="relative flex h-24 w-8 items-center justify-center">
+              <span className="absolute bottom-2 top-2 w-1 rounded-full bg-white/15" />
+              <span
+                className="absolute bottom-2 w-1 rounded-full bg-blue-500"
+                style={{ height: `${displayedVolume * 80}px` }}
+              />
               <input
                 type="range"
                 min={0}
@@ -497,7 +505,11 @@ function VolumeControl(props: {
                   props.onChange(parseFloat(event.target.value))
                 }
                 aria-label="音量"
-                className="absolute h-1 w-24 -rotate-90 cursor-pointer appearance-none rounded-full bg-white/15 accent-blue-500"
+                className="peer absolute h-8 w-20 -rotate-90 cursor-pointer opacity-0"
+              />
+              <span
+                className="pointer-events-none absolute left-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-neutral-900 bg-blue-400 shadow-md transition-[top] peer-focus-visible:ring-2 peer-focus-visible:ring-blue-300"
+                style={{ top: `${8 + (1 - displayedVolume) * 80}px` }}
               />
             </div>
           </div>
@@ -692,8 +704,10 @@ function HintMenu(props: {
 
 function MoreMenu(props: {
   mirrored: boolean;
+  formationOpen: boolean;
   hintsEnabled: boolean;
   onToggleMirror: () => void;
+  onToggleFormation: () => void;
   onToggleHints: () => void;
   onAddHint: () => void;
 }) {
@@ -765,6 +779,17 @@ function MoreMenu(props: {
           <button
             type="button"
             role="menuitemcheckbox"
+            aria-checked={props.formationOpen}
+            onClick={props.onToggleFormation}
+            className={cn(itemClass, props.formationOpen && "text-blue-300")}
+          >
+            <UsersRound className="h-4 w-4" />
+            <span className="flex-1">走位</span>
+            {checkbox(props.formationOpen)}
+          </button>
+          <button
+            type="button"
+            role="menuitemcheckbox"
             aria-checked={props.hintsEnabled}
             onClick={props.onToggleHints}
             className={cn(itemClass, props.hintsEnabled && "text-blue-300")}
@@ -797,6 +822,7 @@ export function Controls(props: ControlsProps) {
     muted,
     playbackRate,
     mirrored,
+    formationOpen,
     danmakuOn,
   } = props;
   const rowRef = useRef<HTMLDivElement>(null);
@@ -889,6 +915,16 @@ export function Controls(props: ControlsProps) {
           )}
 
           {!compact && (
+            <IconBtn
+              title="走位"
+              onClick={props.onToggleFormation}
+              active={formationOpen}
+            >
+              <UsersRound className="h-5 w-5" />
+            </IconBtn>
+          )}
+
+          {!compact && (
             <HintMenu
               currentTime={currentTime}
               duration={duration}
@@ -915,8 +951,10 @@ export function Controls(props: ControlsProps) {
             <>
               <MoreMenu
                 mirrored={mirrored}
+                formationOpen={formationOpen}
                 hintsEnabled={danmakuOn}
                 onToggleMirror={props.onToggleMirror}
+                onToggleFormation={props.onToggleFormation}
                 onToggleHints={props.onToggleDanmaku}
                 onAddHint={() => {
                   props.onOpenHints();
@@ -937,6 +975,109 @@ export function Controls(props: ControlsProps) {
               />
             </>
           )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface FormationControlsProps {
+  isPlaying: boolean;
+  currentTime: number;
+  duration: number;
+  volume: number;
+  muted: boolean;
+  playbackRate: number;
+  mirrored: boolean;
+  showProgress?: boolean;
+  onTogglePlay: () => void;
+  onSeek: (time: number) => void;
+  onPrevBeat: () => void;
+  onNextBeat: () => void;
+  onSetVolume: (volume: number) => void;
+  onToggleMute: () => void;
+  onSetRate: (rate: number) => void;
+  onToggleMirror: () => void;
+}
+
+export function FormationControls(props: FormationControlsProps) {
+  const rowRef = useRef<HTMLDivElement>(null);
+  const [rowWidth, setRowWidth] = useState(Number.POSITIVE_INFINITY);
+  const narrow = rowWidth < 480;
+  const tiny = rowWidth < 420;
+
+  useEffect(() => {
+    const row = rowRef.current;
+    if (!row) return;
+    const observer = new ResizeObserver(([entry]) => {
+      setRowWidth(entry.contentRect.width);
+    });
+    setRowWidth(row.getBoundingClientRect().width);
+    observer.observe(row);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <div className="shrink-0 border-t border-white/5 bg-black">
+      {props.showProgress !== false && (
+        <div className="px-5 pt-3">
+          <ProgressBar
+            currentTime={props.currentTime}
+            duration={props.duration}
+            onSeek={props.onSeek}
+          />
+        </div>
+      )}
+      <div
+        ref={rowRef}
+        className={cn(
+          "flex min-w-0 items-center py-2.5",
+          narrow ? "gap-0.5 px-2" : "gap-1 px-3 sm:px-5",
+        )}
+      >
+        <IconBtn title="播放 / 暂停 (Space)" onClick={props.onTogglePlay}>
+          {props.isPlaying ? (
+            <Pause className="h-5 w-5" />
+          ) : (
+            <Play className="h-5 w-5" />
+          )}
+        </IconBtn>
+        <IconBtn title="上一个小拍" onClick={props.onPrevBeat}>
+          <SkipBack className="h-4 w-4" />
+        </IconBtn>
+        <IconBtn title="下一个小拍" onClick={props.onNextBeat}>
+          <SkipForward className="h-4 w-4" />
+        </IconBtn>
+
+        {!tiny && (
+          <span
+            className={cn(
+              "whitespace-nowrap text-xs tabular-nums text-neutral-400",
+              narrow ? "ml-1" : "ml-2",
+            )}
+          >
+            {formatTime(props.currentTime)}
+            {!narrow && ` / ${formatTime(props.duration)}`}
+          </span>
+        )}
+
+        <div className="min-w-2 flex-1" />
+
+        <div className="flex shrink-0 items-center gap-0.5">
+          <IconBtn
+            title="镜像跟练"
+            onClick={props.onToggleMirror}
+            active={props.mirrored}
+          >
+            <FlipHorizontal2 className="h-5 w-5" />
+          </IconBtn>
+          <RateButton value={props.playbackRate} onChange={props.onSetRate} />
+          <VolumeControl
+            volume={props.volume}
+            muted={props.muted}
+            onToggleMute={props.onToggleMute}
+            onChange={props.onSetVolume}
+          />
         </div>
       </div>
     </div>

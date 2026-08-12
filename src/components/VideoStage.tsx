@@ -5,7 +5,13 @@ import { AnimatePresence, motion } from "framer-motion";
 import { BeatVisualizer } from "./BeatVisualizer";
 import { CountPointDock } from "./CountPointDock";
 import { DanmakuLayer } from "./DanmakuLayer";
-import type { BeatVizConfig, Marker } from "@/lib/types";
+import { FormationOverlay } from "./FormationOverlay";
+import type {
+  BeatVizConfig,
+  FormationAudiencePosition,
+  FormationChange,
+  Marker,
+} from "@/lib/types";
 import { cn } from "@/lib/cn";
 
 interface VideoStageProps {
@@ -28,6 +34,11 @@ interface VideoStageProps {
   secondsPerBeat: number;
   onTogglePlay: () => void;
   onRemoveMarker: (id: string) => void;
+  formationOpen: boolean;
+  formationChanges: FormationChange[];
+  formationAudiencePosition: FormationAudiencePosition;
+  onEditFormation: () => void;
+  onDismissFormation: () => void;
 }
 
 export function VideoStage({
@@ -50,6 +61,11 @@ export function VideoStage({
   secondsPerBeat,
   onTogglePlay,
   onRemoveMarker,
+  formationOpen,
+  formationChanges,
+  formationAudiencePosition,
+  onEditFormation,
+  onDismissFormation,
 }: VideoStageProps) {
   const verticalLayout =
     vizConfig.countPoints &&
@@ -84,9 +100,18 @@ export function VideoStage({
 
       <div className="relative flex min-h-0 min-w-0 flex-1 items-center justify-center overflow-hidden bg-black">
         <video
+          {...videoProps}
           ref={videoRef}
           src={src}
-          {...videoProps}
+          onLoadedMetadata={(event) => {
+            videoProps.onLoadedMetadata?.(event);
+            if (currentTime > 0) {
+              event.currentTarget.currentTime = Math.min(
+                currentTime,
+                event.currentTarget.duration || currentTime,
+              );
+            }
+          }}
           onClick={onTogglePlay}
           className={cn(
             "max-h-full max-w-full cursor-pointer object-contain",
@@ -121,6 +146,16 @@ export function VideoStage({
             onRemove={onRemoveMarker}
           />
         </div>
+
+        {formationOpen && (
+          <FormationOverlay
+            onEdit={onEditFormation}
+            onDismiss={onDismissFormation}
+            changes={formationChanges}
+            audiencePosition={formationAudiencePosition}
+            currentTime={currentTime}
+          />
+        )}
 
         <AnimatePresence>
           {countdown != null && (

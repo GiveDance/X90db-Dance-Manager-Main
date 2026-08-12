@@ -6,6 +6,10 @@ import type { DanceSection, Segment } from "@/lib/types";
 import { nearestSegEnd, nearestSegStart, sectionTimeRange } from "@/lib/segments";
 import { formatTime } from "@/lib/format";
 import { cn } from "@/lib/cn";
+import {
+  TimelineNavigationControls,
+  useTimelineNavigation,
+} from "./TimelineNavigation";
 
 interface SectionTimelineProps {
   segments: Segment[];
@@ -36,8 +40,11 @@ export function SectionTimeline({
 }: SectionTimelineProps) {
   const trackRef = useRef<HTMLDivElement>(null);
   const resizeRef = useRef<{ index: number; side: "left" | "right" } | null>(null);
+  const seekingRef = useRef<number | null>(null);
   const createRef = useRef<{ startT: number; moved: boolean } | null>(null);
   const [creating, setCreating] = useState<{ startT: number; curT: number } | null>(null);
+  const navigation = useTimelineNavigation(duration);
+  const { zoom, viewportRef, syncScrollMetrics } = navigation;
 
   const pct = (t: number) => (duration ? (t / duration) * 100 : 0);
 
@@ -84,6 +91,10 @@ export function SectionTimeline({
     setCreating({ startT: t, curT: t });
   };
   const onTrackMove = (e: React.PointerEvent) => {
+    if (seekingRef.current === e.pointerId) {
+      onSeek(timeFromX(e.clientX));
+      return;
+    }
     const c = createRef.current;
     if (!c) return;
     const t = timeFromX(e.clientX);
@@ -91,6 +102,12 @@ export function SectionTimeline({
     setCreating((p) => (p ? { ...p, curT: t } : p));
   };
   const onTrackUp = (e: React.PointerEvent) => {
+    if (seekingRef.current === e.pointerId) {
+      onSeek(timeFromX(e.clientX));
+      seekingRef.current = null;
+      trackRef.current?.releasePointerCapture?.(e.pointerId);
+      return;
+    }
     const c = createRef.current;
     createRef.current = null;
     trackRef.current?.releasePointerCapture?.(e.pointerId);
@@ -109,13 +126,15 @@ export function SectionTimeline({
     setCreating(null);
   };
 
-  // 刻度：每 30 秒
+  // Scale tick density with the shared timeline zoom level.
   const ticks: number[] = [0];
   const minimumEndGap = Math.max(5, duration * 0.08);
+  const tickStep =
+    zoom >= 6 ? 7.5 : zoom >= 3 ? 15 : 30;
   for (
-    let seconds = 30;
+    let seconds = tickStep;
     seconds < duration - minimumEndGap;
-    seconds += 30
+    seconds += tickStep
   ) {
     ticks.push(seconds);
   }
@@ -124,7 +143,7 @@ export function SectionTimeline({
   const loopName = sectionLoopKey != null ? sections[sectionLoopKey]?.name : null;
 
   return (
-    <div className="select-none px-5 pt-3">
+    <div className="select-none px-5 pb-2.5 pt-3">
       {loopName && (
         <div className="mb-1.5 flex items-center">
           <div className="flex items-center gap-2">
@@ -145,8 +164,17 @@ export function SectionTimeline({
         </div>
       )}
 
-      {/* 刻度 */}
-      <div className="relative h-4 text-[10px] text-neutral-500">
+      <div
+        ref={viewportRef}
+        onScroll={syncScrollMetrics}
+        className="overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      >
+        <div
+          className="min-w-full"
+          style={{ width: `${zoom * 100}%` }}
+        >
+          {/* 刻度 */}
+          <div className="relative h-4 text-[10px] text-neutral-500">
         {ticks.map((t, index) => (
           <span
             key={t}
@@ -165,16 +193,22 @@ export function SectionTimeline({
             {formatTime(t)}
           </span>
         ))}
-      </div>
+          </div>
 
-      {/* 轨道 */}
-      <div
-        ref={trackRef}
-        onPointerDown={onTrackDown}
-        onPointerMove={onTrackMove}
-        onPointerUp={onTrackUp}
-        className="relative h-12 w-full cursor-pointer overflow-hidden rounded-lg bg-neutral-900"
-      >
+          {/* 轨道 */}
+          <div
+            ref={trackRef}
+            onPointerDown={onTrackDown}
+            onPointerMove={onTrackMove}
+            onPointerUp={onTrackUp}
+            onPointerCancel={() => {
+              seekingRef.current = null;
+              resizeRef.current = null;
+              createRef.current = null;
+              setCreating(null);
+            }}
+            className="relative h-12 w-full cursor-pointer overflow-hidden rounded-lg bg-neutral-900"
+          >
         {/* 段落块 */}
         {sections.map((sec, i) => {
           const r = sectionTimeRange(sec, segments);
@@ -231,14 +265,24 @@ export function SectionTimeline({
           />
         )}
 
-        {/* 播放头 */}
-        <div
-          className="pointer-events-none absolute top-0 bottom-0 w-0.5 bg-orange-400"
-          style={{ left: `${pct(currentTime)}%` }}
-        >
-          <span className="absolute -top-0.5 left-1/2 h-2 w-2 -translate-x-1/2 rounded-full bg-orange-400" />
+            {/* 播放头 */}
+            <div
+              onPointerDown={(event) => {
+                event.stopPropagation();
+                seekingRef.current = event.pointerId;
+                onSeek(timeFromX(event.clientX));
+                trackRef.current?.setPointerCapture(event.pointerId);
+              }}
+              className="absolute bottom-0 top-0 z-10 w-4 -translate-x-1/2 cursor-ew-resize touch-none"
+              style={{ left: `${pct(currentTime)}%` }}
+            >
+              <span className="pointer-events-none absolute bottom-0 left-1/2 top-0 w-0.5 -translate-x-1/2 bg-orange-400" />
+              <span className="pointer-events-none absolute -top-0.5 left-1/2 h-2 w-2 -translate-x-1/2 rounded-full bg-orange-400" />
+            </div>
+          </div>
         </div>
       </div>
+      <TimelineNavigationControls navigation={navigation} />
     </div>
   );
 }

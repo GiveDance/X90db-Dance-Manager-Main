@@ -41,6 +41,7 @@ export function usePlayer() {
     (onDone: () => void, intervalMs = 1000) => {
       clearCountdownTimers();
       countingRef.current = true;
+      setIsPlaying(false);
       videoRef.current?.pause();
       setCountdown(5);
       cdTimers.current.push(window.setTimeout(() => setCountdown(6), intervalMs));
@@ -62,11 +63,13 @@ export function usePlayer() {
     const lp = loopRef.current;
     const v = videoRef.current;
     if (!lp || !v) return;
+    setIsPlaying(false);
     v.pause();
     v.currentTime = lp.start;
     setCurrentTime(lp.start);
     runCountdown(() => {
-      v.play().catch(() => {});
+      setIsPlaying(true);
+      v.play().catch(() => setIsPlaying(false));
     }, beatMsRef.current);
   }, [runCountdown]);
   useEffect(() => {
@@ -94,9 +97,13 @@ export function usePlayer() {
   }, [isPlaying]);
 
   const play = useCallback(() => {
-    videoRef.current?.play().catch(() => {});
+    const video = videoRef.current;
+    if (!video) return;
+    setIsPlaying(true);
+    video.play().catch(() => setIsPlaying(false));
   }, []);
   const pause = useCallback(() => {
+    setIsPlaying(false);
     videoRef.current?.pause();
   }, []);
   const togglePlay = useCallback(() => {
@@ -107,11 +114,17 @@ export function usePlayer() {
       clearCountdownTimers();
       countingRef.current = false;
       setCountdown(null);
-      v.play().catch(() => {});
+      setIsPlaying(true);
+      v.play().catch(() => setIsPlaying(false));
       return;
     }
-    if (v.paused) v.play().catch(() => {});
-    else v.pause();
+    if (v.paused) {
+      setIsPlaying(true);
+      v.play().catch(() => setIsPlaying(false));
+    } else {
+      setIsPlaying(false);
+      v.pause();
+    }
   }, [clearCountdownTimers]);
 
   const seek = useCallback((t: number) => {
@@ -127,12 +140,14 @@ export function usePlayer() {
       const v = videoRef.current;
       if (!v) return;
       clearCountdownTimers();
+      setIsPlaying(false);
       v.pause();
       const clamped = Math.max(0, Math.min(t, v.duration || t));
       v.currentTime = clamped;
       setCurrentTime(clamped);
       runCountdown(() => {
-        v.play().catch(() => {});
+        setIsPlaying(true);
+        v.play().catch(() => setIsPlaying(false));
       }, beatMsRef.current);
     },
     [clearCountdownTimers, runCountdown],

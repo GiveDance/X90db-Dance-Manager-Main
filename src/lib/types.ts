@@ -52,6 +52,22 @@ export interface DanceSection {
   endSeg: number; // 结束八拍序号（含）
 }
 
+export interface FormationPosition {
+  dancer: number;
+  x: number;
+  y: number;
+}
+
+export type FormationAudiencePosition = "top" | "bottom" | "left" | "right";
+
+export interface FormationChange {
+  id: string;
+  startTime: number;
+  endTime: number;
+  startPositions: FormationPosition[];
+  endPositions: FormationPosition[];
+}
+
 /** 保存在 IndexedDB 中的一支舞蹈的元数据（视频 Blob 单独存储）。 */
 export interface SavedDanceMeta {
   id: string;
@@ -71,6 +87,8 @@ export interface SavedDanceMeta {
   cover: string | null; // 封面缩略图 dataURL
   markers: Marker[];
   sections?: DanceSection[]; // 段落（可选，旧数据可能没有）
+  formationChanges?: FormationChange[];
+  formationAudiencePosition?: FormationAudiencePosition;
 }
 
 export const MARKER_COLORS: Record<MarkerColor, { dot: string; text: string; pill: string }> = {
