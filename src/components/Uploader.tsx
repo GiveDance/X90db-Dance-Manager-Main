@@ -6,9 +6,10 @@ import { cn } from "@/lib/cn";
 
 interface UploaderProps {
   onFile: (file: File) => void;
+  mode?: "learning" | "performing";
 }
 
-export function Uploader({ onFile }: UploaderProps) {
+export function Uploader({ onFile, mode = "learning" }: UploaderProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -62,22 +63,36 @@ export function Uploader({ onFile }: UploaderProps) {
           className={cn(
             "group flex w-full flex-col items-center justify-center rounded-2xl border-2 border-dashed px-8 py-14 transition-colors",
             dragging
-              ? "border-blue-500 bg-blue-500/10"
-              : "border-neutral-700 bg-neutral-900/40 hover:border-neutral-500 hover:bg-neutral-900/70",
+              ? mode === "learning"
+                ? "border-blue-500 bg-blue-500/10"
+                : "border-violet-500 bg-violet-500/10"
+              : mode === "learning"
+                ? "border-neutral-700 bg-neutral-900/40 hover:border-neutral-500 hover:bg-neutral-900/70"
+                : "border-neutral-700 bg-neutral-900/40 hover:border-violet-400/60 hover:bg-violet-500/5",
           )}
         >
           <div
             className={cn(
               "mb-4 flex h-16 w-16 items-center justify-center rounded-full transition-colors",
-              dragging ? "bg-blue-500/20 text-blue-400" : "bg-neutral-800 text-neutral-300",
+              dragging
+                ? mode === "learning"
+                  ? "bg-blue-500/20 text-blue-400"
+                  : "bg-violet-500/20 text-violet-300"
+                : "bg-neutral-800 text-neutral-300",
             )}
           >
             <UploadCloud className="h-8 w-8" />
           </div>
-          <p className="text-lg font-medium text-white">点击上传，或将视频拖拽到此处</p>
+          <p className="text-lg font-medium text-white">
+            {mode === "learning"
+              ? "点击上传，或将视频拖拽到此处"
+              : "上传主视频，创建 Performing 项目"}
+          </p>
           <p className="mt-1 flex items-center gap-1.5 text-sm text-neutral-500">
             <Film className="h-4 w-4" />
-            推荐 16:9 的 mp4（H.264）· 全程本地运行，视频不上传
+            {mode === "learning"
+              ? "推荐 16:9 的 mp4（H.264）· 全程本地运行，视频不上传"
+              : "自动分析节拍并进入 Performing Workspace · 全程本地运行"}
           </p>
         </button>
 

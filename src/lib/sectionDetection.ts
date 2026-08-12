@@ -1,5 +1,5 @@
-import type { DanceSection } from "./types";
-import { deriveSegments } from "./segments";
+import type { DanceSection, RhythmBeat } from "./types";
+import { deriveSegmentsFromBeats } from "./segments";
 
 // 离线「音乐章节」近似识别：
 // 在浏览器本地，对每个八拍取 RMS 能量 + 过零率（均为时域特征，无需 FFT，轻量快速），
@@ -42,8 +42,9 @@ export function detectSectionsFromChannel(
   bpm: number,
   offset: number,
   duration: number,
+  beats?: RhythmBeat[],
 ): DanceSection[] {
-  const segments = deriveSegments(bpm, offset, duration);
+  const segments = deriveSegmentsFromBeats(beats, bpm, offset, duration);
   const N = segments.length;
   if (N < MIN_SECTION_LEN * 2) {
     // 太短，整首作为一段
@@ -134,6 +135,7 @@ export async function detectSectionsFromUrl(
   bpm: number,
   offset: number,
   duration: number,
+  beats?: RhythmBeat[],
 ): Promise<DanceSection[]> {
   const resp = await fetch(src);
   const arrayBuffer = await resp.arrayBuffer();
@@ -149,7 +151,14 @@ export async function detectSectionsFromUrl(
   try {
     const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
     const channel = audioBuffer.getChannelData(0);
-    return detectSectionsFromChannel(channel, audioBuffer.sampleRate, bpm, offset, duration);
+    return detectSectionsFromChannel(
+      channel,
+      audioBuffer.sampleRate,
+      bpm,
+      offset,
+      duration,
+      beats,
+    );
   } finally {
     await ctx.close().catch(() => {});
   }

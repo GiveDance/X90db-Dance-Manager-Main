@@ -1,10 +1,22 @@
-// Parameter-driven data model.
-// AI 检测只产出 bpm + offset 两个参数；八拍分段、节拍点、循环区间全部由这两个参数推导。
-// 未来「八拍起点手动校准」只需开放 beatOffset 参数，UI 自动重算，底层逻辑不变。
+export type RhythmAnalysisEngine =
+  | "madmom"
+  | "essentia"
+  | "web-audio"
+  | "manual";
+
+export interface RhythmBeat {
+  time: number;
+  beatInBar: number | null;
+  confidence: number;
+}
+
 export interface BeatAnalysis {
   bpm: number;
   offset: number; // 第 1 拍的时间（秒）
   musicStart: number | null; // First sustained audio onset in seconds.
+  beats?: RhythmBeat[]; // Actual tracked beat times. Missing means the uniform legacy grid.
+  engine?: RhythmAnalysisEngine;
+  confidence?: number;
 }
 
 export interface Segment {
@@ -76,11 +88,18 @@ export interface SavedDanceMeta {
   updatedAt: number;
   bpm: number; // 校准后的节奏，自动保存
   offset: number; // 校准后的第 1 拍位置
-  analysisBpm?: number; // Canonical analyzed or calibrated BPM.
-  analysisOffset?: number; // Canonical analyzed or calibrated beat offset.
+  /** @deprecated Read-only migration field. Current calibrated value is `bpm`. */
+  analysisBpm?: number;
+  /** @deprecated Read-only migration field. Current calibrated value is `offset`. */
+  analysisOffset?: number;
   detectedBpm?: number; // Immutable BPM from the first successful video analysis.
   detectedOffset?: number; // Immutable offset from the first successful video analysis.
+  detectedBeats?: RhythmBeat[]; // Immutable per-beat result from the first successful analysis.
+  analysisBeats?: RhythmBeat[]; // Canonical beat grid used by playback after calibration.
+  analysisEngine?: RhythmAnalysisEngine;
+  analysisConfidence?: number;
   musicStart?: number | null; // Optional for compatibility with saved dances created before onset detection.
+  performanceStart?: number | null; // Presentation count 1; does not modify detected beat timestamps.
   duration: number;
   size: number;
   type: string;
@@ -90,6 +109,64 @@ export interface SavedDanceMeta {
   formationChanges?: FormationChange[];
   formationAudiencePosition?: FormationAudiencePosition;
 }
+
+export interface PerformingProject {
+  id: string;
+  version: 1;
+  name: string;
+  createdAt: number;
+  updatedAt: number;
+  status: "draft";
+  sourceName?: string;
+  duration?: number;
+  size?: number;
+  type?: string;
+  cover?: string | null;
+  bpm?: number;
+  offset?: number;
+  musicStart?: number | null;
+  clips?: PerformingClip[];
+  stage?: PerformingStageSettings;
+}
+
+export interface PerformingClip {
+  id: string;
+  name: string;
+  sourceDuration: number;
+  sourceIn: number;
+  timelineDuration: number;
+  playbackRate: number;
+}
+
+export type GeneratedStageTemplate =
+  | "street"
+  | "pulse"
+  | "constellation"
+  | "minimal";
+
+export type StageSignalPosition = "left" | "right" | "top" | "bottom";
+
+export interface PerformingStageSettings {
+  backgroundMode: "generated" | "video";
+  template: GeneratedStageTemplate;
+  showBeatCode: boolean;
+  showSectionRail: boolean;
+  beatCodePositions: StageSignalPosition[];
+  railPositions: StageSignalPosition[];
+  secondaryAccentCount: number;
+  visualLeadMs: number;
+}
+
+export const DEFAULT_PERFORMING_STAGE: PerformingStageSettings = {
+  backgroundMode: "video",
+  template: "street",
+  showBeatCode: true,
+  showSectionRail: true,
+  beatCodePositions: ["left", "right"],
+  railPositions: ["bottom"],
+  secondaryAccentCount: 5,
+  visualLeadMs: 120,
+};
 
 export const MARKER_COLORS: Record<MarkerColor, { dot: string; text: string; pill: string }> = {
   yellow: { dot: "bg-yellow-400", text: "text-yellow-300", pill: "border-yellow-400/40" },

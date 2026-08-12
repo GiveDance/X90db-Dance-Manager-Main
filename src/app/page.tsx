@@ -1,15 +1,21 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Home } from "@/components/Home";
+import { Home, type WorkspaceMode } from "@/components/Home";
 import { AnalyzingScreen } from "@/components/AnalyzingScreen";
 import { Player } from "@/components/Player";
 import { ExportDialog } from "@/components/ExportDialog";
+import { PerformingWorkspace } from "@/components/PerformingWorkspace";
 import {
   analyzeAudio,
   type AnalyzeStage,
 } from "@/lib/beatDetection";
 import { ThumbnailGenerator } from "@/lib/thumbnailGenerator";
+import {
+  alignBeatGridToMusicStart,
+  calibrateBeatGrid,
+  resolvePerformanceStart,
+} from "@/lib/segments";
 import {
   deleteDance,
   getDanceBlob,
@@ -18,15 +24,23 @@ import {
   updateDanceMeta,
   DanceStoreTimeoutError,
 } from "@/lib/danceStore";
+import {
+  deletePerformingProject,
+  getPerformingProjectMedia,
+  listPerformingProjects,
+  savePerformingProjectWithMedia,
+  updatePerformingProject,
+} from "@/lib/performingStore";
 import type {
   DanceSection,
   FormationAudiencePosition,
   FormationChange,
   Marker,
   SavedDanceMeta,
+  PerformingProject,
 } from "@/lib/types";
 
-type Phase = "home" | "analyzing" | "player";
+type Phase = "home" | "analyzing" | "player" | "performing";
 
 interface CurrentDance {
   id: string;
@@ -35,8 +49,14 @@ interface CurrentDance {
   openCalibrationOnEnter: boolean;
 }
 
+interface CurrentPerformingProject {
+  project: PerformingProject;
+  url: string;
+}
+
 export default function HomePage() {
   const [phase, setPhase] = useState<Phase>("home");
+  const [mode, setMode] = useState<WorkspaceMode>("learning");
   const [dances, setDances] = useState<SavedDanceMeta[]>([]);
   const [libLoading, setLibLoading] = useState(true);
   const [stage, setStage] = useState<AnalyzeStage>("decode");
@@ -44,8 +64,17 @@ export default function HomePage() {
   const [current, setCurrent] = useState<CurrentDance | null>(null);
   const [openingId, setOpeningId] = useState<string | null>(null);
   const [libraryError, setLibraryError] = useState<string | null>(null);
+  const [performingProjects, setPerformingProjects] = useState<PerformingProject[]>([]);
+  const [performingLoading, setPerformingLoading] = useState(true);
+  const [performingError, setPerformingError] = useState<string | null>(null);
+  const [performingOpeningId, setPerformingOpeningId] = useState<string | null>(null);
+  const [currentPerforming, setCurrentPerforming] =
+    useState<CurrentPerformingProject | null>(null);
   const [exportTarget, setExportTarget] = useState<{ url: string; meta: SavedDanceMeta } | null>(null);
   const pendingSavesRef = useRef(new Map<string, Promise<void>>());
+  const performingSaveQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const performingSaveTimerRef = useRef<number | null>(null);
+  const latestPerformingProjectRef = useRef<PerformingProject | null>(null);
 
   const exportUrlRef = useRef<string | null>(null);
   const closeExport = useCallback(() => {
@@ -72,8 +101,99 @@ export default function HomePage() {
       .finally(() => setLibLoading(false));
   }, []);
 
+  useEffect(() => {
+    listPerformingProjects()
+      .then(setPerformingProjects)
+      .catch((error) => {
+        console.error("Failed to load Performing projects.", error);
+        setPerformingError("Unable to load the local Performing project archive.");
+      })
+      .finally(() => setPerformingLoading(false));
+  }, []);
+
+  const handleDeletePerformingProject = useCallback(async (id: string) => {
+    setPerformingError(null);
+    try {
+      if (latestPerformingProjectRef.current?.id === id) {
+        latestPerformingProjectRef.current = null;
+        if (performingSaveTimerRef.current != null) {
+          window.clearTimeout(performingSaveTimerRef.current);
+          performingSaveTimerRef.current = null;
+        }
+      }
+      await performingSaveQueueRef.current;
+      await deletePerformingProject(id);
+      setPerformingProjects((currentProjects) =>
+        currentProjects.filter((project) => project.id !== id),
+      );
+    } catch (error) {
+      console.error("Failed to delete the Performing project.", error);
+      setPerformingError("Unable to delete this project. Please try again.");
+      throw error;
+    }
+  }, []);
+
+  const handlePerformingProjectChange = useCallback(
+    (project: PerformingProject) => {
+      setCurrentPerforming((currentProject) =>
+        currentProject?.project.id === project.id
+          ? { ...currentProject, project }
+          : currentProject,
+      );
+      setPerformingProjects((projects) => [
+        project,
+        ...projects.filter((item) => item.id !== project.id),
+      ]);
+      latestPerformingProjectRef.current = project;
+      if (performingSaveTimerRef.current != null) {
+        window.clearTimeout(performingSaveTimerRef.current);
+      }
+      performingSaveTimerRef.current = window.setTimeout(() => {
+        performingSaveTimerRef.current = null;
+        const latestProject = latestPerformingProjectRef.current;
+        if (!latestProject) return;
+        const write = performingSaveQueueRef.current.then(() =>
+          updatePerformingProject(latestProject),
+        );
+        performingSaveQueueRef.current = write.catch((error) => {
+          console.error("Failed to update the Performing project.", error);
+          setPerformingError("Recent Performing edits could not be saved.");
+        });
+      }, 350);
+    },
+    [],
+  );
+
+  const handleOpenPerformingProject = useCallback(
+    async (id: string) => {
+      const project = performingProjects.find((item) => item.id === id);
+      if (!project) return;
+      setPerformingOpeningId(id);
+      setPerformingError(null);
+      try {
+        const media = await getPerformingProjectMedia(id);
+        if (!media) {
+          setPerformingError("This project has no saved main video. Upload it again to continue.");
+          return;
+        }
+        revoke();
+        const url = URL.createObjectURL(media);
+        urlRef.current = url;
+        setCurrentPerforming({ project, url });
+        setPhase("performing");
+      } catch (error) {
+        console.error("Failed to open the Performing project.", error);
+        setPerformingError("Unable to open this Performing project.");
+      } finally {
+        setPerformingOpeningId(null);
+      }
+    },
+    [performingProjects, revoke],
+  );
+
   const handleFile = useCallback(
     async (file: File) => {
+      const selectedMode = mode;
       revoke();
       const url = URL.createObjectURL(file);
       urlRef.current = url;
@@ -83,12 +203,14 @@ export default function HomePage() {
 
       let bpm = 120;
       let offset = 0;
-      let musicStart = 0;
+      let musicStart: number | null = null;
+      let analysisResult: Awaited<ReturnType<typeof analyzeAudio>> | null = null;
       try {
         const res = await analyzeAudio(file, setStage);
+        analysisResult = res;
         bpm = res.bpm;
         offset = res.offset;
-        musicStart = res.musicStart ?? 0;
+        musicStart = res.musicStart;
       } catch {
         // Continue with safe defaults when the audio track cannot be decoded.
       }
@@ -106,6 +228,41 @@ export default function HomePage() {
       }
 
       const now = Date.now();
+      if (selectedMode === "performing") {
+        const project: PerformingProject = {
+          id: crypto.randomUUID(),
+          version: 1,
+          name: file.name.replace(/\.[^.]+$/, "") || file.name,
+          createdAt: now,
+          updatedAt: now,
+          status: "draft",
+          sourceName: file.name,
+          duration,
+          size: file.size,
+          type: file.type,
+          cover,
+          bpm,
+          offset,
+          musicStart,
+        };
+        setCurrentPerforming({ project, url });
+        setPhase("performing");
+        void savePerformingProjectWithMedia(project, file)
+          .then(() => {
+            setPerformingProjects((projects) => [
+              project,
+              ...projects.filter((item) => item.id !== project.id),
+            ]);
+          })
+          .catch((error) => {
+            console.error("Failed to save the Performing project.", error);
+            setPerformingError(
+              "The project is open, but it could not be saved. Check browser storage space.",
+            );
+          });
+        return;
+      }
+
       const meta: SavedDanceMeta = {
         id: crypto.randomUUID(),
         name: file.name,
@@ -113,11 +270,23 @@ export default function HomePage() {
         updatedAt: now,
         bpm,
         offset,
-        analysisBpm: bpm,
-        analysisOffset: offset,
-        detectedBpm: bpm,
-        detectedOffset: offset,
+        ...(analysisResult
+          ? {
+              detectedBpm: bpm,
+              detectedOffset: offset,
+              detectedBeats: analysisResult.beats,
+              analysisBeats: analysisResult.beats,
+              analysisEngine: analysisResult.engine,
+              analysisConfidence: analysisResult.confidence,
+            }
+          : {}),
         musicStart,
+        performanceStart: resolvePerformanceStart(
+          analysisResult?.beats,
+          bpm,
+          offset,
+          musicStart,
+        ),
         duration,
         size: file.size,
         type: file.type,
@@ -148,7 +317,7 @@ export default function HomePage() {
       pendingSavesRef.current.set(meta.id, pendingSave);
       void pendingSave.catch(() => {});
     },
-    [revoke],
+    [mode, revoke],
   );
 
   const handleOpen = useCallback(
@@ -173,22 +342,31 @@ export default function HomePage() {
         if (
           meta.musicStart == null ||
           meta.detectedBpm == null ||
-          meta.detectedOffset == null
+          meta.detectedOffset == null ||
+          meta.analysisEngine == null
         ) {
           try {
             const analysis = await analyzeAudio(blob);
+            const migratedBeats = calibrateBeatGrid(
+              analysis.beats,
+              analysis.bpm,
+              analysis.offset,
+              meta.bpm,
+              meta.offset,
+            );
             const analysisPatch: Partial<SavedDanceMeta> = {
               detectedBpm: meta.detectedBpm ?? analysis.bpm,
               detectedOffset: meta.detectedOffset ?? analysis.offset,
+              detectedBeats: meta.detectedBeats ?? analysis.beats,
+              analysisEngine: meta.analysisEngine ?? analysis.engine,
+              analysisConfidence:
+                meta.analysisConfidence ?? analysis.confidence,
+              analysisBeats:
+                meta.analysisBeats ??
+                (migratedBeats.length ? migratedBeats : undefined),
               updatedAt: Date.now(),
               ...(meta.musicStart == null
-                ? {
-                    bpm: analysis.bpm,
-                    offset: analysis.offset,
-                    analysisBpm: analysis.bpm,
-                    analysisOffset: analysis.offset,
-                    musicStart: analysis.musicStart,
-                  }
+                ? { musicStart: analysis.musicStart }
                 : {}),
             };
             resolvedMeta = {
@@ -250,7 +428,9 @@ export default function HomePage() {
     (data: {
       bpm: number;
       offset: number;
+      beats?: SavedDanceMeta["analysisBeats"];
       musicStart?: number;
+      performanceStart?: number;
       tempoChanged: boolean;
       markers: Marker[];
       sections: DanceSection[];
@@ -260,13 +440,12 @@ export default function HomePage() {
     }) => {
       setCurrent((cur) => {
         if (!cur) return cur;
-        const { tempoChanged, ...persistedData } = data;
+        const { tempoChanged, beats, ...persistedData } = data;
         const patch = {
           ...persistedData,
           ...(tempoChanged
             ? {
-                analysisBpm: data.bpm,
-                analysisOffset: data.offset,
+                analysisBeats: beats,
               }
             : {}),
           updatedAt: Date.now(),
@@ -293,6 +472,7 @@ export default function HomePage() {
   const backToHome = useCallback(() => {
     revoke();
     setCurrent(null);
+    setCurrentPerforming(null);
     setPhase("home");
   }, [revoke]);
 
@@ -306,16 +486,23 @@ export default function HomePage() {
         src={current.url}
         fileName={current.meta.name}
         analysis={{
-          bpm: current.meta.analysisBpm ?? current.meta.bpm,
-          offset: current.meta.analysisOffset ?? current.meta.offset,
+          bpm: current.meta.bpm,
+          offset: current.meta.offset,
           musicStart: current.meta.musicStart ?? null,
+          beats:
+            current.meta.analysisBeats ?? current.meta.detectedBeats,
+          engine: current.meta.analysisEngine,
+          confidence: current.meta.analysisConfidence,
         }}
+        initialPerformanceStart={current.meta.performanceStart ?? null}
         defaultAnalysis={{
-          bpm: current.meta.detectedBpm ?? current.meta.analysisBpm ?? current.meta.bpm,
+          bpm: current.meta.detectedBpm ?? current.meta.bpm,
           offset:
             current.meta.detectedOffset ??
-            current.meta.analysisOffset ??
             current.meta.offset,
+          beats: current.meta.detectedBeats,
+          engine: current.meta.analysisEngine,
+          confidence: current.meta.analysisConfidence,
         }}
         initialCalibrationOpen={current.openCalibrationOnEnter}
         initialMarkers={current.meta.markers}
@@ -329,6 +516,41 @@ export default function HomePage() {
       />
     );
   }
+  if (phase === "performing" && currentPerforming) {
+    return (
+      <PerformingWorkspace
+        key={currentPerforming.project.id}
+        project={currentPerforming.project}
+        src={currentPerforming.url}
+        onBack={backToHome}
+        onProjectChange={handlePerformingProjectChange}
+      />
+    );
+  }
+  const exportBpm = exportTarget ? exportTarget.meta.bpm : 0;
+  const exportOffset = exportTarget ? exportTarget.meta.offset : 0;
+  const exportRawBeats = exportTarget
+    ? exportTarget.meta.analysisBeats ??
+      exportTarget.meta.detectedBeats ??
+      []
+    : [];
+  const exportBeats = alignBeatGridToMusicStart(
+    exportRawBeats,
+    exportTarget?.meta.performanceStart ??
+      exportTarget?.meta.musicStart ??
+      null,
+  );
+  const exportPerformanceStart =
+    exportTarget?.meta.performanceStart ??
+    (exportTarget
+      ? resolvePerformanceStart(
+          exportBeats,
+          exportBpm,
+          exportOffset,
+          exportTarget.meta.musicStart ?? null,
+        )
+      : null);
+
   return (
     <>
       <Home
@@ -339,15 +561,24 @@ export default function HomePage() {
         onDelete={handleDelete}
         onExport={handleExport}
         openingId={openingId}
-        libraryError={libraryError}
+        libraryError={mode === "performing" ? performingError : libraryError}
+        mode={mode}
+        onModeChange={setMode}
+        performingProjects={performingProjects}
+        performingLoading={performingLoading}
+        performingOpeningId={performingOpeningId}
+        onOpenPerformingProject={handleOpenPerformingProject}
+        onDeletePerformingProject={(id) => void handleDeletePerformingProject(id)}
       />
       {exportTarget && (
         <ExportDialog
           src={exportTarget.url}
           name={exportTarget.meta.name}
-          bpm={exportTarget.meta.analysisBpm ?? exportTarget.meta.bpm}
-          offset={exportTarget.meta.analysisOffset ?? exportTarget.meta.offset}
+          bpm={exportBpm}
+          offset={exportOffset}
+          beats={exportBeats}
           musicStart={exportTarget.meta.musicStart ?? null}
+          countInStart={exportPerformanceStart}
           markers={exportTarget.meta.markers}
           formationChanges={exportTarget.meta.formationChanges ?? []}
           formationAudiencePosition={

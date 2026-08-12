@@ -88,7 +88,7 @@ export function DanceLibrary({
                   </p>
                   <div className="mt-1 flex items-center gap-2 text-[11px] text-neutral-500">
                     <span className="tabular-nums">
-                      {Math.round(d.analysisBpm ?? d.bpm)} BPM
+                      {Math.round(d.bpm)} BPM
                     </span>
                     {d.duration > 0 && (
                       <>

@@ -5,6 +5,16 @@ const nextConfig: NextConfig = {
   // 无需 Node 服务器即可本地运行（用任意静态服务器打开，或安装为 PWA 离线使用）。
   output: "export",
   images: { unoptimized: true },
+  webpack(config, { isServer }) {
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        path: false,
+      };
+    }
+    return config;
+  },
 };
 
 export default nextConfig;

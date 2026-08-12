@@ -17,6 +17,7 @@ interface CountPointDockProps {
   active: boolean;
   isPlaying: boolean;
   musicStarted: boolean;
+  preRoll: boolean;
   secondsPerBeat: number;
 }
 
@@ -29,6 +30,7 @@ export function CountPointDock({
   active,
   isPlaying,
   musicStarted,
+  preRoll,
   secondsPerBeat,
 }: CountPointDockProps) {
   const vertical = position === "left" || position === "right";
@@ -37,7 +39,7 @@ export function CountPointDock({
   return (
     <aside
       className={cn(
-        "pointer-events-none flex shrink-0 overflow-hidden bg-[#0e0e10]",
+        "pointer-events-none relative flex shrink-0 overflow-hidden bg-[#0e0e10]",
         vertical
           ? style === "dots"
             ? "h-full w-[76px] flex-col px-2 py-3"
@@ -50,6 +52,11 @@ export function CountPointDock({
       )}
       aria-hidden="true"
     >
+      {preRoll && (
+        <span className="absolute left-2 top-1 z-10 text-[10px] font-semibold tracking-[0.18em] text-neutral-500">
+          预拍
+        </span>
+      )}
       {style === "tiles" ? (
         <CountTiles
           activeBeat={activeBeat}
