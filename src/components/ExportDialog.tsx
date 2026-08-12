@@ -25,6 +25,7 @@ import type {
   FormationAudiencePosition,
   FormationChange,
   Marker,
+  RhythmBeat,
 } from "@/lib/types";
 import { cn } from "@/lib/cn";
 
@@ -33,7 +34,9 @@ interface ExportDialogProps {
   name: string;
   bpm: number;
   offset: number;
+  beats?: RhythmBeat[];
   musicStart: number | null;
+  countInStart: number | null;
   markers: Marker[];
   formationChanges: FormationChange[];
   formationAudiencePosition: FormationAudiencePosition;
@@ -215,7 +218,9 @@ export function ExportDialog({
   name,
   bpm,
   offset,
+  beats,
   musicStart,
+  countInStart,
   markers,
   formationChanges,
   formationAudiencePosition,
@@ -274,7 +279,9 @@ export function ExportDialog({
         src,
         bpm,
         offset,
+        beats: beats?.map((beat) => beat.time),
         musicStart,
+        countInStart,
         markers,
         formationChanges,
         formationAudiencePosition,
@@ -324,7 +331,7 @@ export function ExportDialog({
     {
       key: "countIn",
       label: "倒计时",
-      desc: "在第一拍前烧录 3-2-1 起舞准备提示与边缘脉冲",
+      desc: "在音乐真实开始前烧录 5-6-7-8，结束点与拍点由灰转彩完全一致",
       icon: <Timer className="h-4 w-4" />,
     },
     {

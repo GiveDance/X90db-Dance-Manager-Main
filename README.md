@@ -47,6 +47,22 @@ See [CHANGELOG.md](./CHANGELOG.md) for the complete list of changes made since t
 - IndexedDB
 - `web-audio-beat-detector`
 
+## Rhythm analysis
+
+Rhythm analysis uses a local, quality-gated provider chain:
+
+1. A packaged desktop host may expose `window.desktopApi.analyzeRhythm` and run
+   madmom for tracked beats and musical downbeats.
+2. The browser build uses Essentia.js `RhythmExtractor2013` to retain actual
+   per-beat timestamps, including local tempo changes.
+3. If tracked-beat analysis is unavailable or fails validation, the original
+   Dance Manager `web-audio-beat-detector` implementation remains the final
+   BPM-and-offset fallback in `src/lib/beatDetection.legacy.ts`.
+
+Projects created before tracked beats were introduced remain compatible. Their
+saved BPM and offset calibration is applied to newly detected beat timestamps
+when they are opened.
+
 ## Privacy
 
 DanceManager has no application backend, account system, or cloud media storage. Videos, analysis results, sections, markers, and calibration data remain on the user's device. Clearing browser site data removes the local dance library.

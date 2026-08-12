@@ -8,6 +8,11 @@ import type {
 } from "./types";
 import { formatTime } from "./format";
 import { FORMATION_COLORS, formationAtTime } from "./formations";
+import {
+  hasMusicStarted,
+  musicStartCountIn,
+  musicStartPreRoll,
+} from "./countIn";
 
 export type FormationExportPlacement =
   | "top"
@@ -29,7 +34,9 @@ export interface ExportParams {
   src: string; // objectURL
   bpm: number;
   offset: number;
+  beats?: number[];
   musicStart: number | null;
+  countInStart: number | null;
   markers: Marker[];
   formationChanges: FormationChange[];
   formationAudiencePosition: FormationAudiencePosition;
@@ -116,10 +123,22 @@ function drawBeatDots(
   bpm: number,
   offset: number,
   musicStart: number | null,
+  countInStart: number | null,
   orientation: "horizontal" | "vertical",
+  beats?: number[],
 ) {
-  const beat = beatInfo(t, bpm, offset);
-  const musicStarted = musicStart == null || t >= musicStart - 0.02;
+  const preRoll = musicStartPreRoll(t, bpm, countInStart);
+  const beat =
+    beatInfo(t, bpm, offset, beats) ??
+    (preRoll
+      ? {
+          phase: preRoll.phase,
+          isDownbeat: false,
+          local: preRoll.count - 1,
+          globalBeat: preRoll.count - 1,
+        }
+      : null);
+  const musicStarted = hasMusicStarted(t, musicStart);
   const segmentNumber = beat
     ? Math.floor(beat.globalBeat / 8) + 1
     : 1;
@@ -262,7 +281,36 @@ function drawMarkers(
   ctx.restore();
 }
 
-function beatInfo(t: number, bpm: number, offset: number) {
+function beatInfo(t: number, bpm: number, offset: number, beats?: number[]) {
+  if (beats && beats.length >= 2) {
+    if (t < beats[0]) return null;
+    let low = 0;
+    let high = beats.length - 1;
+    let index = 0;
+    while (low <= high) {
+      const middle = (low + high) >> 1;
+      if (beats[middle] <= t) {
+        index = middle;
+        low = middle + 1;
+      } else {
+        high = middle - 1;
+      }
+    }
+    const start = beats[index];
+    const end = beats[index + 1] ?? start + 60 / bpm;
+    const phase =
+      end > start
+        ? Math.max(0, Math.min(1, (t - start) / (end - start)))
+        : 0;
+    const local = index % 8;
+    return {
+      phase,
+      isDownbeat: local === 0,
+      local,
+      globalBeat: index,
+    };
+  }
+
   const firstBeat = Math.max(0, offset);
   if (t < firstBeat) return null;
   const spb = 60 / bpm;
@@ -280,10 +328,22 @@ function drawCountTiles(
   bpm: number,
   offset: number,
   musicStart: number | null,
+  countInStart: number | null,
   orientation: "horizontal" | "vertical",
+  beats?: number[],
 ) {
-  const beat = beatInfo(t, bpm, offset);
-  const musicStarted = musicStart == null || t >= musicStart - 0.02;
+  const preRoll = musicStartPreRoll(t, bpm, countInStart);
+  const beat =
+    beatInfo(t, bpm, offset, beats) ??
+    (preRoll
+      ? {
+          phase: preRoll.phase,
+          isDownbeat: false,
+          local: preRoll.count - 1,
+          globalBeat: preRoll.count - 1,
+        }
+      : null);
+  const musicStarted = hasMusicStarted(t, musicStart);
   const activeTile = beat ? beat.local % 4 : -1;
   const secondHalf = beat ? beat.local >= 4 : false;
   const segmentNumber = beat
@@ -419,10 +479,11 @@ function drawBeatPulse(
   bpm: number,
   offset: number,
   musicStart: number | null,
+  beats?: number[],
 ) {
-  const b = beatInfo(t, bpm, offset);
+  const b = beatInfo(t, bpm, offset, beats);
   if (!b) return;
-  const musicStarted = musicStart == null || t >= musicStart - 0.02;
+  const musicStarted = hasMusicStarted(t, musicStart);
   const i = Math.max(0, 1 - b.phase);
   const intensity = i * i;
   const alpha = musicStarted
@@ -462,10 +523,11 @@ function drawBeatBreath(
   bpm: number,
   offset: number,
   musicStart: number | null,
+  beats?: number[],
 ) {
-  const b = beatInfo(t, bpm, offset);
+  const b = beatInfo(t, bpm, offset, beats);
   if (!b) return;
-  const musicStarted = musicStart == null || t >= musicStart - 0.02;
+  const musicStarted = hasMusicStarted(t, musicStart);
   const intensity = Math.max(0, 1 - b.phase);
   const base = b.isDownbeat ? 0.72 : 0.46;
   const amp = b.isDownbeat ? 1.05 : 0.3;
@@ -514,21 +576,19 @@ function drawBeatBreath(
   ctx.restore();
 }
 
-/** 起播跟拍 count-in：第 1 拍前 3 拍内绘制 3/2/1 + 半透明蓝边脉冲。 */
+/** 5-6-7-8 count-in anchored to the same detected music-start transition as the player. */
 function drawCountIn(
   ctx: CanvasRenderingContext2D,
   w: number,
   h: number,
   t: number,
   bpm: number,
-  offset: number,
+  musicStart: number | null,
 ) {
-  const firstBeat = Math.max(0, offset);
-  if (firstBeat <= 0.05) return;
+  const count = musicStartCountIn(t, bpm, musicStart);
+  if (count == null) return;
   const spb = 60 / bpm;
-  const remaining = firstBeat - t;
-  if (remaining <= 0.02 || remaining > spb * 3 + 0.02) return;
-  const n = Math.max(1, Math.min(3, Math.ceil(remaining / spb)));
+  const remaining = (musicStart ?? 0) - t;
 
   ctx.save();
   // 半透明蓝色边框，每拍脉冲（刚过拍点最亮）
@@ -550,7 +610,7 @@ function drawCountIn(
   ctx.shadowColor = "rgba(0,0,0,0.7)";
   ctx.shadowBlur = fs * 0.15;
   ctx.fillStyle = "#ffffff";
-  ctx.fillText(String(n), w / 2, h / 2);
+  ctx.fillText(String(count), w / 2, h / 2);
   ctx.restore();
 }
 
@@ -826,7 +886,9 @@ export async function exportVideoWithOverlays(params: ExportParams): Promise<Exp
     src,
     bpm,
     offset,
+    beats,
     musicStart,
+    countInStart,
     markers,
     formationChanges,
     formationAudiencePosition,
@@ -937,7 +999,9 @@ export async function exportVideoWithOverlays(params: ExportParams): Promise<Exp
     videoCtx.drawImage(video, 0, 0, w, h);
     videoCtx.restore();
     if (options.markers) drawMarkers(videoCtx, w, h, t, markers);
-    if (options.countIn) drawCountIn(videoCtx, w, h, t, bpm, offset);
+    if (options.countIn) {
+      drawCountIn(videoCtx, w, h, t, bpm, countInStart);
+    }
 
     ctx.fillStyle = "#050505";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -1003,7 +1067,9 @@ export async function exportVideoWithOverlays(params: ExportParams): Promise<Exp
           bpm,
           offset,
           musicStart,
+          countInStart,
           countPointOrientation,
+          beats,
         );
       } else {
         drawBeatDots(
@@ -1014,7 +1080,9 @@ export async function exportVideoWithOverlays(params: ExportParams): Promise<Exp
           bpm,
           offset,
           musicStart,
+          countInStart,
           countPointOrientation,
+          beats,
         );
       }
       ctx.restore();
@@ -1030,6 +1098,7 @@ export async function exportVideoWithOverlays(params: ExportParams): Promise<Exp
         bpm,
         offset,
         musicStart,
+        beats,
       );
       ctx.restore();
     }
@@ -1044,6 +1113,7 @@ export async function exportVideoWithOverlays(params: ExportParams): Promise<Exp
         bpm,
         offset,
         musicStart,
+        beats,
       );
       ctx.restore();
     }

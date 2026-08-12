@@ -1,4 +1,4 @@
-import type { DanceSection, Segment } from "./types";
+import type { DanceSection, RhythmBeat, Segment } from "./types";
 
 export const BEATS_PER_SEGMENT = 8;
 
@@ -18,7 +18,8 @@ export function deriveSegments(
   // 第 1 拍（count "1"）的参考时间，可被 beatOffset 平移。
   // 八拍从这里开始往后排，不向前回填到 0:00 —— 第1拍之前的前奏/静音不计入八拍。
   const phase = offset + beatOffset * spb;
-  const start0 = Math.max(0, phase);
+  const start0 =
+    phase >= 0 ? phase : phase + Math.ceil(-phase / segLen) * segLen;
 
   const segments: Segment[] = [];
   let num = 1;
@@ -36,6 +37,152 @@ export function deriveSegments(
   return segments;
 }
 
+function median(values: number[]): number {
+  if (!values.length) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2
+    ? sorted[middle]
+    : (sorted[middle - 1] + sorted[middle]) / 2;
+}
+
+export function calibrateBeatGrid(
+  beats: RhythmBeat[] | undefined,
+  baseBpm: number,
+  baseOffset: number,
+  bpm: number,
+  offset: number,
+): RhythmBeat[] {
+  if (!beats?.length) return [];
+  const scale =
+    baseBpm > 0 && bpm > 0 && Number.isFinite(baseBpm / bpm)
+      ? baseBpm / bpm
+      : 1;
+  return beats
+    .map((beat) => ({
+      ...beat,
+      time: offset + (beat.time - baseOffset) * scale,
+    }))
+    .filter(
+      (beat, index, all) =>
+        Number.isFinite(beat.time) &&
+        beat.time >= 0 &&
+        (index === 0 || beat.time > all[index - 1].time),
+    );
+}
+
+export function alignBeatGridToMusicStart(
+  beats: RhythmBeat[] | undefined,
+  musicStart: number | null,
+): RhythmBeat[] {
+  return beats?.slice(beatGridAnchorIndex(beats, musicStart)) ?? [];
+}
+
+export function beatGridAnchorIndex(
+  beats: RhythmBeat[] | undefined,
+  musicStart: number | null,
+): number {
+  if (!beats?.length || musicStart == null || musicStart <= 0) return 0;
+  const downbeats = beats
+    .map((beat, index) => ({ beat, index }))
+    .filter(({ beat }) => beat.beatInBar === 1);
+  const candidates =
+    downbeats.length > 0
+      ? downbeats
+      : beats.map((beat, index) => ({ beat, index }));
+  let anchor = candidates[0];
+  for (const candidate of candidates.slice(1)) {
+    if (
+      Math.abs(candidate.beat.time - musicStart) <
+      Math.abs(anchor.beat.time - musicStart)
+    ) {
+      anchor = candidate;
+    }
+  }
+  return anchor.index;
+}
+
+export function resolvePerformanceStart(
+  beats: RhythmBeat[] | undefined,
+  bpm: number,
+  offset: number,
+  musicStart: number | null,
+): number | null {
+  const aligned = alignBeatGridToMusicStart(beats, musicStart);
+  if (aligned.length) return aligned[0].time;
+  if (!Number.isFinite(bpm) || bpm <= 0 || !Number.isFinite(offset)) {
+    return null;
+  }
+
+  const cycle = (60 / bpm) * BEATS_PER_SEGMENT;
+  const reference = musicStart ?? 0;
+  let start = offset + Math.round((reference - offset) / cycle) * cycle;
+  while (start < 0) start += cycle;
+  return start;
+}
+
+export function deriveSegmentsFromBeats(
+  trackedBeats: RhythmBeat[] | undefined,
+  bpm: number,
+  offset: number,
+  duration: number,
+): Segment[] {
+  if (!trackedBeats || trackedBeats.length < 2) {
+    return deriveSegments(bpm, offset, duration);
+  }
+
+  const times = trackedBeats
+    .map((beat) => beat.time)
+    .filter(
+      (time, index, all) =>
+        Number.isFinite(time) &&
+        time >= 0 &&
+        time < duration &&
+        (index === 0 || time > all[index - 1]),
+    );
+  if (times.length < 2) return deriveSegments(bpm, offset, duration);
+
+  const intervals = times.slice(1).map((time, index) => time - times[index]);
+  const globalSpb = median(intervals) || 60 / bpm;
+  const segments: Segment[] = [];
+
+  for (
+    let startIndex = 0;
+    startIndex < times.length;
+    startIndex += BEATS_PER_SEGMENT
+  ) {
+    const origin = times[startIndex];
+    const known = times.slice(startIndex, startIndex + BEATS_PER_SEGMENT);
+    if (!known.length) break;
+    const localIntervals = known
+      .slice(1)
+      .map((time, index) => time - known[index]);
+    const spb = median(localIntervals) || globalSpb;
+    const beats = Array.from(
+      { length: BEATS_PER_SEGMENT },
+      (_, index) =>
+        known[index] ??
+        known[known.length - 1] + spb * (index - known.length + 1),
+    );
+    const nextTracked = times[startIndex + BEATS_PER_SEGMENT];
+    const end = Math.min(
+      duration,
+      nextTracked ?? beats[BEATS_PER_SEGMENT - 1] + spb,
+    );
+    if (end - origin < spb * 0.5) continue;
+    segments.push({
+      num: segments.length + 1,
+      start: origin,
+      end,
+      origin,
+      spb,
+      beats,
+    });
+  }
+
+  return segments;
+}
+
 export function findSegmentIndex(segments: Segment[], t: number): number {
   for (let i = 0; i < segments.length; i++) {
     if (t >= segments[i].start && t < segments[i].end) return i;
@@ -48,8 +195,25 @@ export function findSegmentIndex(segments: Segment[], t: number): number {
 
 /** 当前时间落在某段内时，返回正在响的拍（0-7）。 */
 export function activeBeatInSegment(seg: Segment, t: number): number {
-  const idx = Math.floor((t - seg.origin) / seg.spb);
-  return Math.max(0, Math.min(BEATS_PER_SEGMENT - 1, idx));
+  let active = 0;
+  for (let index = 1; index < seg.beats.length; index++) {
+    if (seg.beats[index] > t) break;
+    active = index;
+  }
+  return Math.max(0, Math.min(BEATS_PER_SEGMENT - 1, active));
+}
+
+export function beatPhaseInSegment(
+  seg: Segment,
+  t: number,
+): { index: number; phase: number } {
+  const index = activeBeatInSegment(seg, t);
+  const start = seg.beats[index] ?? seg.origin + index * seg.spb;
+  const end =
+    seg.beats[index + 1] ??
+    (index === BEATS_PER_SEGMENT - 1 ? seg.end : start + seg.spb);
+  const phase = end > start ? (t - start) / (end - start) : 0;
+  return { index, phase: Math.max(0, Math.min(1, phase)) };
 }
 
 /** 段落对应的时间区间（按八拍序号取首尾八拍的 start/end），越界自动钳制。 */

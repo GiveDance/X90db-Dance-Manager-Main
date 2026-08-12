@@ -11,6 +11,11 @@ import {
 } from "@/lib/beatDetection";
 import { ThumbnailGenerator } from "@/lib/thumbnailGenerator";
 import {
+  alignBeatGridToMusicStart,
+  calibrateBeatGrid,
+  resolvePerformanceStart,
+} from "@/lib/segments";
+import {
   deleteDance,
   getDanceBlob,
   listDances,
@@ -83,12 +88,14 @@ export default function HomePage() {
 
       let bpm = 120;
       let offset = 0;
-      let musicStart = 0;
+      let musicStart: number | null = null;
+      let analysisResult: Awaited<ReturnType<typeof analyzeAudio>> | null = null;
       try {
         const res = await analyzeAudio(file, setStage);
+        analysisResult = res;
         bpm = res.bpm;
         offset = res.offset;
-        musicStart = res.musicStart ?? 0;
+        musicStart = res.musicStart;
       } catch {
         // Continue with safe defaults when the audio track cannot be decoded.
       }
@@ -113,11 +120,23 @@ export default function HomePage() {
         updatedAt: now,
         bpm,
         offset,
-        analysisBpm: bpm,
-        analysisOffset: offset,
-        detectedBpm: bpm,
-        detectedOffset: offset,
+        ...(analysisResult
+          ? {
+              detectedBpm: bpm,
+              detectedOffset: offset,
+              detectedBeats: analysisResult.beats,
+              analysisBeats: analysisResult.beats,
+              analysisEngine: analysisResult.engine,
+              analysisConfidence: analysisResult.confidence,
+            }
+          : {}),
         musicStart,
+        performanceStart: resolvePerformanceStart(
+          analysisResult?.beats,
+          bpm,
+          offset,
+          musicStart,
+        ),
         duration,
         size: file.size,
         type: file.type,
@@ -173,22 +192,31 @@ export default function HomePage() {
         if (
           meta.musicStart == null ||
           meta.detectedBpm == null ||
-          meta.detectedOffset == null
+          meta.detectedOffset == null ||
+          meta.analysisEngine == null
         ) {
           try {
             const analysis = await analyzeAudio(blob);
+            const migratedBeats = calibrateBeatGrid(
+              analysis.beats,
+              analysis.bpm,
+              analysis.offset,
+              meta.bpm,
+              meta.offset,
+            );
             const analysisPatch: Partial<SavedDanceMeta> = {
               detectedBpm: meta.detectedBpm ?? analysis.bpm,
               detectedOffset: meta.detectedOffset ?? analysis.offset,
+              detectedBeats: meta.detectedBeats ?? analysis.beats,
+              analysisEngine: meta.analysisEngine ?? analysis.engine,
+              analysisConfidence:
+                meta.analysisConfidence ?? analysis.confidence,
+              analysisBeats:
+                meta.analysisBeats ??
+                (migratedBeats.length ? migratedBeats : undefined),
               updatedAt: Date.now(),
               ...(meta.musicStart == null
-                ? {
-                    bpm: analysis.bpm,
-                    offset: analysis.offset,
-                    analysisBpm: analysis.bpm,
-                    analysisOffset: analysis.offset,
-                    musicStart: analysis.musicStart,
-                  }
+                ? { musicStart: analysis.musicStart }
                 : {}),
             };
             resolvedMeta = {
@@ -250,7 +278,9 @@ export default function HomePage() {
     (data: {
       bpm: number;
       offset: number;
+      beats?: SavedDanceMeta["analysisBeats"];
       musicStart?: number;
+      performanceStart?: number;
       tempoChanged: boolean;
       markers: Marker[];
       sections: DanceSection[];
@@ -260,13 +290,12 @@ export default function HomePage() {
     }) => {
       setCurrent((cur) => {
         if (!cur) return cur;
-        const { tempoChanged, ...persistedData } = data;
+        const { tempoChanged, beats, ...persistedData } = data;
         const patch = {
           ...persistedData,
           ...(tempoChanged
             ? {
-                analysisBpm: data.bpm,
-                analysisOffset: data.offset,
+                analysisBeats: beats,
               }
             : {}),
           updatedAt: Date.now(),
@@ -306,16 +335,23 @@ export default function HomePage() {
         src={current.url}
         fileName={current.meta.name}
         analysis={{
-          bpm: current.meta.analysisBpm ?? current.meta.bpm,
-          offset: current.meta.analysisOffset ?? current.meta.offset,
+          bpm: current.meta.bpm,
+          offset: current.meta.offset,
           musicStart: current.meta.musicStart ?? null,
+          beats:
+            current.meta.analysisBeats ?? current.meta.detectedBeats,
+          engine: current.meta.analysisEngine,
+          confidence: current.meta.analysisConfidence,
         }}
+        initialPerformanceStart={current.meta.performanceStart ?? null}
         defaultAnalysis={{
-          bpm: current.meta.detectedBpm ?? current.meta.analysisBpm ?? current.meta.bpm,
+          bpm: current.meta.detectedBpm ?? current.meta.bpm,
           offset:
             current.meta.detectedOffset ??
-            current.meta.analysisOffset ??
             current.meta.offset,
+          beats: current.meta.detectedBeats,
+          engine: current.meta.analysisEngine,
+          confidence: current.meta.analysisConfidence,
         }}
         initialCalibrationOpen={current.openCalibrationOnEnter}
         initialMarkers={current.meta.markers}
@@ -329,6 +365,34 @@ export default function HomePage() {
       />
     );
   }
+  const exportBpm = exportTarget
+    ? exportTarget.meta.bpm
+    : 0;
+  const exportOffset = exportTarget
+    ? exportTarget.meta.offset
+    : 0;
+  const exportRawBeats = exportTarget
+    ? exportTarget.meta.analysisBeats ??
+      exportTarget.meta.detectedBeats ??
+      []
+    : [];
+  const exportBeats = alignBeatGridToMusicStart(
+    exportRawBeats,
+    exportTarget?.meta.performanceStart ??
+      exportTarget?.meta.musicStart ??
+      null,
+  );
+  const exportPerformanceStart =
+    exportTarget?.meta.performanceStart ??
+    (exportTarget
+      ? resolvePerformanceStart(
+          exportBeats,
+          exportBpm,
+          exportOffset,
+          exportTarget.meta.musicStart ?? null,
+        )
+      : null);
+
   return (
     <>
       <Home
@@ -345,9 +409,11 @@ export default function HomePage() {
         <ExportDialog
           src={exportTarget.url}
           name={exportTarget.meta.name}
-          bpm={exportTarget.meta.analysisBpm ?? exportTarget.meta.bpm}
-          offset={exportTarget.meta.analysisOffset ?? exportTarget.meta.offset}
+          bpm={exportBpm}
+          offset={exportOffset}
+          beats={exportBeats}
           musicStart={exportTarget.meta.musicStart ?? null}
+          countInStart={exportPerformanceStart}
           markers={exportTarget.meta.markers}
           formationChanges={exportTarget.meta.formationChanges ?? []}
           formationAudiencePosition={

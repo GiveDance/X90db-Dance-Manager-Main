@@ -31,6 +31,7 @@ interface VideoStageProps {
   beatActive: boolean;
   isPlaying: boolean;
   musicStarted: boolean;
+  preRoll: boolean;
   secondsPerBeat: number;
   onTogglePlay: () => void;
   onRemoveMarker: (id: string) => void;
@@ -58,6 +59,7 @@ export function VideoStage({
   beatActive,
   isPlaying,
   musicStarted,
+  preRoll,
   secondsPerBeat,
   onTogglePlay,
   onRemoveMarker,
@@ -85,6 +87,7 @@ export function VideoStage({
       active={beatActive}
       isPlaying={isPlaying}
       musicStarted={musicStarted}
+      preRoll={preRoll}
       secondsPerBeat={secondsPerBeat}
     />
   ) : null;
@@ -188,7 +191,7 @@ export function VideoStage({
               >
                 {countdown}
               </motion.span>
-              <span className="relative mt-4 text-lg text-white/90 [text-shadow:0_1px_8px_rgba(0,0,0,0.8)]">
+              <span className="relative mt-4 text-lg text-white/75 [text-shadow:0_1px_8px_rgba(0,0,0,0.8)]">
                 准备开始…
               </span>
             </motion.div>

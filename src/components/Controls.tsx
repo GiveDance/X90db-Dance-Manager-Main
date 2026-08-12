@@ -268,8 +268,8 @@ interface ControlsProps {
   onVizConfigChange: (config: BeatVizConfig) => void;
   onTogglePlay: () => void;
   onSeek: (t: number) => void;
-  onPrevSegment: () => void;
-  onNextSegment: () => void;
+  onPrevBeat: () => void;
+  onNextBeat: () => void;
   onSetVolume: (v: number) => void;
   onToggleMute: () => void;
   onSetRate: (r: number) => void;
@@ -881,10 +881,10 @@ export function Controls(props: ControlsProps) {
         <IconBtn title="播放 / 暂停 (Space)" onClick={props.onTogglePlay}>
           {isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
         </IconBtn>
-        <IconBtn title="上一个八拍" onClick={props.onPrevSegment}>
+        <IconBtn title="上一拍 (←)" onClick={props.onPrevBeat}>
           <SkipBack className="h-4 w-4" />
         </IconBtn>
-        <IconBtn title="下一个八拍" onClick={props.onNextSegment}>
+        <IconBtn title="下一拍 (→)" onClick={props.onNextBeat}>
           <SkipForward className="h-4 w-4" />
         </IconBtn>
 

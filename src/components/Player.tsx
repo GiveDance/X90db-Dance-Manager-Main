@@ -14,11 +14,16 @@ import { FormationEditorPage } from "./FormationEditorPage";
 import { usePlayer } from "@/hooks/usePlayer";
 import { ThumbnailGenerator } from "@/lib/thumbnailGenerator";
 import { detectSectionsFromUrl } from "@/lib/sectionDetection";
+import { hasMusicStarted, musicStartPreRoll } from "@/lib/countIn";
 import {
   activeBeatInSegment,
-  deriveSegments,
+  beatGridAnchorIndex,
+  beatPhaseInSegment,
+  calibrateBeatGrid,
+  deriveSegmentsFromBeats,
   findSectionIndex,
   findSegmentIndex,
+  resolvePerformanceStart,
   sectionTimeRange,
 } from "@/lib/segments";
 import type {
@@ -29,6 +34,7 @@ import type {
   FormationChange,
   Marker,
   MarkerColor,
+  RhythmBeat,
   Segment,
 } from "@/lib/types";
 
@@ -37,7 +43,7 @@ type LoopTarget = { kind: "beat" | "section"; key: number } | null;
 const DEFAULT_BEAT_VIZ_CONFIG: BeatVizConfig = {
   countPoints: true,
   countPointStyle: "tiles",
-  countPointPosition: "left",
+  countPointPosition: "top",
   pulse: false,
   breath: false,
 };
@@ -62,7 +68,11 @@ interface PlayerProps {
   src: string;
   fileName: string;
   analysis: BeatAnalysis;
-  defaultAnalysis: Pick<BeatAnalysis, "bpm" | "offset">;
+  defaultAnalysis: Pick<
+    BeatAnalysis,
+    "bpm" | "offset" | "beats" | "engine" | "confidence"
+  >;
+  initialPerformanceStart?: number | null;
   initialCalibrationOpen?: boolean;
   initialMarkers?: Marker[];
   initialSections?: DanceSection[];
@@ -73,7 +83,9 @@ interface PlayerProps {
   onPersist?: (data: {
     bpm: number;
     offset: number;
+    beats?: RhythmBeat[];
     musicStart?: number;
+    performanceStart?: number;
     tempoChanged: boolean;
     markers: Marker[];
     sections: DanceSection[];
@@ -88,6 +100,7 @@ export function Player({
   fileName,
   analysis,
   defaultAnalysis,
+  initialPerformanceStart,
   initialCalibrationOpen = false,
   initialMarkers,
   initialSections,
@@ -125,7 +138,6 @@ export function Player({
     { mode: "new" | "edit"; index: number; draft: DanceSection } | null
   >(null);
   const [loopTarget, setLoopTarget] = useState<LoopTarget>(null);
-
   useEffect(() => {
     if (!initialCalibrationOpen) return;
     calibrationTimerRef.current = window.setTimeout(() => {
@@ -151,17 +163,81 @@ export function Player({
   // 可校准的节拍参数：初始为 AI 检测值，校准面板可手动修正。
   const [bpm, setBpm] = useState(analysis.bpm);
   const [offset, setOffset] = useState(analysis.offset);
+  const [beatBase, setBeatBase] = useState<RhythmBeat[]>(analysis.beats ?? []);
+  const [beatBaseBpm, setBeatBaseBpm] = useState(analysis.bpm);
+  const [beatBaseOffset, setBeatBaseOffset] = useState(analysis.offset);
   const [tempoChanged, setTempoChanged] = useState(false);
   const musicStart = analysis.musicStart;
+  const [presentationAnchorReference] = useState(
+    initialPerformanceStart ?? musicStart,
+  );
 
   // 缩略图生成器：随视频源创建，卸载/切换时销毁
   const generator = useMemo(() => new ThumbnailGenerator(src), [src]);
   useEffect(() => () => generator.destroy(), [generator]);
 
-  // 参数驱动：八拍分段由 bpm + offset + duration 推导
+  const calibratedBeats = useMemo(
+    () =>
+      calibrateBeatGrid(
+        beatBase,
+        beatBaseBpm,
+        beatBaseOffset,
+        bpm,
+        offset,
+      ),
+    [beatBase, beatBaseBpm, beatBaseOffset, bpm, offset],
+  );
+  const presentationAnchorIndex = useMemo(
+    () =>
+      beatGridAnchorIndex(
+        beatBase,
+        presentationAnchorReference,
+      ),
+    [beatBase, presentationAnchorReference],
+  );
+  const presentationBeats = useMemo(
+    () =>
+      calibrateBeatGrid(
+        beatBase.slice(presentationAnchorIndex),
+        beatBaseBpm,
+        beatBaseOffset,
+        bpm,
+        offset,
+      ),
+    [
+      beatBase,
+      presentationAnchorIndex,
+      beatBaseBpm,
+      beatBaseOffset,
+      bpm,
+      offset,
+    ],
+  );
+
+  // Keep detector timestamps intact; only the presentation grid starts at count 1.
   const segments = useMemo<Segment[]>(
-    () => deriveSegments(bpm, offset, duration),
-    [bpm, offset, duration],
+    () => deriveSegmentsFromBeats(presentationBeats, bpm, offset, duration),
+    [presentationBeats, bpm, offset, duration],
+  );
+  const navigationBeats = useMemo(
+    () =>
+      (presentationBeats.length
+        ? presentationBeats.map((beat) => beat.time)
+        : segments.flatMap((segment) => segment.beats)
+      ).filter(
+        (time, index, all) =>
+          Number.isFinite(time) &&
+          time >= 0 &&
+          time <= duration &&
+          (index === 0 || time > all[index - 1]),
+      ),
+    [presentationBeats, segments, duration],
+  );
+  const performanceStart = useMemo(
+    () =>
+      presentationBeats[0]?.time ??
+      resolvePerformanceStart(undefined, bpm, offset, musicStart),
+    [presentationBeats, bpm, offset, musicStart],
   );
 
   const activeIndex = useMemo(
@@ -186,10 +262,12 @@ export function Player({
   const beatViz = useMemo(() => {
     const seg = activeIndex >= 0 ? segments[activeIndex] : null;
     if (!seg) return { active: false, phase: 1, isDownbeat: false };
-    const rel = (currentTime - seg.origin) / seg.spb;
-    const idx = Math.floor(rel);
-    if (idx < 0 || idx >= 8) return { active: false, phase: 1, isDownbeat: false };
-    return { active: true, phase: rel - idx, isDownbeat: idx === 0 };
+    const beat = beatPhaseInSegment(seg, currentTime);
+    return {
+      active: true,
+      phase: beat.phase,
+      isDownbeat: beat.index === 0,
+    };
   }, [activeIndex, segments, currentTime]);
 
   // 首次切到「段落」tab 且无段落时，本地自动识别一次
@@ -198,13 +276,13 @@ export function Player({
     if (tab !== "section" || autoDetectTried.current || duration <= 0) return;
     autoDetectTried.current = true;
     setDetecting(true);
-    detectSectionsFromUrl(src, bpm, offset, duration)
+    detectSectionsFromUrl(src, bpm, offset, duration, presentationBeats)
       .then((secs) => setSections(secs))
       .catch(() => {})
       .finally(() => setDetecting(false));
-  }, [tab, duration, src, bpm, offset]);
+  }, [tab, duration, src, bpm, offset, presentationBeats]);
 
-  // —— 循环（八拍 / 段落 互斥，开始时 321 倒计时）——
+  // —— 循环（八拍 / 段落 互斥，开始时 5678 倒计时）——
   const beatLoopKey = loopTarget?.kind === "beat" ? loopTarget.key : null;
   const sectionLoopKey = loopTarget?.kind === "section" ? loopTarget.key : null;
 
@@ -271,14 +349,26 @@ export function Player({
     [sections, segments, loopTarget, actions],
   );
 
-  const prevSegment = useCallback(() => {
-    const target = segments[Math.max(0, activeIndex - 1)];
-    if (target) jumpToSegment(target);
-  }, [segments, activeIndex, jumpToSegment]);
-  const nextSegment = useCallback(() => {
-    const target = segments[Math.min(segments.length - 1, activeIndex + 1)];
-    if (target) jumpToSegment(target);
-  }, [segments, activeIndex, jumpToSegment]);
+  const seekBeat = useCallback(
+    (direction: -1 | 1) => {
+      if (!navigationBeats.length) return;
+      if (loopTarget) {
+        actions.stopLoop();
+        setLoopTarget(null);
+      }
+      const tolerance = 0.05;
+      const target =
+        direction < 0
+          ? navigationBeats.findLast(
+              (time) => time < currentTime - tolerance,
+            )
+          : navigationBeats.find((time) => time > currentTime + tolerance);
+      actions.seek(target ?? (direction < 0 ? 0 : duration));
+    },
+    [navigationBeats, loopTarget, actions, currentTime, duration],
+  );
+  const prevBeat = useCallback(() => seekBeat(-1), [seekBeat]);
+  const nextBeat = useCallback(() => seekBeat(1), [seekBeat]);
 
   // —— 段落增删改 ——
   const openAddSection = useCallback(() => {
@@ -400,19 +490,12 @@ export function Player({
 
   const toggleDanmaku = useCallback(() => setDanmakuOn((v) => !v), []);
 
-  // 起播跟拍 count-in：由播放位置实时驱动（叠加在正常播放的视频上，不 seek、不丢前奏）。
-  // 距离第 1 拍 4 拍以内时显示 5/6/7/8，来不及就自然从 6/7/8 起。
-  const firstBeatTime = segments.length ? segments[0].start : null;
-  const musicStarted =
-    musicStart == null || currentTime >= musicStart - 0.02;
-  const countIn = useMemo(() => {
-    if (firstBeatTime == null || firstBeatTime <= 0.05) return null;
-    const spb = 60 / bpm;
-    const remaining = firstBeatTime - currentTime;
-    if (remaining <= 0.02 || remaining > spb * 4 + 0.02) return null;
-    const n = Math.max(1, Math.min(4, Math.ceil(remaining / spb)));
-    return 9 - n;
-  }, [firstBeatTime, currentTime, bpm]);
+  // Countdown, pre-roll beats, and gray-to-color all meet on count 1.
+  const musicStarted = hasMusicStarted(currentTime, musicStart);
+  const preRoll = useMemo(
+    () => musicStartPreRoll(currentTime, bpm, performanceStart),
+    [currentTime, bpm, performanceStart],
+  );
 
   // 循环 5678 倒计时的每拍间隔跟随歌曲 BPM 与当前倍速（慢放时口令也随之放慢，保持同步）。
   useEffect(() => {
@@ -421,7 +504,8 @@ export function Player({
   }, [bpm, state.playbackRate, actions]);
 
   // 循环倒计时（暂停态）优先；否则显示起播 count-in
-  const displayCountdown = state.countdown ?? countIn;
+  const displayCountdown = state.countdown ?? preRoll?.count ?? null;
+  const showPreRoll = state.countdown == null && preRoll != null;
 
   // —— 校准 ——
   const setBpmClamped = useCallback((b: number) => {
@@ -433,16 +517,19 @@ export function Player({
     setTempoChanged(true);
   }, []);
   const setOffsetValue = useCallback((value: number) => {
-    setOffset(value);
+    setOffset((current) => current + value - (performanceStart ?? current));
     setTempoChanged(true);
-  }, []);
+  }, [performanceStart]);
   const setDownbeatToNow = useCallback(() => {
-    setOffset(currentTime);
+    setOffset((current) => current + currentTime - (performanceStart ?? current));
     setTempoChanged(true);
-  }, [currentTime]);
+  }, [currentTime, performanceStart]);
   const resetCalibration = useCallback(() => {
     setBpm(defaultAnalysis.bpm);
     setOffset(defaultAnalysis.offset);
+    setBeatBase(defaultAnalysis.beats ?? []);
+    setBeatBaseBpm(defaultAnalysis.bpm);
+    setBeatBaseOffset(defaultAnalysis.offset);
     setTempoChanged(true);
   }, [defaultAnalysis]);
 
@@ -455,7 +542,9 @@ export function Player({
     onPersistRef.current?.({
       bpm,
       offset,
+      beats: calibratedBeats.length ? calibratedBeats : undefined,
       ...(musicStart != null ? { musicStart } : {}),
+      ...(performanceStart != null ? { performanceStart } : {}),
       tempoChanged,
       markers,
       sections,
@@ -466,6 +555,7 @@ export function Player({
   }, [
     bpm,
     offset,
+    calibratedBeats,
     musicStart,
     tempoChanged,
     markers,
@@ -496,10 +586,10 @@ export function Player({
         actions.togglePlay();
       } else if (e.code === "ArrowLeft") {
         e.preventDefault();
-        prevSegment();
+        prevBeat();
       } else if (e.code === "ArrowRight") {
         e.preventDefault();
-        nextSegment();
+        nextBeat();
       } else if (e.code === "KeyD") {
         e.preventDefault();
         toggleDanmaku();
@@ -513,8 +603,8 @@ export function Player({
     exportOpen,
     formationEditing,
     toggleDanmaku,
-    prevSegment,
-    nextSegment,
+    prevBeat,
+    nextBeat,
   ]);
 
   const enterFormationEditor = () => {
@@ -545,7 +635,7 @@ export function Player({
         activeSegmentNumber={activeSegmentNumber}
         activeBeat={activeBeat}
         bpm={bpm}
-        offset={offset}
+        offset={performanceStart ?? offset}
         onTogglePlay={actions.togglePlay}
         onSeek={actions.seek}
         onSetVolume={actions.setVolume}
@@ -603,18 +693,19 @@ export function Player({
           videoRef={videoRef}
           videoProps={videoProps}
           mirrored={state.mirrored}
-          activeBeat={activeBeat}
+          activeBeat={showPreRoll ? preRoll.count - 1 : activeBeat}
           markers={markers}
           currentTime={currentTime}
           danmakuOn={danmakuOn}
           countdown={displayCountdown}
           vizConfig={activeVizConfig}
-          beatPhase={beatViz.phase}
-          isDownbeat={beatViz.isDownbeat}
-          beatActive={beatViz.active}
+          beatPhase={showPreRoll ? preRoll.phase : beatViz.phase}
+          isDownbeat={showPreRoll ? false : beatViz.isDownbeat}
+          beatActive={showPreRoll || beatViz.active}
           activeSegmentNumber={activeSegmentNumber}
           isPlaying={state.isPlaying}
           musicStarted={musicStarted}
+          preRoll={showPreRoll}
           secondsPerBeat={secondsPerBeat}
           onTogglePlay={actions.togglePlay}
           onRemoveMarker={removeMarker}
@@ -657,8 +748,8 @@ export function Player({
           onVizConfigChange={setVizConfig}
           onTogglePlay={actions.togglePlay}
           onSeek={actions.seek}
-          onPrevSegment={prevSegment}
-          onNextSegment={nextSegment}
+          onPrevBeat={prevBeat}
+          onNextBeat={nextBeat}
           onSetVolume={actions.setVolume}
           onToggleMute={actions.toggleMute}
           onSetRate={actions.setPlaybackRate}
@@ -694,8 +785,10 @@ export function Player({
             src={src}
             name={fileName}
             bpm={bpm}
-            offset={offset}
+            offset={performanceStart ?? offset}
+            beats={presentationBeats}
             musicStart={musicStart}
+            countInStart={performanceStart}
             markers={markers}
             formationChanges={formationChanges}
             formationAudiencePosition={formationAudiencePosition}
@@ -715,7 +808,7 @@ export function Player({
         calibrating={calibOpen}
         onToggleCalibration={toggleCalibration}
         bpm={bpm}
-        offset={offset}
+        offset={performanceStart ?? offset}
         currentCount={activeBeat >= 0 ? activeBeat + 1 : 0}
         onSetBpm={setBpmClamped}
         onSetOffset={setOffsetValue}
