@@ -152,27 +152,56 @@ export type GeneratedStageTemplate =
   | "minimal";
 
 export type StageSignalPosition = "left" | "right" | "top" | "bottom";
+export type CornerSignalShape = "bloom" | "burst";
+export type BeatPointShape = "tiles" | "hearts" | "stars" | "star5";
+export type PerformerSignalTheme = "neon" | "gold" | "white" | "contrast";
 
 export interface PerformingStageSettings {
   backgroundMode: "generated" | "video";
   template: GeneratedStageTemplate;
+  cornerSignalEnabled: boolean;
+  cornerSignalShape: CornerSignalShape;
+  cornerSignalTheme: PerformerSignalTheme;
+  cornerSignalBeatColor: string;
+  cornerSignalAccentColor: string;
+  cornerSignalSize: number;
+  cornerSignalOpacity: number;
   showBeatCode: boolean;
-  showSectionRail: boolean;
+  beatPointShape: BeatPointShape;
+  beatPointTheme: PerformerSignalTheme;
+  beatPointBeatColor: string;
+  beatPointAccentColor: string;
+  beatPointSize: number;
+  beatPointOpacity: number;
+  beatPointSpacing: number;
+  beatPointRows: 1 | 2;
   beatCodePositions: StageSignalPosition[];
-  railPositions: StageSignalPosition[];
   secondaryAccentCount: number;
-  visualLeadMs: number;
+  visualLeadEnabled: boolean;
 }
 
 export const DEFAULT_PERFORMING_STAGE: PerformingStageSettings = {
   backgroundMode: "video",
   template: "street",
+  cornerSignalEnabled: true,
+  cornerSignalShape: "bloom",
+  cornerSignalTheme: "neon",
+  cornerSignalBeatColor: "#7c6cff",
+  cornerSignalAccentColor: "#ff5c8a",
+  cornerSignalSize: 1,
+  cornerSignalOpacity: 1,
   showBeatCode: true,
-  showSectionRail: true,
+  beatPointShape: "tiles",
+  beatPointTheme: "neon",
+  beatPointBeatColor: "#7c6cff",
+  beatPointAccentColor: "#ff5c8a",
+  beatPointSize: 1,
+  beatPointOpacity: 1,
+  beatPointSpacing: 1,
+  beatPointRows: 1,
   beatCodePositions: ["left", "right"],
-  railPositions: ["bottom"],
   secondaryAccentCount: 5,
-  visualLeadMs: 120,
+  visualLeadEnabled: true,
 };
 
 export const MARKER_COLORS: Record<MarkerColor, { dot: string; text: string; pill: string }> = {

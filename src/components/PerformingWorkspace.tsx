@@ -40,6 +40,7 @@ import { CompositionTimeline } from "./CompositionTimeline";
 import { FormationControls } from "./Controls";
 import { DevToolsButton } from "./DevToolsButton";
 import { OverlayInspector } from "./OverlayInspector";
+import { PerformerSignalRenderer } from "./PerformerSignalRenderer";
 import { PerformanceStageRenderer } from "./PerformanceStageRenderer";
 import { StageInspector } from "./StageInspector";
 
@@ -299,7 +300,7 @@ export function PerformingWorkspace({
         additions.push(clip);
       }
       if (!additions.length) {
-        setClipError("Choose browser-playable video files.");
+        setClipError("请选择浏览器可播放的视频文件。");
         return;
       }
       setClipUrls(new Map(clipUrlsRef.current));
@@ -307,7 +308,7 @@ export function PerformingWorkspace({
       commitClips(nextClips);
     } catch (error) {
       console.error("Failed to add Performing clips.", error);
-      setClipError("One or more clips could not be added.");
+      setClipError("部分视频素材无法添加。");
     } finally {
       setAddingClips(false);
       if (clipInputRef.current) clipInputRef.current.value = "";
@@ -452,7 +453,7 @@ export function PerformingWorkspace({
   ) => {
     const gap = nearestTimelineGap(layout, state.duration, dropTime);
     if (!gap) {
-      setClipError("No empty composition range is available.");
+      setClipError("合成时间线中没有可用的空白区域。");
       return;
     }
     const clip: PerformingClip = {
@@ -479,7 +480,7 @@ export function PerformingWorkspace({
     if (!asset) return;
     const gap = nearestTimelineGap(layout, state.duration, dropTime);
     if (!gap) {
-      setClipError("No empty composition range is available.");
+      setClipError("合成时间线中没有可用的空白区域。");
       return;
     }
     const snappedDrop = nearestBeatTime(beats, dropTime);
@@ -653,17 +654,24 @@ export function PerformingWorkspace({
           {activeVideoClip && !activeClipUrl && (
             <div className="text-sm text-neutral-600">Loading clip preview...</div>
           )}
+          <PerformerSignalRenderer
+            time={state.currentTime}
+            beats={beats}
+            bpm={bpm}
+            countInStart={project.musicStart ?? offset}
+            settings={stageSettings}
+          />
           {activeGeneratedClip ? (
             <PerformanceStageRenderer
               time={state.currentTime}
               beats={beats}
               template={activeGeneratedClip.generatedTemplate ?? "street"}
               playing={state.isPlaying}
-              showBeatCode={stageSettings.showBeatCode}
-              showSectionRail={stageSettings.showSectionRail}
+              showBeatCode={false}
+              showSectionRail={false}
               beatCodePositions={stageSettings.beatCodePositions}
-              railPositions={stageSettings.railPositions}
-              visualLeadMs={stageSettings.visualLeadMs}
+              railPositions={[]}
+              visualLeadMs={0}
               secondaryAccentCount={stageSettings.secondaryAccentCount}
             />
           ) : (
@@ -672,11 +680,11 @@ export function PerformingWorkspace({
               beats={beats}
               template="minimal"
               playing={state.isPlaying}
-              showBeatCode={stageSettings.showBeatCode}
-              showSectionRail={stageSettings.showSectionRail}
+              showBeatCode={false}
+              showSectionRail={false}
               beatCodePositions={stageSettings.beatCodePositions}
-              railPositions={stageSettings.railPositions}
-              visualLeadMs={stageSettings.visualLeadMs}
+              railPositions={[]}
+              visualLeadMs={0}
               secondaryAccentCount={stageSettings.secondaryAccentCount}
               signalOnly
             />
@@ -751,10 +759,12 @@ export function PerformingWorkspace({
 
       <aside className="flex h-full w-[clamp(300px,28vw,380px)] shrink-0 flex-col border-l border-white/5 bg-neutral-950">
         <section className="flex min-h-0 flex-[3] flex-col border-b border-white/5">
-          <div className="shrink-0 border-b border-white/5 px-5 py-4">
-            <p className="text-base font-semibold text-white">素材设置</p>
-            <p className="mt-1 text-[11px] text-neutral-600">
-              Settings for the selected timeline material
+          <div className="shrink-0 border-b border-white/5 px-4 py-3">
+            <p className="text-xs font-medium text-neutral-300">
+              素材设置
+            </p>
+            <p className="mt-1 text-[10px] tracking-[0.08em] text-neutral-500">
+              编辑时间线中选中的素材
             </p>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto">
@@ -774,10 +784,10 @@ export function PerformingWorkspace({
             ) : (
               <div className="flex h-full min-h-32 flex-col items-center justify-center px-4 text-center">
                 <p className="text-xs text-neutral-600">
-                  Select a material on the timeline.
+                  请在时间线中选择一个素材
                 </p>
                 <p className="mt-2 text-[11px] leading-5 text-neutral-700">
-                  Source in, speed, and duration will appear here.
+                  素材的时间、速度与播放设置会显示在这里
                 </p>
               </div>
             )}
@@ -785,16 +795,18 @@ export function PerformingWorkspace({
         </section>
 
         <section className="flex min-h-0 flex-[2] flex-col">
-          <div className="shrink-0 px-5 py-4">
-            <p className="text-base font-semibold text-white">素材库</p>
-            <p className="mt-1 text-[11px] text-neutral-600">
-              Clips and generated materials
+          <div className="shrink-0 px-4 py-3">
+            <p className="text-xs font-medium text-neutral-300">
+              素材库
+            </p>
+            <p className="mt-1 text-[10px] tracking-[0.08em] text-neutral-500">
+              拖拽素材到合成时间线
             </p>
           </div>
           <div className="mx-4 mb-3 grid shrink-0 grid-cols-2 rounded-lg bg-neutral-900 p-0.5 text-sm">
             {([
-              ["generated", "Generated", Sparkles],
-              ["clips", "Clips", Clapperboard],
+              ["generated", "生成素材", Sparkles],
+              ["clips", "视频素材", Clapperboard],
             ] as const).map(([id, label, Icon]) => (
               <button
                 key={id}
@@ -816,7 +828,7 @@ export function PerformingWorkspace({
 
           <div className="min-h-0 flex-1 overflow-y-auto">
             {libraryTab === "clips" ? (
-              <div className="p-3">
+              <div className="p-4">
             <input
               ref={clipInputRef}
               type="file"
@@ -832,7 +844,7 @@ export function PerformingWorkspace({
               className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-[#30E6FF]/25 bg-[#30E6FF]/5 px-3 py-2.5 text-[11px] text-[#30E6FF] transition-colors hover:border-[#30E6FF]/50 hover:bg-[#30E6FF]/10 disabled:opacity-40"
             >
               <Plus className="h-4 w-4" />
-              {addingClips ? "Adding clips..." : "Add video clips"}
+              {addingClips ? "正在添加…" : "添加视频素材"}
             </button>
             {clipError && (
               <p className="mt-2 text-[11px] leading-5 text-red-300/80">
@@ -856,7 +868,7 @@ export function PerformingWorkspace({
                     key={clip.id}
                     type="button"
                     draggable
-                    aria-label={`Drag ${clip.name} to the composition timeline`}
+                    aria-label={`拖拽 ${clip.name} 到合成时间线`}
                     onDragStart={(event) => {
                       event.dataTransfer.effectAllowed = "copyMove";
                       event.dataTransfer.setData(VIDEO_CLIP_DRAG_TYPE, clip.id);
@@ -910,7 +922,7 @@ export function PerformingWorkspace({
                         <span>{formatTime(clip.sourceDuration)}</span>
                         {instanceCount > 0 && (
                           <span className="rounded bg-[#30E6FF]/10 px-1.5 py-0.5 text-[#30E6FF]">
-                            {instanceCount} in timeline
+                            时间线 ×{instanceCount}
                           </span>
                         )}
                       </span>

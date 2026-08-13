@@ -23,6 +23,7 @@ import {
   UsersRound,
 } from "lucide-react";
 import { ProgressBar } from "./ProgressBar";
+import { Toggle } from "./Toggle";
 import { formatTime } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import type {
@@ -610,24 +611,11 @@ function HintMenu(props: {
                     在视频上显示已添加的动作提示
                   </div>
                 </div>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={props.enabled}
-                  aria-label="显示动作提示"
-                  onClick={props.onToggle}
-                  className={cn(
-                    "relative h-6 w-11 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400",
-                    props.enabled ? "bg-blue-500" : "bg-neutral-600",
-                  )}
-                >
-                  <span
-                    className={cn(
-                      "absolute left-1 top-1 h-4 w-4 rounded-full bg-white shadow transition-transform",
-                      props.enabled ? "translate-x-5" : "translate-x-0",
-                    )}
-                  />
-                </button>
+                <Toggle
+                  checked={props.enabled}
+                  onChange={props.onToggle}
+                  label="显示动作提示"
+                />
               </div>
               <div className="my-3 h-px bg-white/10" />
               <div className="mb-2 text-xs font-medium text-neutral-300">

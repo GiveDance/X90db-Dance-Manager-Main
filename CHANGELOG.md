@@ -17,6 +17,8 @@ This changelog documents the product work completed after DanceManager was creat
 - Added reusable video assets with thumbnails, independent timeline instances, Delete-key removal, source-aware trimming, speed-based duration, and optional repeat playback.
 - Preserved generated-template rendering while allowing each instance to fill and resize within available timeline gaps.
 - Differentiated video materials with cyan semantics and generated materials with violet semantics, with Generated selected by default in the material library.
+- Added independently configurable corner-flash and mirrored beat-point performer signals, with subtle tile-inspired styling, preset and custom beat/accent colors, adjustable spacing, single/double-row layouts, multi-position placement, shared secondary accents, collapsible settings, and a lower-opacity white 5·6·7·8 visual lead.
+- Unified the Performing sidebar spacing, title hierarchy, toggle styling, and Chinese localization across material settings and the material library.
 
 ### Playback precision
 
