@@ -1,6 +1,6 @@
 "use client";
 
-import { Clapperboard, Sparkles } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import type {
   GeneratedStageTemplate,
   PerformingStageSettings,
@@ -15,15 +15,36 @@ const TEMPLATES: Array<{
   id: GeneratedStageTemplate;
   name: string;
   description: string;
+  preview: string;
 }> = [
-  { id: "street", name: "Street Signal", description: "街舞霓虹 / 8 拍可读" },
-  { id: "pulse", name: "Aurora Pulse", description: "柔和氛围 / 光环呼吸" },
+  {
+    id: "street",
+    name: "Street Signal",
+    description: "街舞霓虹 / 8 拍可读",
+    preview:
+      "bg-[radial-gradient(circle_at_50%_100%,rgba(244,63,94,0.55),transparent_45%),linear-gradient(135deg,#09090b,#27112d)]",
+  },
+  {
+    id: "pulse",
+    name: "Aurora Pulse",
+    description: "柔和氛围 / 光环呼吸",
+    preview:
+      "bg-[radial-gradient(circle_at_50%_50%,rgba(34,211,238,0.5),transparent_35%),linear-gradient(135deg,#07101c,#201047)]",
+  },
   {
     id: "constellation",
     name: "Coalesce Cue",
     description: "粒子聚合 / cue 爆发",
+    preview:
+      "bg-[radial-gradient(circle_at_35%_35%,#fff_0_1px,transparent_2px),radial-gradient(circle_at_70%_55%,#c4b5fd_0_1px,transparent_2px),linear-gradient(135deg,#080812,#17113a)]",
   },
-  { id: "minimal", name: "Minimal Stage", description: "克制舞台 / 少干扰" },
+  {
+    id: "minimal",
+    name: "Minimal Stage",
+    description: "克制舞台 / 少干扰",
+    preview:
+      "bg-[linear-gradient(115deg,transparent_42%,rgba(255,255,255,0.18)_43%,transparent_44%),linear-gradient(135deg,#050505,#171717)]",
+  },
 ];
 
 export function StageInspector({
@@ -31,80 +52,50 @@ export function StageInspector({
   onChange,
 }: StageInspectorProps) {
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto p-4">
-      <div>
-        <p className="text-xs font-medium text-neutral-300">Background source</p>
-        <p className="mt-1 text-[11px] leading-5 text-neutral-600">
-          Choose generated visuals or the uploaded clip composition.
-        </p>
-        <div className="mt-3 grid grid-cols-2 rounded-xl border border-white/[0.07] bg-black/50 p-1">
+    <div className="grid grid-cols-2 gap-2 p-3">
+      {TEMPLATES.map((template) => {
+        const active =
+          settings.template === template.id &&
+          settings.backgroundMode === "generated";
+        return (
           <button
             type="button"
-            onClick={() => onChange({ backgroundMode: "generated" })}
-            className={`flex items-center justify-center gap-2 rounded-lg px-2 py-2.5 text-[11px] transition-colors ${
-              settings.backgroundMode === "generated"
-                ? "bg-violet-400/15 text-violet-200"
-                : "text-neutral-600 hover:text-neutral-300"
+            key={template.id}
+            onClick={() =>
+              onChange({
+                template: template.id,
+                backgroundMode: "generated",
+              })
+            }
+            className={`overflow-hidden rounded-xl border text-left transition-colors ${
+              active
+                ? "border-violet-300/60 bg-violet-400/10"
+                : "border-white/[0.07] bg-white/[0.025] hover:border-white/15"
             }`}
           >
-            <Sparkles className="h-3.5 w-3.5" />
-            Generated
-          </button>
-          <button
-            type="button"
-            onClick={() => onChange({ backgroundMode: "video" })}
-            className={`flex items-center justify-center gap-2 rounded-lg px-2 py-2.5 text-[11px] transition-colors ${
-              settings.backgroundMode === "video"
-                ? "bg-violet-400/15 text-violet-200"
-                : "text-neutral-600 hover:text-neutral-300"
-            }`}
-          >
-            <Clapperboard className="h-3.5 w-3.5" />
-            Video
-          </button>
-        </div>
-      </div>
-
-      <div className="my-5 h-px bg-white/5" />
-
-      <div>
-        <p className="text-xs font-medium text-neutral-300">
-          Local generated templates
-        </p>
-        <p className="mt-1 text-[11px] leading-5 text-neutral-600">
-          Driven by the shared beat and eight-count timeline.
-        </p>
-        <div className="mt-3 space-y-2">
-          {TEMPLATES.map((template) => (
-            <button
-              type="button"
-              key={template.id}
-              onClick={() =>
-                onChange({
-                  template: template.id,
-                  backgroundMode: "generated",
-                })
-              }
-              className={`w-full rounded-xl border px-3 py-3 text-left transition-colors ${
-                settings.template === template.id &&
-                settings.backgroundMode === "generated"
-                  ? "border-violet-300/50 bg-violet-400/10"
-                  : "border-white/[0.07] bg-white/[0.025] hover:border-white/15"
-              }`}
+            <span
+              className={`relative flex aspect-video items-center justify-center ${template.preview}`}
             >
-              <strong className="block text-xs font-medium text-neutral-200">
+              <Sparkles
+                className={`h-5 w-5 ${active ? "text-violet-200" : "text-white/35"}`}
+              />
+              <span className="absolute bottom-1.5 right-1.5 rounded bg-black/60 px-1.5 py-0.5 text-[8px] font-medium uppercase tracking-wider text-white/60">
+                Generated
+              </span>
+            </span>
+            <span className="block px-2.5 py-2">
+              <strong className="block truncate text-[11px] font-medium text-neutral-200">
                 {template.name}
               </strong>
-              <span className="mt-1 block text-[11px] text-neutral-600">
+              <span className="mt-0.5 block truncate text-[9px] text-neutral-600">
                 {template.description}
               </span>
-            </button>
-          ))}
-        </div>
-        <p className="mt-3 text-[11px] leading-5 text-neutral-700">
-          Templates control the background only. Performer signals are configured
-          separately in Overlay.
-        </p>
+            </span>
+          </button>
+        );
+      })}
+      <div className="col-span-2 mt-1 text-[10px] leading-4 text-neutral-700">
+        Generated materials use the existing templates and shared beat timeline.
       </div>
     </div>
   );

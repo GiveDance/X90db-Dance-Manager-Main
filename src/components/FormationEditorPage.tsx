@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState, type RefObject } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type RefObject,
+} from "react";
 import {
   ArrowLeft,
   Redo2,
@@ -14,6 +20,9 @@ import type {
   FormationPosition,
 } from "@/lib/types";
 import {
+  adjacentBeatTime,
+} from "@/lib/segments";
+import {
   defaultFormationPositions,
   formationAtTime,
   resizeFormationPositions,
@@ -24,6 +33,7 @@ import { FormationStageEditor } from "./FormationStageEditor";
 import { FormationTimeline } from "./FormationTimeline";
 import { FormationControls } from "./Controls";
 import { cn } from "@/lib/cn";
+import { PausedVideoFrame } from "./PausedVideoFrame";
 
 type Endpoint = "start" | "end";
 const HISTORY_LIMIT = 5;
@@ -83,6 +93,7 @@ interface FormationEditorPageProps {
   activeBeat: number;
   bpm: number;
   offset: number;
+  beatTimes: number[];
   onTogglePlay: () => void;
   onSeek: (time: number) => void;
   onSetVolume: (volume: number) => void;
@@ -137,6 +148,7 @@ export function FormationEditorPage({
   activeBeat,
   bpm,
   offset,
+  beatTimes,
   onTogglePlay,
   onSeek,
   onSetVolume,
@@ -254,11 +266,18 @@ export function FormationEditorPage({
         ? "重置为前置走位"
         : "重置为默认走位";
 
-  const selectEndpoint = (id: string, endpoint: Endpoint) => {
+  const selectEndpoint = (
+    id: string,
+    endpoint: Endpoint,
+    previewTime?: number,
+  ) => {
     const change = changes.find((item) => item.id === id);
     if (!change) return;
     setSelected({ id, endpoint });
-    onSeek(endpoint === "start" ? change.startTime : change.endTime);
+    onSeek(
+      previewTime ??
+        (endpoint === "start" ? change.startTime : change.endTime),
+    );
   };
 
   const createChange = (requestedStart: number, requestedEnd: number) => {
@@ -290,33 +309,21 @@ export function FormationEditorPage({
     onSeek(endTime);
   };
 
-  const secondsPerBeat = 60 / Math.max(1, bpm);
-  const firstBeatTime = Math.max(0, offset);
-  const seekPreviousBeat = () => {
-    if (currentTime <= firstBeatTime + 0.01) {
-      onSeek(0);
-      return;
-    }
-    const beatIndex =
-      Math.ceil((currentTime - firstBeatTime) / secondsPerBeat - 0.001) - 1;
-    onSeek(
-      Math.min(
-        duration,
-        firstBeatTime + Math.max(0, beatIndex) * secondsPerBeat,
-      ),
-    );
-  };
-  const seekNextBeat = () => {
-    if (currentTime < firstBeatTime - 0.01) {
-      onSeek(Math.min(duration, firstBeatTime));
-      return;
-    }
-    const beatIndex =
-      Math.floor((currentTime - firstBeatTime) / secondsPerBeat + 0.001) + 1;
-    onSeek(
-      Math.min(duration, firstBeatTime + beatIndex * secondsPerBeat),
-    );
-  };
+  const seekBeat = useCallback(
+    (direction: -1 | 1) => {
+      onSeek(
+        adjacentBeatTime(
+          beatTimes,
+          videoRef.current?.currentTime ?? currentTime,
+          direction,
+          duration,
+        ),
+      );
+    },
+    [beatTimes, currentTime, duration, onSeek, videoRef],
+  );
+  const seekPreviousBeat = useCallback(() => seekBeat(-1), [seekBeat]);
+  const seekNextBeat = useCallback(() => seekBeat(1), [seekBeat]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -331,11 +338,17 @@ export function FormationEditorPage({
       if (event.code === "Space") {
         event.preventDefault();
         onTogglePlay();
+      } else if (event.code === "ArrowLeft") {
+        event.preventDefault();
+        seekPreviousBeat();
+      } else if (event.code === "ArrowRight") {
+        event.preventDefault();
+        seekNextBeat();
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onTogglePlay]);
+  }, [onTogglePlay, seekNextBeat, seekPreviousBeat]);
 
   const updateTime = (id: string, endpoint: Endpoint, time: number) => {
     commitChanges((current) =>
@@ -478,6 +491,11 @@ export function FormationEditorPage({
                 "max-h-full max-w-full cursor-pointer object-contain",
                 mirrored && "-scale-x-100",
               )}
+            />
+            <PausedVideoFrame
+              videoRef={videoRef}
+              src={src}
+              mirrored={mirrored}
             />
           </div>
           <div className="flex h-10 shrink-0 items-center justify-center border-b border-white/5 bg-neutral-950 px-5">

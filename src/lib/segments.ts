@@ -187,10 +187,25 @@ export function findSegmentIndex(segments: Segment[], t: number): number {
   for (let i = 0; i < segments.length; i++) {
     if (t >= segments[i].start && t < segments[i].end) return i;
   }
+
   if (!segments.length) return -1;
   // 超过最后一段 → 归到最后一段；在第一个八拍之前（前奏/静音）→ -1（不高亮、不计拍）
   if (t >= segments[segments.length - 1].end) return segments.length - 1;
   return -1;
+}
+
+export function adjacentBeatTime(
+  beatTimes: number[],
+  currentTime: number,
+  direction: -1 | 1,
+  duration: number,
+  tolerance = 0.05,
+): number {
+  const target =
+    direction < 0
+      ? beatTimes.findLast((time) => time < currentTime - tolerance)
+      : beatTimes.find((time) => time > currentTime + tolerance);
+  return target ?? (direction < 0 ? 0 : duration);
 }
 
 /** 当前时间落在某段内时，返回正在响的拍（0-7）。 */

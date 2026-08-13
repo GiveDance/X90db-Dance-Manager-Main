@@ -4,12 +4,7 @@ import {
   ArrowLeft,
   Clapperboard,
   Download,
-  Layers3,
-  Pause,
-  Play,
   Plus,
-  SkipBack,
-  SkipForward,
   Sparkles,
 } from "lucide-react";
 import {
@@ -20,8 +15,7 @@ import {
   useState,
 } from "react";
 import { usePlayer } from "@/hooks/usePlayer";
-import { deriveSegments, findSegmentIndex } from "@/lib/segments";
-import { formatTime } from "@/lib/format";
+import { adjacentBeatTime, deriveSegments } from "@/lib/segments";
 import {
   clipAtTimelineTime,
   layoutPerformingClips,
@@ -35,13 +29,15 @@ import type { PerformingClip, PerformingProject } from "@/lib/types";
 import { DEFAULT_PERFORMING_STAGE } from "@/lib/types";
 import { ClipInspector } from "./ClipInspector";
 import { CompositionTimeline } from "./CompositionTimeline";
+import { FormationControls } from "./Controls";
 import { DevToolsButton } from "./DevToolsButton";
 import { OverlayInspector } from "./OverlayInspector";
 import { PerformanceStageRenderer } from "./PerformanceStageRenderer";
-import { ProgressBar } from "./ProgressBar";
 import { StageInspector } from "./StageInspector";
 
-type InspectorTab = "clips" | "stage" | "overlay";
+type LibraryTab = "clips" | "generated";
+
+const OVERLAY_MATERIAL_ID = "performing-overlay";
 
 interface PerformingWorkspaceProps {
   project: PerformingProject;
@@ -86,7 +82,8 @@ export function PerformingWorkspace({
   const clipInputRef = useRef<HTMLInputElement>(null);
   const clipUrlsRef = useRef(new Map<string, string>());
   const initialClipsRef = useRef(project.clips ?? []);
-  const [tab, setTab] = useState<InspectorTab>("clips");
+  const stageAreaRef = useRef<HTMLDivElement>(null);
+  const [libraryTab, setLibraryTab] = useState<LibraryTab>("clips");
   const [clips, setClips] = useState<PerformingClip[]>(project.clips ?? []);
   const [selectedId, setSelectedId] = useState<string | null>(
     project.clips?.[0]?.id ?? null,
@@ -94,6 +91,8 @@ export function PerformingWorkspace({
   const [clipUrls, setClipUrls] = useState<Map<string, string>>(new Map());
   const [addingClips, setAddingClips] = useState(false);
   const [clipError, setClipError] = useState<string | null>(null);
+  const [mediaAspectRatio, setMediaAspectRatio] = useState(16 / 9);
+  const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
   const stageSettings = useMemo(
     () => ({
       ...DEFAULT_PERFORMING_STAGE,
@@ -111,15 +110,10 @@ export function PerformingWorkspace({
     () => segments.flatMap((segment) => segment.beats),
     [segments],
   );
-  const activeIndex = useMemo(
-    () => findSegmentIndex(segments, state.currentTime),
-    [segments, state.currentTime],
-  );
   const layout = useMemo(() => layoutPerformingClips(clips), [clips]);
   const selectedClip = layout.find((clip) => clip.id === selectedId) ?? null;
   const activeClip = clipAtTimelineTime(layout, state.currentTime);
   const activeClipUrl = activeClip ? clipUrls.get(activeClip.id) : null;
-  const usedDuration = layout.at(-1)?.timelineEnd ?? 0;
 
   useEffect(() => {
     let cancelled = false;
@@ -300,57 +294,128 @@ export function PerformingWorkspace({
     );
   };
 
-  const jumpSegment = (direction: -1 | 1) => {
-    const index = Math.max(
-      0,
-      Math.min(segments.length - 1, activeIndex + direction),
-    );
-    const target = segments[index];
-    if (target) actions.seek(target.start);
-  };
+  const jumpBeat = useCallback(
+    (direction: -1 | 1) => {
+      actions.seek(
+        adjacentBeatTime(
+          beats,
+          videoRef.current?.currentTime ?? state.currentTime,
+          direction,
+          state.duration,
+        ),
+      );
+    },
+    [actions, beats, state.currentTime, state.duration, videoRef],
+  );
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement;
+      if (
+        target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.tagName === "SELECT" ||
+        target.isContentEditable
+      ) {
+        return;
+      }
+      if (event.code === "Space") {
+        event.preventDefault();
+        actions.togglePlay();
+      } else if (event.code === "ArrowLeft") {
+        event.preventDefault();
+        jumpBeat(-1);
+      } else if (event.code === "ArrowRight") {
+        event.preventDefault();
+        jumpBeat(1);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [actions, jumpBeat]);
+
+  useEffect(() => {
+    const area = stageAreaRef.current;
+    if (!area) return;
+    const updateCanvasSize = () => {
+      const { width, height } = area.getBoundingClientRect();
+      if (!width || !height) return;
+      const areaAspectRatio = width / height;
+      const next =
+        areaAspectRatio > mediaAspectRatio
+          ? { width: height * mediaAspectRatio, height }
+          : { width, height: width / mediaAspectRatio };
+      setCanvasSize({
+        width: Math.floor(next.width),
+        height: Math.floor(next.height),
+      });
+    };
+    const observer = new ResizeObserver(updateCanvasSize);
+    observer.observe(area);
+    updateCanvasSize();
+    return () => observer.disconnect();
+  }, [mediaAspectRatio]);
 
   return (
-    <div className="flex h-full w-full bg-black">
-      <div className="relative flex min-w-0 flex-1 flex-col">
-        <header className="flex h-12 shrink-0 items-center gap-2 border-b border-white/5 bg-neutral-950 px-4">
-          <button
-            type="button"
-            onClick={onBack}
-            className="flex items-center gap-1.5 rounded-lg bg-white/5 px-3 py-1.5 text-xs text-neutral-300 transition-colors hover:bg-white/10 hover:text-white"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" />
-            返回
-          </button>
-          <span className="min-w-0 flex-1 truncate text-xs text-neutral-500">
-            {project.name}
-          </span>
-          <span className="rounded-full border border-violet-400/20 bg-violet-400/10 px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.16em] text-violet-300">
-            Performing
-          </span>
-          <button
-            type="button"
-            disabled
-            title="下一阶段接入导出"
-            className="flex cursor-not-allowed items-center gap-1.5 rounded-lg bg-white/5 px-3 py-1.5 text-xs text-neutral-600"
-          >
-            <Download className="h-3.5 w-3.5" />
-            导出
-          </button>
-          <DevToolsButton />
-        </header>
+    <div className="flex h-full w-full flex-col bg-black">
+      <header className="flex h-12 shrink-0 items-center gap-2 border-b border-white/5 bg-neutral-950 px-4">
+        <button
+          type="button"
+          onClick={onBack}
+          className="flex items-center gap-1.5 rounded-lg bg-white/5 px-3 py-1.5 text-xs text-neutral-300 transition-colors hover:bg-white/10 hover:text-white"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+          返回
+        </button>
+        <span className="min-w-0 flex-1 truncate text-xs text-neutral-500">
+          {project.name}
+        </span>
+        <span className="rounded-full border border-violet-400/20 bg-violet-400/10 px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.16em] text-violet-300">
+          Performing
+        </span>
+        <button
+          type="button"
+          disabled
+          title="下一阶段接入导出"
+          className="flex cursor-not-allowed items-center gap-1.5 rounded-lg bg-white/5 px-3 py-1.5 text-xs text-neutral-600"
+        >
+          <Download className="h-3.5 w-3.5" />
+          导出
+        </button>
+        <DevToolsButton />
+      </header>
 
+      <div className="flex min-h-0 flex-1">
+        <div className="relative flex min-w-0 flex-1 flex-col">
         <div
+          ref={stageAreaRef}
           className="relative flex min-h-0 flex-1 cursor-pointer items-center justify-center overflow-hidden bg-black"
           onClick={actions.togglePlay}
         >
+          <div
+            className="relative shrink-0 overflow-hidden bg-black"
+            style={{
+              width: canvasSize.width || undefined,
+              height: canvasSize.height || undefined,
+            }}
+          >
           <video
             {...videoProps}
             ref={videoRef}
             src={src}
+            onLoadedMetadata={(event) => {
+              videoProps.onLoadedMetadata(event);
+              const { videoWidth, videoHeight } = event.currentTarget;
+              if (videoWidth > 0 && videoHeight > 0) {
+                setMediaAspectRatio(videoWidth / videoHeight);
+              }
+            }}
             className={
               stageSettings.backgroundMode === "generated" || clips.length
                 ? "pointer-events-none absolute h-px w-px opacity-0"
-                : "pointer-events-none max-h-full max-w-full object-contain"
+                : `pointer-events-none h-full w-full object-contain ${
+                    state.mirrored ? "-scale-x-100" : ""
+                  }`
             }
           />
           {stageSettings.backgroundMode === "video" &&
@@ -365,7 +430,9 @@ export function PerformingWorkspace({
               onLoadedMetadata={(event) => {
                 event.currentTarget.currentTime = activeClip.sourceIn;
               }}
-              className="pointer-events-none max-h-full max-w-full object-contain"
+              className={`pointer-events-none h-full w-full object-contain ${
+                state.mirrored ? "-scale-x-100" : ""
+              }`}
             />
           )}
           {stageSettings.backgroundMode === "video" &&
@@ -415,6 +482,7 @@ export function PerformingWorkspace({
                 : activeClip?.name ?? project.sourceName}
             </p>
           </div>
+          </div>
         </div>
 
         <div className="shrink-0 border-t border-white/5 bg-neutral-950 px-4 py-3">
@@ -432,6 +500,7 @@ export function PerformingWorkspace({
             duration={state.duration}
             currentTime={state.currentTime}
             selectedId={selectedId}
+            overlaySelected={selectedId === OVERLAY_MATERIAL_ID}
             onSelect={(id) => {
               setSelectedId(id);
               if (id) {
@@ -439,98 +508,102 @@ export function PerformingWorkspace({
                 if (clip) actions.seek(clip.timelineStart);
               }
             }}
+            onSelectOverlay={() => setSelectedId(OVERLAY_MATERIAL_ID)}
             onSeek={actions.seek}
             onResize={(id, duration) =>
               updateClip(id, { timelineDuration: duration })
             }
             onReorder={reorderClips}
           />
-          {clips.length > 0 && (
-            <div className="mt-2 flex justify-between text-[10px] text-neutral-700">
-              <span>{clips.length} clips · {usedDuration.toFixed(1)}s placed</span>
-              <span>
-                {usedDuration > state.duration
-                  ? `${(usedDuration - state.duration).toFixed(1)}s over soundtrack`
-                  : `${Math.max(0, state.duration - usedDuration).toFixed(1)}s remaining`}
-              </span>
-            </div>
-          )}
         </div>
 
-        <div className="shrink-0 border-t border-white/5 bg-neutral-950 px-4 py-2.5">
-          <ProgressBar
-            currentTime={state.currentTime}
-            duration={state.duration}
-            onSeek={actions.seek}
-          />
-          <div className="mt-2 flex items-center gap-1">
-            <button
-              type="button"
-              onClick={() => jumpSegment(-1)}
-              className="flex h-9 w-9 items-center justify-center rounded-lg text-neutral-300 hover:bg-white/10"
-              aria-label="上一八拍"
-            >
-              <SkipBack className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              onClick={actions.togglePlay}
-              className="flex h-9 w-9 items-center justify-center rounded-lg bg-white text-black"
-              aria-label="播放或暂停"
-            >
-              {state.isPlaying ? (
-                <Pause className="h-4 w-4" />
-              ) : (
-                <Play className="h-4 w-4 fill-black" />
-              )}
-            </button>
-            <button
-              type="button"
-              onClick={() => jumpSegment(1)}
-              className="flex h-9 w-9 items-center justify-center rounded-lg text-neutral-300 hover:bg-white/10"
-              aria-label="下一八拍"
-            >
-              <SkipForward className="h-4 w-4" />
-            </button>
-            <span className="ml-3 text-xs tabular-nums text-neutral-500">
-              {formatTime(state.currentTime)} / {formatTime(state.duration)}
-            </span>
-            <span className="ml-auto text-xs tabular-nums text-neutral-600">
-              {Math.round(bpm)} BPM
-            </span>
-          </div>
-        </div>
+        <FormationControls
+          isPlaying={state.isPlaying}
+          currentTime={state.currentTime}
+          duration={state.duration}
+          volume={state.volume}
+          muted={state.muted}
+          playbackRate={state.playbackRate}
+          mirrored={state.mirrored}
+          showMirror={false}
+          showProgress={false}
+          onTogglePlay={actions.togglePlay}
+          onSeek={actions.seek}
+          onPrevBeat={() => jumpBeat(-1)}
+          onNextBeat={() => jumpBeat(1)}
+          onSetVolume={actions.setVolume}
+          onToggleMute={actions.toggleMute}
+          onSetRate={actions.setPlaybackRate}
+          onToggleMirror={actions.toggleMirror}
+        />
       </div>
 
-      <aside className="flex w-72 shrink-0 flex-col border-l border-white/5 bg-neutral-950">
-        <div className="border-b border-white/5 px-4 py-4">
-          <p className="text-sm font-medium text-white">Performing</p>
-          <p className="mt-1 text-xs text-neutral-600">Compose and stage</p>
-        </div>
-        <div className="grid grid-cols-3 border-b border-white/5 px-2 py-2">
-          {([
-            ["clips", "Clips", Clapperboard],
-            ["stage", "Stage", Sparkles],
-            ["overlay", "Overlay", Layers3],
-          ] as const).map(([id, label, Icon]) => (
-            <button
-              key={id}
-              type="button"
-              onClick={() => setTab(id)}
-              className={`flex flex-col items-center gap-1 rounded-lg px-2 py-2 text-[10px] transition-colors ${
-                tab === id
-                  ? "bg-violet-400/10 text-violet-300"
-                  : "text-neutral-600 hover:text-neutral-300"
-              }`}
-            >
-              <Icon className="h-4 w-4" />
-              {label}
-            </button>
-          ))}
-        </div>
+      <aside className="flex h-full w-[clamp(300px,28vw,380px)] shrink-0 flex-col border-l border-white/5 bg-neutral-950">
+        <section className="flex min-h-0 flex-[3] flex-col border-b border-white/5">
+          <div className="shrink-0 border-b border-white/5 px-5 py-4">
+            <p className="text-base font-semibold text-white">素材设置</p>
+            <p className="mt-1 text-[11px] text-neutral-600">
+              Settings for the selected timeline material
+            </p>
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            {selectedId === OVERLAY_MATERIAL_ID ? (
+              <OverlayInspector
+                settings={stageSettings}
+                onChange={updateStage}
+              />
+            ) : selectedClip ? (
+              <div className="p-4">
+              <ClipInspector
+                clip={selectedClip}
+                onChange={updateClip}
+                onDelete={removeClip}
+              />
+              </div>
+            ) : (
+              <div className="flex h-full min-h-32 flex-col items-center justify-center px-4 text-center">
+                <p className="text-xs text-neutral-600">
+                  Select a material on the timeline.
+                </p>
+                <p className="mt-2 text-[11px] leading-5 text-neutral-700">
+                  Source in, speed, and duration will appear here.
+                </p>
+              </div>
+            )}
+          </div>
+        </section>
 
-        {tab === "clips" ? (
-          <div className="min-h-0 flex-1 overflow-y-auto p-4">
+        <section className="flex min-h-0 flex-[2] flex-col">
+          <div className="shrink-0 px-5 py-4">
+            <p className="text-base font-semibold text-white">素材库</p>
+            <p className="mt-1 text-[11px] text-neutral-600">
+              Clips and generated materials
+            </p>
+          </div>
+          <div className="mx-4 mb-3 grid shrink-0 grid-cols-2 rounded-lg bg-neutral-900 p-0.5 text-sm">
+            {([
+              ["clips", "Clips", Clapperboard],
+              ["generated", "Generated", Sparkles],
+            ] as const).map(([id, label, Icon]) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setLibraryTab(id)}
+                className={`flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs transition-colors ${
+                  libraryTab === id
+                    ? "bg-violet-500 text-white"
+                    : "text-neutral-400 hover:text-white"
+                }`}
+              >
+                <Icon className="h-3.5 w-3.5" />
+                {label}
+              </button>
+            ))}
+          </div>
+
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            {libraryTab === "clips" ? (
+              <div className="p-3">
             <input
               ref={clipInputRef}
               type="file"
@@ -541,9 +614,30 @@ export function PerformingWorkspace({
             />
             <button
               type="button"
+              onClick={() => updateStage({ backgroundMode: "video" })}
+              className={`mb-2 flex w-full items-center gap-3 rounded-lg border px-3 py-2 text-left transition-colors ${
+                stageSettings.backgroundMode === "video"
+                  ? "border-violet-300/40 bg-violet-400/10 text-violet-200"
+                  : "border-white/[0.07] text-neutral-500 hover:border-white/15 hover:text-neutral-300"
+              }`}
+            >
+              <span className="flex aspect-video w-16 shrink-0 items-center justify-center rounded bg-neutral-900">
+                <Clapperboard className="h-4 w-4" />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-[11px] font-medium">
+                  Clip composition
+                </span>
+                <span className="mt-0.5 block text-[9px] text-neutral-600">
+                  {clips.length} uploaded materials
+                </span>
+              </span>
+            </button>
+            <button
+              type="button"
               onClick={() => clipInputRef.current?.click()}
               disabled={addingClips}
-              className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-violet-300/20 bg-violet-400/5 px-3 py-3 text-xs text-violet-300 transition-colors hover:border-violet-300/40 hover:bg-violet-400/10 disabled:opacity-40"
+              className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-violet-300/20 bg-violet-400/5 px-3 py-2.5 text-[11px] text-violet-300 transition-colors hover:border-violet-300/40 hover:bg-violet-400/10 disabled:opacity-40"
             >
               <Plus className="h-4 w-4" />
               {addingClips ? "Adding clips..." : "Add video clips"}
@@ -585,30 +679,14 @@ export function PerformingWorkspace({
               </div>
             )}
 
-            <div className="my-5 h-px bg-white/5" />
-            {selectedClip ? (
-              <ClipInspector
-                clip={selectedClip}
-                onChange={updateClip}
-                onDelete={removeClip}
-              />
-            ) : (
-              <div className="py-8 text-center">
-                <p className="text-xs text-neutral-600">
-                  Add or select a clip to edit it.
-                </p>
-                <p className="mt-2 text-[11px] leading-5 text-neutral-700">
-                  Adjust source in, speed, and timeline duration here.
-                </p>
               </div>
-            )}
+            ) : libraryTab === "generated" ? (
+              <StageInspector settings={stageSettings} onChange={updateStage} />
+            ) : null}
           </div>
-        ) : tab === "stage" ? (
-          <StageInspector settings={stageSettings} onChange={updateStage} />
-        ) : (
-          <OverlayInspector settings={stageSettings} onChange={updateStage} />
-        )}
+        </section>
       </aside>
+      </div>
     </div>
   );
 }

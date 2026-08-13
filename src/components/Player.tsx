@@ -17,6 +17,7 @@ import { detectSectionsFromUrl } from "@/lib/sectionDetection";
 import { hasMusicStarted, musicStartPreRoll } from "@/lib/countIn";
 import {
   activeBeatInSegment,
+  adjacentBeatTime,
   beatGridAnchorIndex,
   beatPhaseInSegment,
   calibrateBeatGrid,
@@ -356,16 +357,16 @@ export function Player({
         actions.stopLoop();
         setLoopTarget(null);
       }
-      const tolerance = 0.05;
-      const target =
-        direction < 0
-          ? navigationBeats.findLast(
-              (time) => time < currentTime - tolerance,
-            )
-          : navigationBeats.find((time) => time > currentTime + tolerance);
-      actions.seek(target ?? (direction < 0 ? 0 : duration));
+      actions.seek(
+        adjacentBeatTime(
+          navigationBeats,
+          videoRef.current?.currentTime ?? currentTime,
+          direction,
+          duration,
+        ),
+      );
     },
-    [navigationBeats, loopTarget, actions, currentTime, duration],
+    [navigationBeats, loopTarget, actions, videoRef, currentTime, duration],
   );
   const prevBeat = useCallback(() => seekBeat(-1), [seekBeat]);
   const nextBeat = useCallback(() => seekBeat(1), [seekBeat]);
@@ -636,6 +637,7 @@ export function Player({
         activeBeat={activeBeat}
         bpm={bpm}
         offset={performanceStart ?? offset}
+        beatTimes={navigationBeats}
         onTogglePlay={actions.togglePlay}
         onSeek={actions.seek}
         onSetVolume={actions.setVolume}

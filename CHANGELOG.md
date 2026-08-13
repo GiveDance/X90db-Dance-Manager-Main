@@ -2,6 +2,25 @@
 
 This changelog documents the product work completed after DanceManager was created from the DancePlayer codebase.
 
+## [Unreleased] - 2026-08-13
+
+### Performing workspace
+
+- Restructured the Performing sidebar into a 3:2 material-settings and material-library layout consistent with the Learning Player.
+- Split the composition timeline into a full-duration Overlay track above the Composition track.
+- Moved performer-signal settings from the material library into the selectable Overlay timeline material.
+- Presented uploaded clips and the four existing generated-stage templates as reusable library materials without changing their rendering logic.
+- Added the shared timeline zoom and horizontal-scroll controls and removed redundant duration summary information.
+- Reused the Learning Player transport styling with precise previous/next small-beat navigation, keyboard shortcuts, playback rate, and volume controls.
+- Matched the preview canvas to the uploaded source video's aspect ratio and promoted the workspace header to span the full page above the sidebar.
+
+### Playback precision
+
+- Kept paused previous/next beat navigation paused while seeking to the exact tracked beat.
+- Added a paused-frame canvas so Chromium-based playback surfaces visibly commit the target frame without briefly starting playback.
+- Corrected walking-layout card navigation so shared poses seek to the selected card's explicit beat endpoint.
+- Shared the tracked beat grid and keyboard navigation behavior between the Learning Player and walking-layout editor.
+
 ## [1.1.0] - 2026-08-11
 
 ### Product foundation

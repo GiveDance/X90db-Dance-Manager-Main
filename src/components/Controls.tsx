@@ -989,6 +989,7 @@ interface FormationControlsProps {
   muted: boolean;
   playbackRate: number;
   mirrored: boolean;
+  showMirror?: boolean;
   showProgress?: boolean;
   onTogglePlay: () => void;
   onSeek: (time: number) => void;
@@ -1064,13 +1065,15 @@ export function FormationControls(props: FormationControlsProps) {
         <div className="min-w-2 flex-1" />
 
         <div className="flex shrink-0 items-center gap-0.5">
-          <IconBtn
-            title="镜像跟练"
-            onClick={props.onToggleMirror}
-            active={props.mirrored}
-          >
-            <FlipHorizontal2 className="h-5 w-5" />
-          </IconBtn>
+          {props.showMirror !== false && (
+            <IconBtn
+              title="镜像跟练"
+              onClick={props.onToggleMirror}
+              active={props.mirrored}
+            >
+              <FlipHorizontal2 className="h-5 w-5" />
+            </IconBtn>
+          )}
           <RateButton value={props.playbackRate} onChange={props.onSetRate} />
           <VolumeControl
             volume={props.volume}

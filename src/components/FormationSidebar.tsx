@@ -153,7 +153,11 @@ export function FormationSidebar({
   selected: { id: string; endpoint: Endpoint } | null;
   onAdd: () => void;
   onDelete: (id: string) => void;
-  onSelectEndpoint: (id: string, endpoint: Endpoint) => void;
+  onSelectEndpoint: (
+    id: string,
+    endpoint: Endpoint,
+    previewTime?: number,
+  ) => void;
   onTimeChange: (id: string, endpoint: Endpoint, time: number) => void;
 }) {
   return (
@@ -238,7 +242,11 @@ export function FormationSidebar({
                   label={sourceLabel}
                   selected={sourceSelected}
                   onClick={() =>
-                    onSelectEndpoint(sourceChange.id, sourceEndpoint)
+                    onSelectEndpoint(
+                      sourceChange.id,
+                      sourceEndpoint,
+                      change.startTime,
+                    )
                   }
                 />
                 <div className="min-w-0 flex-1">
@@ -266,7 +274,9 @@ export function FormationSidebar({
                   positions={change.endPositions}
                   label={targetLabel}
                   selected={targetSelected}
-                  onClick={() => onSelectEndpoint(change.id, "end")}
+                  onClick={() =>
+                    onSelectEndpoint(change.id, "end", change.endTime)
+                  }
                 />
                 <div className="min-w-0 flex-1">
                   <span className="mb-1 block text-[10px] text-neutral-500">

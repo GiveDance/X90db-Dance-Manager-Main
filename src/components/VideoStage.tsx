@@ -6,6 +6,7 @@ import { BeatVisualizer } from "./BeatVisualizer";
 import { CountPointDock } from "./CountPointDock";
 import { DanmakuLayer } from "./DanmakuLayer";
 import { FormationOverlay } from "./FormationOverlay";
+import { PausedVideoFrame } from "./PausedVideoFrame";
 import type {
   BeatVizConfig,
   FormationAudiencePosition,
@@ -120,6 +121,11 @@ export function VideoStage({
             "max-h-full max-w-full cursor-pointer object-contain",
             mirrored && "-scale-x-100",
           )}
+        />
+        <PausedVideoFrame
+          videoRef={videoRef}
+          src={src}
+          mirrored={mirrored}
         />
 
         {vizConfig.pulse && (
