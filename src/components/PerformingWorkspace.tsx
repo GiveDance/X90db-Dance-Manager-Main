@@ -20,8 +20,8 @@ import {
   clipAtTimelineTime,
   fitClipStartToGap,
   layoutPerformingClips,
-  nearestBeatTime,
   nearestTimelineGap,
+  snapToNearbyBeatTime,
   VIDEO_CLIP_DRAG_TYPE,
 } from "@/lib/composition";
 import { formatTime } from "@/lib/format";
@@ -36,7 +36,10 @@ import type {
 } from "@/lib/types";
 import { DEFAULT_PERFORMING_STAGE } from "@/lib/types";
 import { ClipInspector } from "./ClipInspector";
-import { CompositionTimeline } from "./CompositionTimeline";
+import {
+  CompositionTimeline,
+  type TimelineTrack,
+} from "./CompositionTimeline";
 import { FormationControls } from "./Controls";
 import { DevToolsButton } from "./DevToolsButton";
 import { OverlayInspector } from "./OverlayInspector";
@@ -141,6 +144,13 @@ export function PerformingWorkspace({
   const [clipError, setClipError] = useState<string | null>(null);
   const [mediaAspectRatio, setMediaAspectRatio] = useState(16 / 9);
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
+  const [trackVisibility, setTrackVisibility] = useState<
+    Record<TimelineTrack, boolean>
+  >({
+    overlay: true,
+    composition: true,
+    source: true,
+  });
   const stageSettings = useMemo(
     () => ({
       ...DEFAULT_PERFORMING_STAGE,
@@ -158,6 +168,18 @@ export function PerformingWorkspace({
     () => segments.flatMap((segment) => segment.beats),
     [segments],
   );
+  const currentBeatLabel = useMemo(() => {
+    let beatIndex = -1;
+    for (let index = 0; index < beats.length; index++) {
+      if (beats[index] > state.currentTime + 0.001) break;
+      beatIndex = index;
+    }
+    return beatIndex < 0
+      ? beats.length
+        ? "1-1"
+        : "–"
+      : `${Math.floor(beatIndex / 8) + 1}-${(beatIndex % 8) + 1}`;
+  }, [beats, state.currentTime]);
   const layout = useMemo(() => layoutPerformingClips(clips), [clips]);
   const videoClips = useMemo(
     () =>
@@ -172,6 +194,12 @@ export function PerformingWorkspace({
     activeClip?.kind === "generated" ? activeClip : null;
   const activeVideoClip =
     activeClip && activeClip.kind !== "generated" ? activeClip : null;
+  const displayedGeneratedClip = trackVisibility.composition
+    ? activeGeneratedClip
+    : null;
+  const displayedVideoClip = trackVisibility.composition
+    ? activeVideoClip
+    : null;
   const activeClipUrl = activeVideoClip
     ? clipUrls.get(activeVideoClip.assetId ?? activeVideoClip.id)
     : null;
@@ -483,7 +511,10 @@ export function PerformingWorkspace({
       setClipError("合成时间线中没有可用的空白区域。");
       return;
     }
-    const snappedDrop = nearestBeatTime(beats, dropTime);
+    const snappedDrop =
+      dropTime < (project.musicStart ?? offset)
+        ? dropTime
+        : snapToNearbyBeatTime(beats, dropTime);
     let timelineStart = Math.max(
       gap.start,
       Math.min(snappedDrop, gap.end - 0.2),
@@ -633,39 +664,45 @@ export function PerformingWorkspace({
                 setMediaAspectRatio(videoWidth / videoHeight);
               }
             }}
-            className="pointer-events-none absolute h-px w-px opacity-0"
+            className={`pointer-events-none absolute inset-0 h-full w-full object-contain ${
+              trackVisibility.source ? "opacity-100" : "opacity-0"
+            } ${state.mirrored ? "-scale-x-100" : ""}`}
           />
-          {activeVideoClip &&
+          {displayedVideoClip &&
             activeClipUrl && (
             <video
-              key={activeVideoClip.id}
+              key={displayedVideoClip.id}
               ref={clipVideoRef}
               src={activeClipUrl}
               muted
               playsInline
               onLoadedMetadata={(event) => {
-                event.currentTarget.currentTime = activeVideoClip.sourceIn;
+                event.currentTarget.currentTime = displayedVideoClip.sourceIn;
               }}
-              className={`pointer-events-none h-full w-full object-contain ${
+              className={`pointer-events-none relative z-[1] h-full w-full object-contain ${
                 state.mirrored ? "-scale-x-100" : ""
               }`}
             />
           )}
-          {activeVideoClip && !activeClipUrl && (
-            <div className="text-sm text-neutral-600">Loading clip preview...</div>
+          {displayedVideoClip && !activeClipUrl && (
+            <div className="relative z-[1] text-sm text-neutral-600">
+              正在加载素材预览…
+            </div>
           )}
-          <PerformerSignalRenderer
-            time={state.currentTime}
-            beats={beats}
-            bpm={bpm}
-            countInStart={project.musicStart ?? offset}
-            settings={stageSettings}
-          />
-          {activeGeneratedClip ? (
+          {trackVisibility.overlay && (
+            <PerformerSignalRenderer
+              time={state.currentTime}
+              beats={beats}
+              bpm={bpm}
+              countInStart={project.musicStart ?? offset}
+              settings={stageSettings}
+            />
+          )}
+          {displayedGeneratedClip ? (
             <PerformanceStageRenderer
               time={state.currentTime}
               beats={beats}
-              template={activeGeneratedClip.generatedTemplate ?? "street"}
+              template={displayedGeneratedClip.generatedTemplate ?? "street"}
               playing={state.isPlaying}
               showBeatCode={false}
               showSectionRail={false}
@@ -691,14 +728,19 @@ export function PerformingWorkspace({
           )}
           <div className="pointer-events-none absolute left-5 top-5 rounded-lg border border-white/10 bg-black/45 px-3 py-2 backdrop-blur">
             <p className="text-[9px] font-semibold uppercase tracking-[0.16em] text-neutral-500">
-              {activeGeneratedClip
-                ? "Generated clip"
-                : activeVideoClip
-                  ? `Video clip ${layout.indexOf(activeVideoClip) + 1}`
-                  : "No composition material"}
+              {displayedGeneratedClip
+                ? "生成素材"
+                : displayedVideoClip
+                  ? `视频素材 ${layout.indexOf(displayedVideoClip) + 1}`
+                  : trackVisibility.source
+                    ? "原始视频"
+                    : "无可见素材"}
             </p>
             <p className="mt-1 max-w-56 truncate text-xs text-neutral-300">
-              {activeClip?.name ?? "Empty range"}
+              {(trackVisibility.composition ? activeClip?.name : null) ??
+                (trackVisibility.source
+                  ? project.sourceName ?? project.name
+                  : "空白区间")}
             </p>
           </div>
           </div>
@@ -706,17 +748,30 @@ export function PerformingWorkspace({
 
         <div className="shrink-0 border-t border-white/5 bg-neutral-950 px-4 py-3">
           <div className="mb-2 flex items-center justify-between">
-            <span className="text-[10px] font-medium uppercase tracking-[0.16em] text-neutral-600">
-              Composition timeline
+            <span className="text-xs font-medium text-neutral-300">
+              合成时间线
             </span>
-            <span className="text-[10px] text-neutral-700">
-              Drag materials · Drag edges to trim
+            <span className="flex items-baseline gap-1.5">
+              <span className="text-[10px] text-neutral-600">当前拍</span>
+              <span className="text-xs font-medium tabular-nums text-neutral-300">
+                {currentBeatLabel}
+              </span>
             </span>
           </div>
           <CompositionTimeline
             layout={layout}
             beats={beats}
             duration={state.duration}
+            snapStartTime={project.musicStart ?? offset}
+            sourceName={project.sourceName ?? project.name}
+            sourceThumbnail={project.cover}
+            trackVisibility={trackVisibility}
+            onTrackVisibilityChange={(track, visible) =>
+              setTrackVisibility((current) => ({
+                ...current,
+                [track]: visible,
+              }))
+            }
             currentTime={state.currentTime}
             selectedId={selectedId}
             overlaySelected={selectedId === OVERLAY_MATERIAL_ID}

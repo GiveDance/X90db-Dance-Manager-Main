@@ -303,7 +303,7 @@ export function OverlayInspector({
   return (
     <div className="min-h-0 flex-1 overflow-y-auto p-4">
       <div>
-        <p className="text-sm font-semibold text-white">表演者信号</p>
+        <p className="text-sm font-semibold text-white">节拍信号</p>
       </div>
 
       <section className="mt-4">

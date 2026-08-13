@@ -63,6 +63,19 @@ export function nearestBeatTime(beats: number[], time: number): number {
   return nearest;
 }
 
+export function snapToNearbyBeatTime(beats: number[], time: number): number {
+  if (beats.length < 2) return time;
+  const intervals = beats
+    .slice(1)
+    .map((beat, index) => beat - beats[index])
+    .filter((interval) => interval > 0)
+    .sort((a, b) => a - b);
+  if (!intervals.length) return time;
+  const typicalInterval = intervals[Math.floor(intervals.length / 2)];
+  const nearest = nearestBeatTime(beats, time);
+  return Math.abs(nearest - time) <= typicalInterval * 0.55 ? nearest : time;
+}
+
 export function clipAtTimelineTime(
   layout: PlacedPerformingClip[],
   time: number,

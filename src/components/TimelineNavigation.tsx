@@ -153,20 +153,23 @@ export function TimelineNavigationControls({
   return (
     <div
       data-timeline-navigation
-      className={cn("mt-2 flex h-7 items-center gap-2", className)}
+      className={cn(
+        "mt-2 flex h-8 items-center overflow-hidden rounded-lg border border-white/10 bg-white/[0.045]",
+        className,
+      )}
     >
-      <div className="flex h-7 shrink-0 items-center gap-1 rounded-lg border border-white/10 bg-white/5 p-0.5">
+      <div className="flex h-full shrink-0 items-center px-1">
         <button
           type="button"
           disabled={zoom === ZOOM_LEVELS[0]}
           aria-label="缩小时间线"
           data-tooltip="缩小时间线"
           onClick={() => changeZoom(-1)}
-          className="flex h-6 w-6 items-center justify-center rounded-md text-neutral-400 transition-colors hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
+          className="flex h-7 w-7 items-center justify-center rounded-md text-neutral-400 transition-colors hover:bg-white/10 hover:text-white active:bg-white/15 disabled:cursor-not-allowed disabled:opacity-25"
         >
-          <ZoomOut className="h-3.5 w-3.5" />
+          <ZoomOut className="h-3.5 w-3.5" strokeWidth={1.75} />
         </button>
-        <span className="w-10 text-center text-[10px] tabular-nums text-neutral-400">
+        <span className="w-11 text-center text-[11px] font-medium tabular-nums text-neutral-300">
           {Math.round(zoom * 100)}%
         </span>
         <button
@@ -175,12 +178,13 @@ export function TimelineNavigationControls({
           aria-label="放大时间线"
           data-tooltip="放大时间线"
           onClick={() => changeZoom(1)}
-          className="flex h-6 w-6 items-center justify-center rounded-md text-neutral-400 transition-colors hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
+          className="flex h-7 w-7 items-center justify-center rounded-md text-neutral-400 transition-colors hover:bg-white/10 hover:text-white active:bg-white/15 disabled:cursor-not-allowed disabled:opacity-25"
         >
-          <ZoomIn className="h-3.5 w-3.5" />
+          <ZoomIn className="h-3.5 w-3.5" strokeWidth={1.75} />
         </button>
       </div>
-      <div className="flex h-7 min-w-0 flex-1 items-center rounded-lg border border-white/10 bg-white/5 px-2">
+      <span className="h-4 w-px shrink-0 bg-white/10" />
+      <div className="flex h-full min-w-0 flex-1 items-center px-3">
         <div
           ref={scrollbarRef}
           role="scrollbar"
@@ -194,19 +198,19 @@ export function TimelineNavigationControls({
           onPointerUp={onScrollbarPointerUp}
           onPointerCancel={onScrollbarPointerCancel}
           className={cn(
-            "relative h-4 flex-1 touch-none rounded-full",
+            "relative h-5 flex-1 touch-none rounded-full",
             scrollMetrics.visibleRatio < 1
               ? "cursor-ew-resize"
               : "cursor-default",
           )}
         >
-          <span className="absolute left-0 right-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-white/10" />
+          <span className="absolute left-0 right-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-white/[0.08]" />
           <span
             className={cn(
-              "absolute bottom-0.5 top-0.5 rounded-full border transition-colors",
+              "absolute top-1/2 h-2.5 -translate-y-1/2 rounded-full transition-colors",
               scrollMetrics.visibleRatio < 1
-                ? "border-white/15 bg-neutral-500 hover:bg-neutral-400"
-                : "border-white/10 bg-neutral-700",
+                ? "bg-neutral-600 hover:bg-neutral-500"
+                : "bg-neutral-800",
             )}
             style={{
               left: `${scrollMetrics.position * (1 - scrollMetrics.visibleRatio) * 100}%`,

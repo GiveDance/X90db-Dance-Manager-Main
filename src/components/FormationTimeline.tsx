@@ -15,6 +15,7 @@ interface FormationTimelineProps {
   duration: number;
   bpm: number;
   offset: number;
+  beatTimes: number[];
   currentTime: number;
   selectedId: string | null;
   onPreview: (time: number) => void;
@@ -29,6 +30,7 @@ export function FormationTimeline({
   duration,
   bpm,
   offset,
+  beatTimes,
   currentTime,
   selectedId,
   onPreview,
@@ -75,6 +77,9 @@ export function FormationTimeline({
   if (duration > 0 && Math.abs(ticks.at(-1)! - duration) > 0.01) {
     ticks.push(duration);
   }
+  const beatGuides = beatTimes
+    .filter((time) => Number.isFinite(time) && time >= 0 && time <= duration)
+    .map((time, index) => ({ time, strong: index % 8 === 0 }));
 
   return (
     <div className="flex shrink-0 flex-col border-t border-white/5 bg-black px-5 pb-2.5 pt-2.5">
@@ -191,8 +196,30 @@ export function FormationTimeline({
           createRef.current = null;
           setCreating(null);
         }}
-        className="relative h-12 cursor-pointer overflow-hidden rounded-lg bg-neutral-900"
+        className="relative h-12 cursor-pointer overflow-hidden rounded-lg border border-white/[0.07] bg-neutral-950"
       >
+        <div className="pointer-events-none absolute inset-0">
+          {beatGuides.map((beat, index) => (
+            <span
+              key={`${beat.time}-${index}`}
+              className={cn(
+                "absolute bottom-0 top-0 w-px",
+                beat.strong ? "bg-blue-400/30" : "bg-white/[0.04]",
+              )}
+              style={{ left: `${pct(beat.time)}%` }}
+            />
+          ))}
+          {beatGuides.map((beat, index) => (
+            <span
+              key={`dot-${beat.time}-${index}`}
+              className={cn(
+                "absolute bottom-0 h-[3px] w-1.5 -translate-x-1/2 rounded-t-full",
+                beat.strong ? "bg-blue-300/55" : "bg-neutral-500/25",
+              )}
+              style={{ left: `${pct(beat.time)}%` }}
+            />
+          ))}
+        </div>
         {changes.map((change, index) => {
           const left = pct(change.startTime);
           const width = Math.max(0.6, pct(change.endTime) - left);
@@ -209,10 +236,10 @@ export function FormationTimeline({
               className={cn(
                 "absolute bottom-1 top-1 overflow-hidden rounded-md border px-2 text-left text-[11px] font-medium transition-colors",
                 selectedId === change.id
-                  ? "border-blue-400 bg-blue-500 text-white"
+                  ? "border-blue-400/55 bg-blue-500/50 text-white shadow-[0_0_12px_rgba(59,130,246,0.18)]"
                   : active
-                    ? "border-blue-400/60 bg-blue-500/30 text-blue-100"
-                    : "border-blue-500/30 bg-blue-500/15 text-blue-200 hover:bg-blue-500/25",
+                    ? "border-blue-400/45 bg-blue-500/32 text-blue-100"
+                    : "border-blue-500/30 bg-blue-500/20 text-blue-200 hover:bg-blue-500/28",
               )}
               style={{ left: `${left}%`, width: `${width}%` }}
             >
@@ -265,15 +292,21 @@ export function FormationTimeline({
         <div
           onPointerDown={(event) => {
             event.stopPropagation();
+            event.preventDefault();
             seekingRef.current = event.pointerId;
             onPreview(rawTimeFromX(event.clientX));
             trackRef.current?.setPointerCapture(event.pointerId);
           }}
+          role="slider"
+          aria-label="拖动当前时间"
+          aria-valuemin={0}
+          aria-valuemax={duration}
+          aria-valuenow={currentTime}
           className="absolute bottom-0 top-0 z-10 w-4 -translate-x-1/2 cursor-ew-resize touch-none"
           style={{ left: `${pct(currentTime)}%` }}
         >
-          <span className="pointer-events-none absolute bottom-0 left-1/2 top-0 w-0.5 -translate-x-1/2 bg-orange-400" />
-          <span className="pointer-events-none absolute -top-0.5 left-1/2 h-2 w-2 -translate-x-1/2 rounded-full bg-orange-400" />
+          <span className="pointer-events-none absolute bottom-0 left-1/2 top-0 w-px -translate-x-1/2 bg-white/90 shadow-[0_0_5px_rgba(255,255,255,0.45)]" />
+          <span className="pointer-events-none absolute -top-0.5 left-1/2 h-2 w-2 -translate-x-1/2 rounded-full bg-white" />
         </div>
       </div>
       </div>

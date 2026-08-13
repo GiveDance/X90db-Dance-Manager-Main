@@ -141,6 +141,19 @@ export function SectionTimeline({
   if (duration > 0) ticks.push(duration);
 
   const loopName = sectionLoopKey != null ? sections[sectionLoopKey]?.name : null;
+  const beatGuides = segments
+    .flatMap((segment) =>
+      segment.beats.map((time, index) => ({
+        time,
+        strong: index === 0,
+      })),
+    )
+    .filter(
+      (beat, index, all) =>
+        beat.time >= 0 &&
+        beat.time <= duration &&
+        (index === 0 || Math.abs(beat.time - all[index - 1].time) > 0.001),
+    );
 
   return (
     <div className="select-none px-5 pb-2.5 pt-3">
@@ -207,8 +220,30 @@ export function SectionTimeline({
               createRef.current = null;
               setCreating(null);
             }}
-            className="relative h-12 w-full cursor-pointer overflow-hidden rounded-lg bg-neutral-900"
+            className="relative h-12 w-full cursor-pointer overflow-hidden rounded-lg border border-white/[0.07] bg-neutral-950"
           >
+        <div className="pointer-events-none absolute inset-0">
+          {beatGuides.map((beat, index) => (
+            <span
+              key={`${beat.time}-${index}`}
+              className={cn(
+                "absolute bottom-0 top-0 w-px",
+                beat.strong ? "bg-blue-400/30" : "bg-white/[0.04]",
+              )}
+              style={{ left: `${pct(beat.time)}%` }}
+            />
+          ))}
+          {beatGuides.map((beat, index) => (
+            <span
+              key={`dot-${beat.time}-${index}`}
+              className={cn(
+                "absolute bottom-0 h-[3px] w-1.5 -translate-x-1/2 rounded-t-full",
+                beat.strong ? "bg-blue-300/55" : "bg-neutral-500/25",
+              )}
+              style={{ left: `${pct(beat.time)}%` }}
+            />
+          ))}
+        </div>
         {/* 段落块 */}
         {sections.map((sec, i) => {
           const r = sectionTimeRange(sec, segments);
@@ -229,10 +264,10 @@ export function SectionTimeline({
               className={cn(
                 "group absolute top-1 bottom-1 flex items-center justify-center overflow-hidden rounded-md border text-xs font-medium transition-colors",
                 looping
-                  ? "border-blue-400 bg-blue-500 text-white"
+                  ? "border-blue-400/55 bg-blue-500/50 text-white shadow-[0_0_12px_rgba(59,130,246,0.18)]"
                   : active
-                    ? "border-blue-400/60 bg-blue-500/30 text-blue-100"
-                    : "border-blue-500/30 bg-blue-500/15 text-blue-200 hover:bg-blue-500/25",
+                    ? "border-blue-400/45 bg-blue-500/32 text-blue-100"
+                    : "border-blue-500/30 bg-blue-500/20 text-blue-200 hover:bg-blue-500/28",
               )}
               style={{ left: `${left}%`, width: `${width}%` }}
             >
@@ -269,15 +304,21 @@ export function SectionTimeline({
             <div
               onPointerDown={(event) => {
                 event.stopPropagation();
+                event.preventDefault();
                 seekingRef.current = event.pointerId;
                 onSeek(timeFromX(event.clientX));
                 trackRef.current?.setPointerCapture(event.pointerId);
               }}
+              role="slider"
+              aria-label="拖动当前时间"
+              aria-valuemin={0}
+              aria-valuemax={duration}
+              aria-valuenow={currentTime}
               className="absolute bottom-0 top-0 z-10 w-4 -translate-x-1/2 cursor-ew-resize touch-none"
               style={{ left: `${pct(currentTime)}%` }}
             >
-              <span className="pointer-events-none absolute bottom-0 left-1/2 top-0 w-0.5 -translate-x-1/2 bg-orange-400" />
-              <span className="pointer-events-none absolute -top-0.5 left-1/2 h-2 w-2 -translate-x-1/2 rounded-full bg-orange-400" />
+              <span className="pointer-events-none absolute bottom-0 left-1/2 top-0 w-px -translate-x-1/2 bg-white/90 shadow-[0_0_5px_rgba(255,255,255,0.45)]" />
+              <span className="pointer-events-none absolute -top-0.5 left-1/2 h-2 w-2 -translate-x-1/2 rounded-full bg-white" />
             </div>
           </div>
         </div>
