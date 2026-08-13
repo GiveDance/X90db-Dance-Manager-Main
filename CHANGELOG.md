@@ -13,6 +13,10 @@ This changelog documents the product work completed after DanceManager was creat
 - Added the shared timeline zoom and horizontal-scroll controls and removed redundant duration summary information.
 - Reused the Learning Player transport styling with precise previous/next small-beat navigation, keyboard shortcuts, playback rate, and volume controls.
 - Matched the preview canvas to the uploaded source video's aspect ratio and promoted the workspace header to span the full page above the sidebar.
+- Converted uploaded videos and generated-stage templates into draggable, non-overlapping Composition materials.
+- Added reusable video assets with thumbnails, independent timeline instances, Delete-key removal, source-aware trimming, speed-based duration, and optional repeat playback.
+- Preserved generated-template rendering while allowing each instance to fill and resize within available timeline gaps.
+- Differentiated video materials with cyan semantics and generated materials with violet semantics, with Generated selected by default in the material library.
 
 ### Playback precision
 

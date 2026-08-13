@@ -2,9 +2,13 @@
 
 import { useRef, useState } from "react";
 import {
+  GENERATED_TEMPLATE_DRAG_TYPE,
+  VIDEO_CLIP_DRAG_TYPE,
+  isGeneratedTemplate,
   nearestBeatTime,
   type PlacedPerformingClip,
 } from "@/lib/composition";
+import type { GeneratedStageTemplate } from "@/lib/types";
 import {
   TimelineNavigationControls,
   useTimelineNavigation,
@@ -20,8 +24,10 @@ interface CompositionTimelineProps {
   onSelect: (id: string | null) => void;
   onSelectOverlay: () => void;
   onSeek: (time: number) => void;
-  onResize: (id: string, duration: number) => void;
-  onReorder: (ids: string[]) => void;
+  onChangeRange: (id: string, start: number, duration: number) => void;
+  onMove: (id: string, start: number) => void;
+  onDropGenerated: (template: GeneratedStageTemplate, time: number) => void;
+  onDropVideo: (id: string, time: number) => void;
 }
 
 export function CompositionTimeline({
@@ -34,12 +40,15 @@ export function CompositionTimeline({
   onSelect,
   onSelectOverlay,
   onSeek,
-  onResize,
-  onReorder,
+  onChangeRange,
+  onMove,
+  onDropGenerated,
+  onDropVideo,
 }: CompositionTimelineProps) {
   const laneRef = useRef<HTMLDivElement>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState(0);
+  const [generatedDragOver, setGeneratedDragOver] = useState(false);
   const timelineDuration = Math.max(
     duration,
     layout.at(-1)?.timelineEnd ?? 0,
@@ -55,7 +64,7 @@ export function CompositionTimeline({
     return (x / bounds.width) * timelineDuration;
   };
 
-  const startResize = (
+  const startEndResize = (
     event: React.PointerEvent,
     clip: PlacedPerformingClip,
   ) => {
@@ -64,7 +73,24 @@ export function CompositionTimeline({
     const move = (pointerEvent: PointerEvent) => {
       const rawEnd = timeAtX(pointerEvent.clientX);
       const snappedEnd = nearestBeatTime(beats, rawEnd);
-      onResize(clip.id, Math.max(0.2, snappedEnd - clip.timelineStart));
+      const nextStart =
+        layout.find(
+          (item) =>
+            item.id !== clip.id && item.timelineStart >= clip.timelineEnd,
+        )?.timelineStart ?? duration;
+      const sourceLimitedEnd =
+        clip.kind === "generated" || clip.repeat
+          ? nextStart
+          : Math.min(
+              nextStart,
+              clip.timelineStart +
+                (clip.sourceDuration - clip.sourceIn) / clip.playbackRate,
+            );
+      const end = Math.max(
+        clip.timelineStart + 0.2,
+        Math.min(sourceLimitedEnd, snappedEnd),
+      );
+      onChangeRange(clip.id, clip.timelineStart, end - clip.timelineStart);
     };
     const end = () => {
       window.removeEventListener("pointermove", move);
@@ -74,11 +100,46 @@ export function CompositionTimeline({
     window.addEventListener("pointerup", end);
   };
 
-  const startReorder = (
+  const startStartResize = (
+    event: React.PointerEvent,
+    clip: PlacedPerformingClip,
+  ) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const previousEnd =
+      layout.findLast(
+        (item) => item.id !== clip.id && item.timelineEnd <= clip.timelineStart,
+      )?.timelineEnd ?? 0;
+    const earliestSourceStart =
+      clip.kind === "generated"
+        ? previousEnd
+        : Math.max(
+            previousEnd,
+            clip.timelineStart - clip.sourceIn / clip.playbackRate,
+          );
+    const move = (pointerEvent: PointerEvent) => {
+      const rawStart = timeAtX(pointerEvent.clientX);
+      const snappedStart = nearestBeatTime(beats, rawStart);
+      const start = Math.max(
+        earliestSourceStart,
+        Math.min(clip.timelineEnd - 0.2, snappedStart),
+      );
+      onChangeRange(clip.id, start, clip.timelineEnd - start);
+    };
+    const end = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", end);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", end);
+  };
+
+  const startMove = (
     event: React.PointerEvent,
     clip: PlacedPerformingClip,
   ) => {
     const startX = event.clientX;
+    const grabOffset = timeAtX(event.clientX) - clip.timelineStart;
     let moved = false;
     onSelect(clip.id);
     const move = (pointerEvent: PointerEvent) => {
@@ -91,14 +152,13 @@ export function CompositionTimeline({
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", end);
       if (moved) {
-        const dropTime = timeAtX(pointerEvent.clientX);
-        const remaining = layout.filter((item) => item.id !== clip.id);
-        const insertAt = remaining.filter(
-          (item) => dropTime > (item.timelineStart + item.timelineEnd) / 2,
-        ).length;
-        const ids = remaining.map((item) => item.id);
-        ids.splice(insertAt, 0, clip.id);
-        onReorder(ids);
+        onMove(
+          clip.id,
+          nearestBeatTime(
+            beats,
+            Math.max(0, timeAtX(pointerEvent.clientX) - grabOffset),
+          ),
+        );
       }
       setDraggingId(null);
       setDragOffset(0);
@@ -124,6 +184,9 @@ export function CompositionTimeline({
       style={{ left: `${percentage(currentTime)}%` }}
     />
   );
+  const hasSupportedDragType = (dataTransfer: DataTransfer) =>
+    dataTransfer.types.includes(GENERATED_TEMPLATE_DRAG_TYPE) ||
+    dataTransfer.types.includes(VIDEO_CLIP_DRAG_TYPE);
 
   return (
     <div>
@@ -174,28 +237,69 @@ export function CompositionTimeline({
           </div>
           <div
             ref={laneRef}
-            className="relative h-14 overflow-hidden bg-neutral-950"
+            className={`relative h-14 overflow-hidden bg-neutral-950 transition-colors ${
+              generatedDragOver ? "bg-violet-500/10" : ""
+            }`}
             onClick={(event) => {
               onSeek(timeAtX(event.clientX));
               onSelect(null);
+            }}
+            onDragEnter={(event) => {
+              if (hasSupportedDragType(event.dataTransfer)) {
+                event.preventDefault();
+                setGeneratedDragOver(true);
+              }
+            }}
+            onDragOver={(event) => {
+              if (hasSupportedDragType(event.dataTransfer)) {
+                event.preventDefault();
+                event.dataTransfer.dropEffect = "copy";
+              }
+            }}
+            onDragLeave={(event) => {
+              if (!event.currentTarget.contains(event.relatedTarget as Node)) {
+                setGeneratedDragOver(false);
+              }
+            }}
+            onDrop={(event) => {
+              event.preventDefault();
+              setGeneratedDragOver(false);
+              const template = event.dataTransfer.getData(
+                GENERATED_TEMPLATE_DRAG_TYPE,
+              );
+              if (isGeneratedTemplate(template)) {
+                onDropGenerated(template, timeAtX(event.clientX));
+                return;
+              }
+              const videoClipId = event.dataTransfer.getData(
+                VIDEO_CLIP_DRAG_TYPE,
+              );
+              if (videoClipId) {
+                onDropVideo(videoClipId, timeAtX(event.clientX));
+              }
             }}
           >
             {beatGrid("composition")}
             {layout.map((clip, index) => {
               const selected = selectedId === clip.id;
               const dragging = draggingId === clip.id;
+              const generated = clip.kind === "generated";
               return (
                 <div
                   key={clip.id}
-                  onPointerDown={(event) => startReorder(event, clip)}
+                  onPointerDown={(event) => startMove(event, clip)}
                   onClick={(event) => {
                     event.stopPropagation();
                     onSelect(clip.id);
                   }}
                   className={`absolute inset-y-2 min-w-8 cursor-grab overflow-hidden rounded-md border px-2 py-1 transition-colors active:cursor-grabbing ${
-                    selected
-                      ? "border-violet-300/60 bg-violet-400/25"
-                      : "border-violet-300/15 bg-violet-400/10 hover:bg-violet-400/15"
+                    generated
+                      ? selected
+                        ? "border-violet-300/60 bg-violet-400/25"
+                        : "border-violet-300/15 bg-violet-400/10 hover:bg-violet-400/15"
+                      : selected
+                        ? "border-[#30E6FF]/60 bg-[#30E6FF]/25"
+                        : "border-[#30E6FF]/15 bg-[#30E6FF]/10 hover:bg-[#30E6FF]/15"
                   } ${dragging ? "z-20 opacity-80 shadow-xl" : ""}`}
                   style={{
                     left: `${percentage(clip.timelineStart)}%`,
@@ -206,18 +310,41 @@ export function CompositionTimeline({
                   }}
                   title={clip.name}
                 >
-                  <p className="truncate text-[10px] font-medium text-violet-100">
+                  <button
+                    type="button"
+                    aria-label={`Adjust start of ${clip.name}`}
+                    onPointerDown={(event) => startStartResize(event, clip)}
+                    className={`absolute inset-y-0 left-0 z-10 w-2 cursor-ew-resize border-r ${
+                      generated
+                        ? "border-violet-200/20 bg-violet-200/10 hover:bg-violet-200/25"
+                        : "border-[#30E6FF]/20 bg-[#30E6FF]/10 hover:bg-[#30E6FF]/25"
+                    }`}
+                  />
+                  <p
+                    className={`truncate text-[10px] font-medium ${
+                      generated ? "text-violet-100" : "text-[#30E6FF]"
+                    }`}
+                  >
                     {index + 1}. {clip.name}
                   </p>
-                  <p className="mt-0.5 truncate text-[9px] text-violet-200/45">
-                    {clip.timelineDuration.toFixed(1)}s · ×
-                    {clip.playbackRate.toFixed(2)}
+                  <p
+                    className={`mt-0.5 truncate text-[9px] ${
+                      generated ? "text-violet-200/45" : "text-[#30E6FF]/45"
+                    }`}
+                  >
+                    {clip.kind === "generated"
+                      ? `Generated · ${clip.timelineDuration.toFixed(1)}s`
+                      : `${clip.timelineDuration.toFixed(1)}s · ×${clip.playbackRate.toFixed(2)}`}
                   </p>
                   <button
                     type="button"
-                    aria-label={`Resize ${clip.name}`}
-                    onPointerDown={(event) => startResize(event, clip)}
-                    className="absolute inset-y-0 right-0 w-2 cursor-ew-resize border-l border-violet-200/20 bg-violet-200/10 hover:bg-violet-200/25"
+                    aria-label={`Adjust end of ${clip.name}`}
+                    onPointerDown={(event) => startEndResize(event, clip)}
+                    className={`absolute inset-y-0 right-0 w-2 cursor-ew-resize border-l ${
+                      generated
+                        ? "border-violet-200/20 bg-violet-200/10 hover:bg-violet-200/25"
+                        : "border-[#30E6FF]/20 bg-[#30E6FF]/10 hover:bg-[#30E6FF]/25"
+                    }`}
                   />
                 </div>
               );

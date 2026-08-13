@@ -1,15 +1,8 @@
 "use client";
 
 import { Sparkles } from "lucide-react";
-import type {
-  GeneratedStageTemplate,
-  PerformingStageSettings,
-} from "@/lib/types";
-
-interface StageInspectorProps {
-  settings: PerformingStageSettings;
-  onChange: (patch: Partial<PerformingStageSettings>) => void;
-}
+import { GENERATED_TEMPLATE_DRAG_TYPE } from "@/lib/composition";
+import type { GeneratedStageTemplate } from "@/lib/types";
 
 const TEMPLATES: Array<{
   id: GeneratedStageTemplate;
@@ -47,38 +40,28 @@ const TEMPLATES: Array<{
   },
 ];
 
-export function StageInspector({
-  settings,
-  onChange,
-}: StageInspectorProps) {
+export function StageInspector() {
   return (
     <div className="grid grid-cols-2 gap-2 p-3">
-      {TEMPLATES.map((template) => {
-        const active =
-          settings.template === template.id &&
-          settings.backgroundMode === "generated";
-        return (
+      {TEMPLATES.map((template) => (
           <button
             type="button"
             key={template.id}
-            onClick={() =>
-              onChange({
-                template: template.id,
-                backgroundMode: "generated",
-              })
-            }
-            className={`overflow-hidden rounded-xl border text-left transition-colors ${
-              active
-                ? "border-violet-300/60 bg-violet-400/10"
-                : "border-white/[0.07] bg-white/[0.025] hover:border-white/15"
-            }`}
+            draggable
+            aria-label={`Drag ${template.name} to the composition timeline`}
+            onDragStart={(event) => {
+              event.dataTransfer.effectAllowed = "copy";
+              event.dataTransfer.setData(
+                GENERATED_TEMPLATE_DRAG_TYPE,
+                template.id,
+              );
+            }}
+            className="cursor-grab overflow-hidden rounded-lg border border-white/[0.07] bg-white/[0.025] text-left transition-colors hover:border-violet-300/40 active:cursor-grabbing"
           >
             <span
               className={`relative flex aspect-video items-center justify-center ${template.preview}`}
             >
-              <Sparkles
-                className={`h-5 w-5 ${active ? "text-violet-200" : "text-white/35"}`}
-              />
+              <Sparkles className="h-5 w-5 text-white/35" />
               <span className="absolute bottom-1.5 right-1.5 rounded bg-black/60 px-1.5 py-0.5 text-[8px] font-medium uppercase tracking-wider text-white/60">
                 Generated
               </span>
@@ -92,10 +75,9 @@ export function StageInspector({
               </span>
             </span>
           </button>
-        );
-      })}
+      ))}
       <div className="col-span-2 mt-1 text-[10px] leading-4 text-neutral-700">
-        Generated materials use the existing templates and shared beat timeline.
+        Drag a generated material onto an empty composition range.
       </div>
     </div>
   );

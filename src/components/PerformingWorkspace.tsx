@@ -18,14 +18,22 @@ import { usePlayer } from "@/hooks/usePlayer";
 import { adjacentBeatTime, deriveSegments } from "@/lib/segments";
 import {
   clipAtTimelineTime,
+  fitClipStartToGap,
   layoutPerformingClips,
+  nearestBeatTime,
+  nearestTimelineGap,
+  VIDEO_CLIP_DRAG_TYPE,
 } from "@/lib/composition";
+import { formatTime } from "@/lib/format";
 import {
-  deletePerformingClipMedia,
   getPerformingClipMedia,
   savePerformingClipMedia,
 } from "@/lib/performingStore";
-import type { PerformingClip, PerformingProject } from "@/lib/types";
+import type {
+  GeneratedStageTemplate,
+  PerformingClip,
+  PerformingProject,
+} from "@/lib/types";
 import { DEFAULT_PERFORMING_STAGE } from "@/lib/types";
 import { ClipInspector } from "./ClipInspector";
 import { CompositionTimeline } from "./CompositionTimeline";
@@ -38,6 +46,12 @@ import { StageInspector } from "./StageInspector";
 type LibraryTab = "clips" | "generated";
 
 const OVERLAY_MATERIAL_ID = "performing-overlay";
+const GENERATED_TEMPLATE_NAMES: Record<GeneratedStageTemplate, string> = {
+  street: "Street Signal",
+  pulse: "Aurora Pulse",
+  constellation: "Coalesce Cue",
+  minimal: "Minimal Stage",
+};
 
 interface PerformingWorkspaceProps {
   project: PerformingProject;
@@ -46,26 +60,59 @@ interface PerformingWorkspaceProps {
   onProjectChange: (project: PerformingProject) => void;
 }
 
-function mediaDuration(file: File): Promise<number> {
+function mediaMetadata(
+  file: File,
+): Promise<{ duration: number; thumbnail: string | null }> {
   return new Promise((resolve, reject) => {
     const video = document.createElement("video");
     const url = URL.createObjectURL(file);
     let settled = false;
+    let duration = 0;
     const timer = window.setTimeout(() => finish(), 10_000);
-    const finish = (duration?: number) => {
+    const captureThumbnail = (): string | null => {
+      if (!video.videoWidth || !video.videoHeight) return null;
+      const width = 320;
+      const height = Math.max(
+        1,
+        Math.round((width * video.videoHeight) / video.videoWidth),
+      );
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const context = canvas.getContext("2d");
+      if (!context) return null;
+      try {
+        context.drawImage(video, 0, 0, width, height);
+        return canvas.toDataURL("image/jpeg", 0.76);
+      } catch {
+        return null;
+      }
+    };
+    const finish = (thumbnail: string | null = null) => {
       if (settled) return;
       settled = true;
       window.clearTimeout(timer);
       URL.revokeObjectURL(url);
       video.removeAttribute("src");
-      if (duration == null || !Number.isFinite(duration)) {
+      if (!Number.isFinite(duration) || duration <= 0) {
         reject(new Error(`Unable to read ${file.name}.`));
       } else {
-        resolve(duration);
+        resolve({ duration, thumbnail });
       }
     };
     video.preload = "metadata";
-    video.onloadedmetadata = () => finish(video.duration);
+    video.muted = true;
+    video.playsInline = true;
+    video.onloadedmetadata = () => {
+      duration = video.duration;
+      const thumbnailTime = Math.min(Math.max(duration * 0.08, 0.05), 1);
+      if (thumbnailTime >= duration) {
+        finish(captureThumbnail());
+        return;
+      }
+      video.currentTime = thumbnailTime;
+    };
+    video.onseeked = () => finish(captureThumbnail());
     video.onerror = () => finish();
     video.src = url;
   });
@@ -83,7 +130,7 @@ export function PerformingWorkspace({
   const clipUrlsRef = useRef(new Map<string, string>());
   const initialClipsRef = useRef(project.clips ?? []);
   const stageAreaRef = useRef<HTMLDivElement>(null);
-  const [libraryTab, setLibraryTab] = useState<LibraryTab>("clips");
+  const [libraryTab, setLibraryTab] = useState<LibraryTab>("generated");
   const [clips, setClips] = useState<PerformingClip[]>(project.clips ?? []);
   const [selectedId, setSelectedId] = useState<string | null>(
     project.clips?.[0]?.id ?? null,
@@ -111,15 +158,29 @@ export function PerformingWorkspace({
     [segments],
   );
   const layout = useMemo(() => layoutPerformingClips(clips), [clips]);
+  const videoClips = useMemo(
+    () =>
+      clips.filter(
+        (clip) => clip.kind !== "generated" && clip.assetId == null,
+      ),
+    [clips],
+  );
   const selectedClip = layout.find((clip) => clip.id === selectedId) ?? null;
   const activeClip = clipAtTimelineTime(layout, state.currentTime);
-  const activeClipUrl = activeClip ? clipUrls.get(activeClip.id) : null;
+  const activeGeneratedClip =
+    activeClip?.kind === "generated" ? activeClip : null;
+  const activeVideoClip =
+    activeClip && activeClip.kind !== "generated" ? activeClip : null;
+  const activeClipUrl = activeVideoClip
+    ? clipUrls.get(activeVideoClip.assetId ?? activeVideoClip.id)
+    : null;
 
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
       const loaded = new Map<string, string>();
       for (const clip of initialClipsRef.current) {
+        if (clip.kind === "generated" || clip.assetId) continue;
         const blob = await getPerformingClipMedia(project.id, clip.id).catch(
           () => null,
         );
@@ -148,19 +209,24 @@ export function PerformingWorkspace({
 
   useEffect(() => {
     const video = clipVideoRef.current;
-    if (!video || !activeClip) return;
-    const desiredTime = Math.min(
-      activeClip.sourceOut,
-      Math.max(
-        activeClip.sourceIn,
-        activeClip.sourceIn +
-          (state.currentTime - activeClip.timelineStart) *
-            activeClip.playbackRate,
-      ),
+    if (!video || !activeVideoClip) return;
+    const elapsed =
+      (state.currentTime - activeVideoClip.timelineStart) *
+      activeVideoClip.playbackRate;
+    const availableSource = Math.max(
+      0.05,
+      activeVideoClip.sourceDuration - activeVideoClip.sourceIn,
     );
+    const desiredTime = activeVideoClip.repeat
+      ? activeVideoClip.sourceIn +
+        ((elapsed % availableSource) + availableSource) % availableSource
+      : Math.min(
+          activeVideoClip.sourceOut,
+          Math.max(activeVideoClip.sourceIn, activeVideoClip.sourceIn + elapsed),
+        );
     video.playbackRate = Math.max(
       0.25,
-      Math.min(4, activeClip.playbackRate),
+      Math.min(4, activeVideoClip.playbackRate),
     );
     if (!state.isPlaying || Math.abs(video.currentTime - desiredTime) > 0.18) {
       video.currentTime = desiredTime;
@@ -170,14 +236,22 @@ export function PerformingWorkspace({
     } else if (!state.isPlaying && !video.paused) {
       video.pause();
     }
-  }, [activeClip, state.currentTime, state.isPlaying]);
+  }, [activeVideoClip, state.currentTime, state.isPlaying]);
 
   const commitClips = useCallback(
     (nextClips: PerformingClip[]) => {
-      setClips(nextClips);
+      const placedById = new Map(
+        layoutPerformingClips(nextClips).map(
+        ({ timelineEnd: _timelineEnd, sourceOut: _sourceOut, ...clip }) => clip,
+        ).map((clip) => [clip.id, clip]),
+      );
+      const normalized = nextClips.map(
+        (clip) => placedById.get(clip.id) ?? clip,
+      );
+      setClips(normalized);
       onProjectChange({
         ...project,
-        clips: nextClips,
+        clips: normalized,
         updatedAt: Date.now(),
       });
     },
@@ -206,13 +280,17 @@ export function PerformingWorkspace({
       const additions: PerformingClip[] = [];
       for (const file of Array.from(files)) {
         if (!file.type.startsWith("video/")) continue;
-        const sourceDuration = await mediaDuration(file);
+        const { duration: sourceDuration, thumbnail } =
+          await mediaMetadata(file);
         const clip: PerformingClip = {
           id: crypto.randomUUID(),
           name: file.name,
+          kind: "video",
+          placed: false,
+          thumbnail,
           sourceDuration,
           sourceIn: 0,
-          timelineDuration: Math.min(sourceDuration, (60 / bpm) * 8),
+          timelineDuration: sourceDuration,
           playbackRate: 1,
         };
         await savePerformingClipMedia(project.id, clip.id, file);
@@ -227,7 +305,6 @@ export function PerformingWorkspace({
       setClipUrls(new Map(clipUrlsRef.current));
       const nextClips = [...clips, ...additions];
       commitClips(nextClips);
-      setSelectedId(additions[0].id);
     } catch (error) {
       console.error("Failed to add Performing clips.", error);
       setClipError("One or more clips could not be added.");
@@ -242,56 +319,194 @@ export function PerformingWorkspace({
     patch: Partial<
       Pick<
         PerformingClip,
-        "sourceIn" | "timelineDuration" | "playbackRate"
+        | "sourceIn"
+        | "timelineStart"
+        | "timelineDuration"
+        | "playbackRate"
+        | "repeat"
       >
     >,
   ) => {
     commitClips(
       clips.map((clip) => {
         if (clip.id !== id) return clip;
+        const currentPlaced = layout.find((item) => item.id === id);
+        const nextStart =
+          layout.find(
+            (item) =>
+              item.id !== id &&
+              currentPlaced &&
+              item.timelineStart >= currentPlaced.timelineEnd,
+          )?.timelineStart ?? state.duration;
+        const playbackRate = Math.max(
+          0.25,
+          Math.min(4, patch.playbackRate ?? clip.playbackRate),
+        );
+        const sourceIn = Math.max(
+          0,
+          Math.min(
+            clip.kind === "generated"
+              ? patch.timelineStart ?? clip.timelineStart ?? clip.sourceIn
+              : patch.sourceIn ?? clip.sourceIn,
+            Math.max(0, clip.sourceDuration - 0.1),
+          ),
+        );
+        const repeat = patch.repeat ?? clip.repeat ?? false;
+        const rateAdjustedDuration =
+          patch.playbackRate != null
+            ? (clip.timelineDuration * clip.playbackRate) / playbackRate
+            : clip.timelineDuration;
+        const sourceLimitedDuration =
+          clip.kind === "generated" || repeat
+            ? rateAdjustedDuration
+            : Math.min(
+                rateAdjustedDuration,
+                (clip.sourceDuration - sourceIn) / playbackRate,
+              );
+        const availableTimelineDuration = Math.max(
+          0.2,
+          nextStart - (patch.timelineStart ?? clip.timelineStart ?? 0),
+        );
         return {
           ...clip,
           ...patch,
-          sourceIn: Math.max(
+          timelineStart: Math.max(
             0,
-            Math.min(
-              patch.sourceIn ?? clip.sourceIn,
-              Math.max(0, clip.sourceDuration - 0.1),
-            ),
+            patch.timelineStart ?? clip.timelineStart ?? 0,
           ),
+          sourceIn,
           timelineDuration: Math.max(
             0.2,
-            patch.timelineDuration ?? clip.timelineDuration,
+            Math.min(
+              patch.timelineDuration ?? sourceLimitedDuration,
+              availableTimelineDuration,
+              clip.kind === "generated" || repeat
+                ? Number.POSITIVE_INFINITY
+                : (clip.sourceDuration - sourceIn) / playbackRate,
+            ),
           ),
-          playbackRate: Math.max(
-            0.25,
-            Math.min(4, patch.playbackRate ?? clip.playbackRate),
-          ),
+          playbackRate,
+          repeat,
         };
       }),
     );
   };
 
   const removeClip = (id: string) => {
-    const url = clipUrlsRef.current.get(id);
-    if (url) URL.revokeObjectURL(url);
-    clipUrlsRef.current.delete(id);
-    setClipUrls(new Map(clipUrlsRef.current));
-    const nextClips = clips.filter((clip) => clip.id !== id);
+    const removed = clips.find((clip) => clip.id === id);
+    if (!removed || removed.placed === false) return;
+    const nextClips =
+      removed.kind !== "generated" && !removed.assetId
+        ? clips.map((clip) =>
+            clip.id === id
+              ? {
+                  ...clip,
+                  placed: false,
+                  timelineStart: undefined,
+                  sourceIn: 0,
+                  timelineDuration: clip.sourceDuration,
+                  playbackRate: 1,
+                  repeat: false,
+                }
+              : clip,
+          )
+        : clips.filter((clip) => clip.id !== id);
     commitClips(nextClips);
-    setSelectedId(nextClips[0]?.id ?? null);
-    void deletePerformingClipMedia(project.id, id).catch((error) => {
-      console.error("Failed to remove clip media.", error);
+    setSelectedId(null);
+  };
+
+  const changeClipRange = (id: string, start: number, duration: number) => {
+    const placed = layout.find((clip) => clip.id === id);
+    if (!placed) return;
+    const sourceIn =
+      placed.kind === "generated"
+        ? start
+        : placed.sourceIn +
+          (start - placed.timelineStart) * placed.playbackRate;
+    updateClip(id, {
+      timelineStart: start,
+      timelineDuration: duration,
+      sourceIn,
     });
   };
 
-  const reorderClips = (ids: string[]) => {
-    const byId = new Map(clips.map((clip) => [clip.id, clip]));
-    commitClips(
-      ids
-        .map((id) => byId.get(id))
-        .filter((clip): clip is PerformingClip => clip != null),
+  const moveClip = (id: string, requestedStart: number) => {
+    const placed = layout.find((clip) => clip.id === id);
+    if (!placed) return;
+    const timelineStart = fitClipStartToGap(
+      layout,
+      state.duration,
+      placed,
+      requestedStart,
     );
+    updateClip(id, {
+      timelineStart,
+      sourceIn:
+        placed.kind === "generated" ? timelineStart : placed.sourceIn,
+    });
+  };
+
+  const addGeneratedClip = (
+    template: GeneratedStageTemplate,
+    dropTime: number,
+  ) => {
+    const gap = nearestTimelineGap(layout, state.duration, dropTime);
+    if (!gap) {
+      setClipError("No empty composition range is available.");
+      return;
+    }
+    const clip: PerformingClip = {
+      id: crypto.randomUUID(),
+      name: GENERATED_TEMPLATE_NAMES[template],
+      kind: "generated",
+      generatedTemplate: template,
+      placed: true,
+      sourceDuration: state.duration,
+      sourceIn: gap.start,
+      timelineStart: gap.start,
+      timelineDuration: gap.end - gap.start,
+      playbackRate: 1,
+    };
+    setClipError(null);
+    commitClips([...clips, clip]);
+    setSelectedId(clip.id);
+  };
+
+  const placeVideoClip = (id: string, dropTime: number) => {
+    const asset = clips.find(
+      (item) => item.id === id && item.kind !== "generated" && !item.assetId,
+    );
+    if (!asset) return;
+    const gap = nearestTimelineGap(layout, state.duration, dropTime);
+    if (!gap) {
+      setClipError("No empty composition range is available.");
+      return;
+    }
+    const snappedDrop = nearestBeatTime(beats, dropTime);
+    let timelineStart = Math.max(
+      gap.start,
+      Math.min(snappedDrop, gap.end - 0.2),
+    );
+    if (gap.end - timelineStart < 0.2) timelineStart = gap.start;
+    const timelineDuration = Math.min(
+      asset.sourceDuration,
+      gap.end - timelineStart,
+    );
+    const instance: PerformingClip = {
+      ...asset,
+      id: crypto.randomUUID(),
+      assetId: asset.id,
+      placed: true,
+      thumbnail: undefined,
+      timelineStart,
+      timelineDuration,
+      sourceIn: 0,
+      playbackRate: 1,
+      repeat: false,
+    };
+    setClipError(null);
+    commitClips([...clips, instance]);
+    setSelectedId(instance.id);
   };
 
   const jumpBeat = useCallback(
@@ -328,11 +543,18 @@ export function PerformingWorkspace({
       } else if (event.code === "ArrowRight") {
         event.preventDefault();
         jumpBeat(1);
+      } else if (
+        (event.code === "Delete" || event.code === "Backspace") &&
+        selectedId &&
+        selectedId !== OVERLAY_MATERIAL_ID
+      ) {
+        event.preventDefault();
+        removeClip(selectedId);
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [actions, jumpBeat]);
+  }, [actions, jumpBeat, selectedId]);
 
   useEffect(() => {
     const area = stageAreaRef.current;
@@ -410,41 +632,32 @@ export function PerformingWorkspace({
                 setMediaAspectRatio(videoWidth / videoHeight);
               }
             }}
-            className={
-              stageSettings.backgroundMode === "generated" || clips.length
-                ? "pointer-events-none absolute h-px w-px opacity-0"
-                : `pointer-events-none h-full w-full object-contain ${
-                    state.mirrored ? "-scale-x-100" : ""
-                  }`
-            }
+            className="pointer-events-none absolute h-px w-px opacity-0"
           />
-          {stageSettings.backgroundMode === "video" &&
-            activeClip &&
+          {activeVideoClip &&
             activeClipUrl && (
             <video
-              key={activeClip.id}
+              key={activeVideoClip.id}
               ref={clipVideoRef}
               src={activeClipUrl}
               muted
               playsInline
               onLoadedMetadata={(event) => {
-                event.currentTarget.currentTime = activeClip.sourceIn;
+                event.currentTarget.currentTime = activeVideoClip.sourceIn;
               }}
               className={`pointer-events-none h-full w-full object-contain ${
                 state.mirrored ? "-scale-x-100" : ""
               }`}
             />
           )}
-          {stageSettings.backgroundMode === "video" &&
-            clips.length > 0 &&
-            (!activeClip || !activeClipUrl) && (
+          {activeVideoClip && !activeClipUrl && (
             <div className="text-sm text-neutral-600">Loading clip preview...</div>
           )}
-          {stageSettings.backgroundMode === "generated" ? (
+          {activeGeneratedClip ? (
             <PerformanceStageRenderer
               time={state.currentTime}
               beats={beats}
-              template={stageSettings.template}
+              template={activeGeneratedClip.generatedTemplate ?? "street"}
               playing={state.isPlaying}
               showBeatCode={stageSettings.showBeatCode}
               showSectionRail={stageSettings.showSectionRail}
@@ -470,16 +683,14 @@ export function PerformingWorkspace({
           )}
           <div className="pointer-events-none absolute left-5 top-5 rounded-lg border border-white/10 bg-black/45 px-3 py-2 backdrop-blur">
             <p className="text-[9px] font-semibold uppercase tracking-[0.16em] text-neutral-500">
-              {stageSettings.backgroundMode === "generated"
-                ? "Generated stage"
-                : activeClip
-                  ? `Clip ${layout.indexOf(activeClip) + 1}`
-                  : "Main media"}
+              {activeGeneratedClip
+                ? "Generated clip"
+                : activeVideoClip
+                  ? `Video clip ${layout.indexOf(activeVideoClip) + 1}`
+                  : "No composition material"}
             </p>
             <p className="mt-1 max-w-56 truncate text-xs text-neutral-300">
-              {stageSettings.backgroundMode === "generated"
-                ? stageSettings.template
-                : activeClip?.name ?? project.sourceName}
+              {activeClip?.name ?? "Empty range"}
             </p>
           </div>
           </div>
@@ -491,7 +702,7 @@ export function PerformingWorkspace({
               Composition timeline
             </span>
             <span className="text-[10px] text-neutral-700">
-              Drag to reorder · Drag right edge to snap duration
+              Drag materials · Drag edges to trim
             </span>
           </div>
           <CompositionTimeline
@@ -510,10 +721,10 @@ export function PerformingWorkspace({
             }}
             onSelectOverlay={() => setSelectedId(OVERLAY_MATERIAL_ID)}
             onSeek={actions.seek}
-            onResize={(id, duration) =>
-              updateClip(id, { timelineDuration: duration })
-            }
-            onReorder={reorderClips}
+            onChangeRange={changeClipRange}
+            onMove={moveClip}
+            onDropGenerated={addGeneratedClip}
+            onDropVideo={placeVideoClip}
           />
         </div>
 
@@ -582,8 +793,8 @@ export function PerformingWorkspace({
           </div>
           <div className="mx-4 mb-3 grid shrink-0 grid-cols-2 rounded-lg bg-neutral-900 p-0.5 text-sm">
             {([
-              ["clips", "Clips", Clapperboard],
               ["generated", "Generated", Sparkles],
+              ["clips", "Clips", Clapperboard],
             ] as const).map(([id, label, Icon]) => (
               <button
                 key={id}
@@ -591,7 +802,9 @@ export function PerformingWorkspace({
                 onClick={() => setLibraryTab(id)}
                 className={`flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs transition-colors ${
                   libraryTab === id
-                    ? "bg-violet-500 text-white"
+                    ? id === "clips"
+                      ? "bg-[#30E6FF] text-black"
+                      : "bg-violet-500 text-white"
                     : "text-neutral-400 hover:text-white"
                 }`}
               >
@@ -614,30 +827,9 @@ export function PerformingWorkspace({
             />
             <button
               type="button"
-              onClick={() => updateStage({ backgroundMode: "video" })}
-              className={`mb-2 flex w-full items-center gap-3 rounded-lg border px-3 py-2 text-left transition-colors ${
-                stageSettings.backgroundMode === "video"
-                  ? "border-violet-300/40 bg-violet-400/10 text-violet-200"
-                  : "border-white/[0.07] text-neutral-500 hover:border-white/15 hover:text-neutral-300"
-              }`}
-            >
-              <span className="flex aspect-video w-16 shrink-0 items-center justify-center rounded bg-neutral-900">
-                <Clapperboard className="h-4 w-4" />
-              </span>
-              <span className="min-w-0">
-                <span className="block text-[11px] font-medium">
-                  Clip composition
-                </span>
-                <span className="mt-0.5 block text-[9px] text-neutral-600">
-                  {clips.length} uploaded materials
-                </span>
-              </span>
-            </button>
-            <button
-              type="button"
               onClick={() => clipInputRef.current?.click()}
               disabled={addingClips}
-              className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-violet-300/20 bg-violet-400/5 px-3 py-2.5 text-[11px] text-violet-300 transition-colors hover:border-violet-300/40 hover:bg-violet-400/10 disabled:opacity-40"
+              className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-[#30E6FF]/25 bg-[#30E6FF]/5 px-3 py-2.5 text-[11px] text-[#30E6FF] transition-colors hover:border-[#30E6FF]/50 hover:bg-[#30E6FF]/10 disabled:opacity-40"
             >
               <Plus className="h-4 w-4" />
               {addingClips ? "Adding clips..." : "Add video clips"}
@@ -648,40 +840,90 @@ export function PerformingWorkspace({
               </p>
             )}
 
-            {clips.length > 0 && (
-              <div className="mt-4 space-y-1">
-                {clips.map((clip, index) => (
+            {videoClips.length > 0 && (
+              <div className="mt-4 space-y-2">
+                {videoClips.map((clip) => {
+                  const placed = layout.find((item) => item.id === clip.id);
+                  const instanceCount =
+                    layout.filter(
+                      (item) =>
+                        item.assetId === clip.id ||
+                        (item.id === clip.id && !item.assetId),
+                    ).length;
+                  const clipUrl = clipUrls.get(clip.id);
+                  return (
                   <button
                     key={clip.id}
                     type="button"
-                    onClick={() => {
-                      setSelectedId(clip.id);
-                      const placed = layout.find((item) => item.id === clip.id);
-                      if (placed) actions.seek(placed.timelineStart);
+                    draggable
+                    aria-label={`Drag ${clip.name} to the composition timeline`}
+                    onDragStart={(event) => {
+                      event.dataTransfer.effectAllowed = "copyMove";
+                      event.dataTransfer.setData(VIDEO_CLIP_DRAG_TYPE, clip.id);
                     }}
-                    className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left ${
-                      selectedId === clip.id
-                        ? "bg-violet-400/10 text-white"
-                        : "text-neutral-500 hover:bg-white/5 hover:text-neutral-300"
+                    onClick={() => {
+                      if (!placed) return;
+                      setSelectedId(clip.id);
+                      actions.seek(placed.timelineStart);
+                    }}
+                    className={`flex w-full cursor-grab items-center gap-3 rounded-lg border p-2 text-left transition-colors active:cursor-grabbing ${
+                      selectedId === clip.id && placed
+                        ? "border-[#30E6FF]/40 bg-[#30E6FF]/10"
+                        : "border-white/[0.07] bg-black/30 hover:border-white/15 hover:bg-white/[0.035]"
                     }`}
                   >
-                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-white/5 text-[10px] tabular-nums">
-                      {index + 1}
+                    <span className="relative aspect-video w-20 shrink-0 overflow-hidden rounded-md bg-black">
+                      {clip.thumbnail ? (
+                        <img
+                          src={clip.thumbnail}
+                          alt=""
+                          className="h-full w-full object-cover"
+                        />
+                      ) : clipUrl ? (
+                        <video
+                          src={clipUrl}
+                          muted
+                          playsInline
+                          preload="metadata"
+                          onLoadedMetadata={(event) => {
+                            event.currentTarget.currentTime = Math.min(
+                              0.1,
+                              event.currentTarget.duration,
+                            );
+                          }}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <span className="flex h-full w-full items-center justify-center">
+                          <Clapperboard className="h-4 w-4 text-neutral-700" />
+                        </span>
+                      )}
                     </span>
-                    <span className="min-w-0 flex-1 truncate text-xs">
-                      {clip.name}
-                    </span>
-                    <span className="text-[10px] tabular-nums text-neutral-700">
-                      {clip.timelineDuration.toFixed(1)}s
+                    <span className="min-w-0 flex-1">
+                      <span
+                        className="block truncate text-[11px] font-medium text-neutral-300"
+                        title={clip.name}
+                      >
+                        {clip.name}
+                      </span>
+                      <span className="mt-1 flex items-center gap-2 text-[10px] tabular-nums text-neutral-600">
+                        <span>{formatTime(clip.sourceDuration)}</span>
+                        {instanceCount > 0 && (
+                          <span className="rounded bg-[#30E6FF]/10 px-1.5 py-0.5 text-[#30E6FF]">
+                            {instanceCount} in timeline
+                          </span>
+                        )}
+                      </span>
                     </span>
                   </button>
-                ))}
+                  );
+                })}
               </div>
             )}
 
               </div>
             ) : libraryTab === "generated" ? (
-              <StageInspector settings={stageSettings} onChange={updateStage} />
+              <StageInspector />
             ) : null}
           </div>
         </section>

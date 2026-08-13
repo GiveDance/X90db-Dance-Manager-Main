@@ -132,8 +132,15 @@ export interface PerformingProject {
 export interface PerformingClip {
   id: string;
   name: string;
+  kind?: "video" | "generated";
+  generatedTemplate?: GeneratedStageTemplate;
+  assetId?: string;
+  placed?: boolean;
+  thumbnail?: string | null;
+  repeat?: boolean;
   sourceDuration: number;
   sourceIn: number;
+  timelineStart?: number;
   timelineDuration: number;
   playbackRate: number;
 }
