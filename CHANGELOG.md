@@ -13,6 +13,13 @@ This changelog documents the product work completed after DanceManager was creat
 - Added the shared timeline zoom and horizontal-scroll controls and removed redundant duration summary information.
 - Reused the Learning Player transport styling with precise previous/next small-beat navigation, keyboard shortcuts, playback rate, and volume controls.
 - Matched the preview canvas to the uploaded source video's aspect ratio and promoted the workspace header to span the full page above the sidebar.
+- Converted uploaded videos and generated-stage templates into draggable, non-overlapping Composition materials.
+- Added reusable video assets with thumbnails, independent timeline instances, Delete-key removal, source-aware trimming, speed-based duration, and optional repeat playback.
+- Preserved generated-template rendering while allowing each instance to fill and resize within available timeline gaps.
+- Differentiated video materials with cyan semantics and generated materials with violet semantics, with Generated selected by default in the material library.
+- Added independently configurable corner-flash and mirrored beat-point performer signals, with subtle tile-inspired styling, preset and custom beat/accent colors, adjustable spacing, single/double-row layouts, multi-position placement, shared secondary accents, collapsible settings, and a lower-opacity white 5·6·7·8 visual lead.
+- Unified the Performing sidebar spacing, title hierarchy, toggle styling, and Chinese localization across material settings and the material library.
+- Added an Original Video underlay track, shared hidden-track ghost states, full-height timeline beat guides, stronger selected-material focus, blank-area deselection, current beat labels, silent-range free placement, and persistent native drag-session drop feedback.
 
 ### Playback precision
 

@@ -68,6 +68,12 @@ export default function HomePage() {
   const [performingLoading, setPerformingLoading] = useState(true);
   const [performingError, setPerformingError] = useState<string | null>(null);
   const [performingOpeningId, setPerformingOpeningId] = useState<string | null>(null);
+  const [creatingPerformanceId, setCreatingPerformanceId] = useState<
+    string | null
+  >(null);
+  const [creatingLearningId, setCreatingLearningId] = useState<string | null>(
+    null,
+  );
   const [currentPerforming, setCurrentPerforming] =
     useState<CurrentPerformingProject | null>(null);
   const [exportTarget, setExportTarget] = useState<{ url: string; meta: SavedDanceMeta } | null>(null);
@@ -75,6 +81,8 @@ export default function HomePage() {
   const performingSaveQueueRef = useRef<Promise<void>>(Promise.resolve());
   const performingSaveTimerRef = useRef<number | null>(null);
   const latestPerformingProjectRef = useRef<PerformingProject | null>(null);
+  const creatingPerformanceRef = useRef<string | null>(null);
+  const creatingLearningRef = useRef<string | null>(null);
 
   const exportUrlRef = useRef<string | null>(null);
   const closeExport = useCallback(() => {
@@ -106,7 +114,7 @@ export default function HomePage() {
       .then(setPerformingProjects)
       .catch((error) => {
         console.error("Failed to load Performing projects.", error);
-        setPerformingError("Unable to load the local Performing project archive.");
+        setPerformingError("无法加载本地演出项目。");
       })
       .finally(() => setPerformingLoading(false));
   }, []);
@@ -128,7 +136,7 @@ export default function HomePage() {
       );
     } catch (error) {
       console.error("Failed to delete the Performing project.", error);
-      setPerformingError("Unable to delete this project. Please try again.");
+      setPerformingError("无法删除该演出项目，请重试。");
       throw error;
     }
   }, []);
@@ -157,7 +165,7 @@ export default function HomePage() {
         );
         performingSaveQueueRef.current = write.catch((error) => {
           console.error("Failed to update the Performing project.", error);
-          setPerformingError("Recent Performing edits could not be saved.");
+          setPerformingError("最近的演出项目修改未能保存。");
         });
       }, 350);
     },
@@ -173,7 +181,7 @@ export default function HomePage() {
       try {
         const media = await getPerformingProjectMedia(id);
         if (!media) {
-          setPerformingError("This project has no saved main video. Upload it again to continue.");
+          setPerformingError("该项目缺少主视频，请重新上传后继续。");
           return;
         }
         revoke();
@@ -183,7 +191,7 @@ export default function HomePage() {
         setPhase("performing");
       } catch (error) {
         console.error("Failed to open the Performing project.", error);
-        setPerformingError("Unable to open this Performing project.");
+        setPerformingError("无法打开该演出项目。");
       } finally {
         setPerformingOpeningId(null);
       }
@@ -244,6 +252,7 @@ export default function HomePage() {
           bpm,
           offset,
           musicStart,
+          beats: analysisResult?.beats,
         };
         setCurrentPerforming({ project, url });
         setPhase("performing");
@@ -257,7 +266,7 @@ export default function HomePage() {
           .catch((error) => {
             console.error("Failed to save the Performing project.", error);
             setPerformingError(
-              "The project is open, but it could not be saved. Check browser storage space.",
+              "项目已打开，但未能保存。请检查浏览器存储空间。",
             );
           });
         return;
@@ -424,6 +433,162 @@ export default function HomePage() {
     [dances],
   );
 
+  const handleCreatePerformance = useCallback(
+    async (id: string) => {
+      if (creatingPerformanceRef.current != null) return;
+      const meta = dances.find((dance) => dance.id === id);
+      if (!meta) return;
+
+      creatingPerformanceRef.current = id;
+      setCreatingPerformanceId(id);
+      setLibraryError(null);
+      setPerformingError(null);
+      try {
+        const blob = await getDanceBlob(id);
+        if (!blob) {
+          throw new Error("The saved Learning video is missing.");
+        }
+
+        const now = Date.now();
+        const beats = meta.analysisBeats ?? meta.detectedBeats;
+        const project: PerformingProject = {
+          id: crypto.randomUUID(),
+          version: 1,
+          name: meta.name.replace(/\.[^.]+$/, "") || meta.name,
+          createdAt: now,
+          updatedAt: now,
+          status: "draft",
+          sourceName: meta.name,
+          duration: meta.duration,
+          size: meta.size || blob.size,
+          type: meta.type || blob.type,
+          cover: meta.cover,
+          bpm: meta.bpm,
+          offset: meta.offset,
+          musicStart: meta.musicStart ?? null,
+          performanceStart: meta.performanceStart ?? null,
+          beats,
+          learningProjectId: meta.id,
+        };
+
+        await savePerformingProjectWithMedia(project, blob);
+        revoke();
+        const url = URL.createObjectURL(blob);
+        urlRef.current = url;
+        setPerformingProjects((projects) => [
+          project,
+          ...projects.filter((item) => item.id !== project.id),
+        ]);
+        setCurrentPerforming({ project, url });
+        setMode("performing");
+        setPhase("performing");
+      } catch (error) {
+        console.error(
+          "Failed to create a Performing project from Learning.",
+          error,
+        );
+        setLibraryError(
+          "无法从该练习视频创建演出项目，请确认本地视频仍然可用。",
+        );
+      } finally {
+        creatingPerformanceRef.current = null;
+        setCreatingPerformanceId(null);
+      }
+    },
+    [dances, revoke],
+  );
+
+  const handleCreateLearning = useCallback(
+    async (id: string) => {
+      if (creatingLearningRef.current != null) return;
+      const project = performingProjects.find((item) => item.id === id);
+      if (!project) return;
+
+      creatingLearningRef.current = id;
+      setCreatingLearningId(id);
+      setLibraryError(null);
+      setPerformingError(null);
+      try {
+        const blob = await getPerformingProjectMedia(id);
+        if (!blob) {
+          throw new Error("The saved Performing video is missing.");
+        }
+
+        const now = Date.now();
+        const bpm = project.bpm ?? 120;
+        const offset = project.offset ?? 0;
+        const meta: SavedDanceMeta = {
+          id: crypto.randomUUID(),
+          name: project.sourceName ?? project.name,
+          createdAt: now,
+          updatedAt: now,
+          bpm,
+          offset,
+          detectedBpm: bpm,
+          detectedOffset: offset,
+          detectedBeats: project.beats,
+          analysisBeats: project.beats,
+          musicStart: project.musicStart ?? null,
+          performanceStart: project.performanceStart ?? null,
+          duration: project.duration ?? 0,
+          size: project.size ?? blob.size,
+          type: project.type ?? blob.type,
+          cover: project.cover ?? null,
+          markers: [],
+          sections: [],
+          formationChanges: [],
+          formationAudiencePosition: "bottom",
+        };
+        const linkedProject: PerformingProject = {
+          ...project,
+          learningProjectId: meta.id,
+          updatedAt: now,
+        };
+
+        await saveDance(meta, blob);
+        try {
+          await updatePerformingProject(linkedProject);
+        } catch (error) {
+          console.error("Failed to link the generated Learning project.", error);
+          setLibraryError("练习项目已创建，但项目关联状态未能保存。");
+        }
+
+        revoke();
+        const url = URL.createObjectURL(blob);
+        urlRef.current = url;
+        setDances((currentDances) => [
+          meta,
+          ...currentDances.filter((dance) => dance.id !== meta.id),
+        ]);
+        setPerformingProjects((projects) =>
+          projects.map((item) =>
+            item.id === linkedProject.id ? linkedProject : item,
+          ),
+        );
+        setCurrent({
+          id: meta.id,
+          url,
+          meta,
+          openCalibrationOnEnter: false,
+        });
+        setMode("learning");
+        setPhase("player");
+      } catch (error) {
+        console.error(
+          "Failed to create a Learning project from Performing.",
+          error,
+        );
+        setPerformingError(
+          "无法从该演出视频创建练习项目，请确认本地主视频仍然可用。",
+        );
+      } finally {
+        creatingLearningRef.current = null;
+        setCreatingLearningId(null);
+      }
+    },
+    [performingProjects, revoke],
+  );
+
   const handlePersist = useCallback(
     (data: {
       bpm: number;
@@ -560,8 +725,12 @@ export default function HomePage() {
         onOpen={handleOpen}
         onDelete={handleDelete}
         onExport={handleExport}
+        onCreatePerformance={handleCreatePerformance}
+        onCreateLearning={handleCreateLearning}
         openingId={openingId}
-        libraryError={mode === "performing" ? performingError : libraryError}
+        creatingPerformanceId={creatingPerformanceId}
+        creatingLearningId={creatingLearningId}
+        libraryError={libraryError ?? performingError}
         mode={mode}
         onModeChange={setMode}
         performingProjects={performingProjects}

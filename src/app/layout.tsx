@@ -15,10 +15,14 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Dance Learning Player",
-  description: "为舞者设计的扒舞 / 学舞 / 练舞工具 — 八拍分段、单段循环、节拍可视化、镜像跟练",
+  title: "Dance Manager",
+  description: "从练习到演出，用节拍数据完成舞蹈学习、编排与视频制作。",
   manifest: "./manifest.webmanifest",
-  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "LearnDance" },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Dance Manager",
+  },
 };
 
 export const viewport: Viewport = {

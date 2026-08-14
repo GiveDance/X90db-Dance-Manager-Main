@@ -61,7 +61,7 @@ export function Uploader({ onFile, mode = "learning" }: UploaderProps) {
             handleFile(e.dataTransfer.files?.[0]);
           }}
           className={cn(
-            "group flex w-full flex-col items-center justify-center rounded-2xl border-2 border-dashed px-8 py-14 transition-colors",
+            "group flex w-full flex-col items-center justify-center rounded-2xl border-2 border-dashed px-8 py-12 transition-colors",
             dragging
               ? mode === "learning"
                 ? "border-blue-500 bg-blue-500/10"
@@ -85,16 +85,17 @@ export function Uploader({ onFile, mode = "learning" }: UploaderProps) {
           </div>
           <p className="text-lg font-medium text-white">
             {mode === "learning"
-              ? "点击上传，或将视频拖拽到此处"
-              : "上传主视频，创建 Performing 项目"}
+              ? "上传练舞视频"
+              : "上传演出主视频"}
           </p>
           <p className="mt-1 flex items-center gap-1.5 text-sm text-neutral-500">
             <Film className="h-4 w-4" />
-            {mode === "learning"
-              ? "推荐 16:9 的 mp4（H.264）· 全程本地运行，视频不上传"
-              : "自动分析节拍并进入 Performing Workspace · 全程本地运行"}
+            点击选择或将视频拖入此处
           </p>
         </button>
+        <p className="mt-2 px-1 text-[11px] text-neutral-600">
+          推荐使用 H.264 编码的 MP4 · 所有处理均在本地完成
+        </p>
 
         <input
           ref={inputRef}

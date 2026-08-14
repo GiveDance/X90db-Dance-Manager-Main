@@ -617,6 +617,7 @@ export function FormationEditorPage({
             duration={duration}
             bpm={bpm}
             offset={offset}
+            beatTimes={beatTimes}
             currentTime={currentTime}
             selectedId={selected?.id ?? null}
             onPreview={(time) => {
