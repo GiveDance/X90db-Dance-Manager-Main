@@ -97,7 +97,7 @@ export function SharedHomeHeadline({
       <p
         ref={sloganRef}
         aria-label={SLOGAN_LINES.join("，")}
-        className="absolute flex whitespace-nowrap font-semibold tracking-[-0.015em] [text-shadow:0_1px_3px_rgba(0,0,0,1),0_3px_18px_rgba(0,0,0,0.95)]"
+        className="absolute flex whitespace-nowrap font-semibold tracking-[-0.015em]"
       >
         {SLOGAN_LINES.map((line, lineIndex) => {
           const lineOffset = lineIndex * line.length;
@@ -105,28 +105,88 @@ export function SharedHomeHeadline({
             <span
               key={line}
               aria-hidden="true"
-              className={lineIndex === 0 ? "mr-[0.65em]" : undefined}
+              className={lineIndex === 0 ? "mr-[0.9em]" : undefined}
             >
               {[...line].map((character, characterIndex) => {
                 const index = lineOffset + characterIndex;
+                const isActive =
+                  animateSlogan && index === activeCharacter;
                 return (
                   <span
                     key={`${line}-${characterIndex}`}
-                    className={
-                      animateSlogan
-                        ? index === activeCharacter
-                          ? "font-bold text-white transition-colors duration-100 motion-reduce:font-inherit motion-reduce:text-inherit"
-                          : "text-white/70 transition-colors duration-100 contrast-more:text-white/90 motion-reduce:text-inherit"
-                        : "text-inherit"
-                    }
+                    className="inline-block"
                   >
-                    {character}
+                    <span
+                      className={
+                        animateSlogan
+                          ? isActive
+                            ? "font-bold text-white transition-colors duration-100 motion-reduce:font-inherit motion-reduce:text-inherit"
+                            : "text-white/70 transition-colors duration-100 contrast-more:text-white/90 motion-reduce:text-inherit"
+                          : "text-inherit"
+                      }
+                    >
+                      {character}
+                    </span>
                   </span>
                 );
               })}
             </span>
           );
         })}
+        {animateSlogan && (
+          <span
+            aria-hidden="true"
+            className="absolute left-0 top-[calc(100%+0.35em)] flex h-[1.25em] items-end"
+          >
+            {SLOGAN_LINES.map((line, lineIndex) => (
+              <span
+                key={`${line}-timeline`}
+                className={`relative grid h-full w-[8em] grid-cols-8 border-b border-white/20 ${
+                  lineIndex === 0 ? "mr-[0.9em]" : ""
+                }`}
+              >
+                {[...line].map((_, beatIndex) => {
+                  const index = lineIndex * line.length + beatIndex;
+                  const isActive = index === activeCharacter;
+                  const isDownbeat = beatIndex === 0;
+                  const isQuarter = beatIndex % 4 === 0;
+                  return (
+                    <span
+                      key={`${line}-beat-${beatIndex}`}
+                      className="relative h-full"
+                    >
+                      <span
+                        className={`absolute bottom-0 left-1/2 w-px -translate-x-1/2 ${
+                          isActive
+                            ? "h-full bg-white"
+                            : isDownbeat
+                              ? "h-full bg-blue-400/45"
+                              : isQuarter
+                                ? "h-3/4 bg-blue-400/25"
+                                : "h-1/2 bg-white/[0.08]"
+                        }`}
+                      />
+                      <span
+                        className={`absolute bottom-0 left-1/2 h-[3px] w-1.5 -translate-x-1/2 rounded-t-full ${
+                          isActive
+                            ? "bg-white"
+                            : isDownbeat
+                              ? "bg-blue-300/75"
+                              : isQuarter
+                                ? "bg-blue-300/55"
+                                : "bg-neutral-500/35"
+                        }`}
+                      />
+                      {isActive && (
+                        <span className="absolute left-1/2 top-0 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white" />
+                      )}
+                    </span>
+                  );
+                })}
+              </span>
+            ))}
+          </span>
+        )}
       </p>
     </div>
   );
