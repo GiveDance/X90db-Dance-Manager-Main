@@ -1,10 +1,16 @@
 "use client";
 
-import { useEffect, useRef, type RefObject } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
+import {
+  LANDING_BEAT_EVENT,
+  LANDING_SLOGAN_CHARACTERS,
+} from "@/lib/landingRhythm";
 
 interface SharedHomeHeadlineProps {
   scrollerRef: RefObject<HTMLDivElement | null>;
 }
+
+const SLOGAN_LINES = ["让每一拍清晰可见", "让每一步准确合拍"] as const;
 
 function mix(start: number, end: number, progress: number) {
   return start + (end - start) * progress;
@@ -15,6 +21,24 @@ export function SharedHomeHeadline({
 }: SharedHomeHeadlineProps) {
   const titleRef = useRef<HTMLHeadingElement>(null);
   const sloganRef = useRef<HTMLParagraphElement>(null);
+  const [animateSlogan, setAnimateSlogan] = useState(true);
+  const [activeCharacter, setActiveCharacter] = useState(0);
+
+  useEffect(() => {
+    if (!animateSlogan) return;
+    const updateCharacter = (event: Event) => {
+      const character = (event as CustomEvent<number>).detail;
+      if (
+        Number.isInteger(character) &&
+        character >= 0 &&
+        character < LANDING_SLOGAN_CHARACTERS
+      ) {
+        setActiveCharacter(character);
+      }
+    };
+    window.addEventListener(LANDING_BEAT_EVENT, updateCharacter);
+    return () => window.removeEventListener(LANDING_BEAT_EVENT, updateCharacter);
+  }, [animateSlogan]);
 
   useEffect(() => {
     const scroller = scrollerRef.current;
@@ -46,6 +70,7 @@ export function SharedHomeHeadline({
       slogan.style.fontSize = `${mix(width < 640 ? 18 : 24, 16, progress)}px`;
       slogan.style.transform = `translateX(${centeredOffset}%)`;
       slogan.style.color = `rgba(255,255,255,${mix(0.72, 0.5, progress)})`;
+      setAnimateSlogan(scrollTop < height * 0.9);
     };
     const requestUpdate = () => {
       if (!animationFrame) animationFrame = window.requestAnimationFrame(update);
@@ -71,9 +96,37 @@ export function SharedHomeHeadline({
       </h1>
       <p
         ref={sloganRef}
-        className="absolute whitespace-nowrap font-medium tracking-tight"
+        aria-label={SLOGAN_LINES.join("，")}
+        className="absolute flex whitespace-nowrap font-medium tracking-tight"
       >
-        让节拍看得见，让每一步都合拍。
+        {SLOGAN_LINES.map((line, lineIndex) => {
+          const lineOffset = lineIndex * line.length;
+          return (
+            <span
+              key={line}
+              aria-hidden="true"
+              className={lineIndex === 0 ? "mr-[0.65em]" : undefined}
+            >
+              {[...line].map((character, characterIndex) => {
+                const index = lineOffset + characterIndex;
+                return (
+                  <span
+                    key={`${line}-${characterIndex}`}
+                    className={
+                      animateSlogan
+                        ? index === activeCharacter
+                          ? "text-white transition-colors duration-100 motion-reduce:text-inherit"
+                          : "text-white/35 transition-colors duration-100 motion-reduce:text-inherit"
+                        : "text-inherit"
+                    }
+                  >
+                    {character}
+                  </span>
+                );
+              })}
+            </span>
+          );
+        })}
       </p>
     </div>
   );

@@ -3,6 +3,11 @@
 import { useEffect, useRef } from "react";
 import { ArrowDown, GraduationCap, Sparkles } from "lucide-react";
 import type { WorkspaceMode } from "./Home";
+import {
+  LANDING_BEAT_EVENT,
+  LANDING_VIDEO_PLAYBACK_RATE,
+  landingCharacterAt,
+} from "@/lib/landingRhythm";
 
 const VERTEX_SHADER = `
   attribute vec2 aPosition;
@@ -180,6 +185,8 @@ export function LandingExperience({ onEnter }: LandingExperienceProps) {
     ).matches;
     let animationFrame = 0;
     let active = true;
+    let lastCharacter = -1;
+    video.playbackRate = LANDING_VIDEO_PLAYBACK_RATE;
 
     const resize = () => {
       const ratio = Math.min(window.devicePixelRatio || 1, 1.5);
@@ -200,6 +207,13 @@ export function LandingExperience({ onEnter }: LandingExperienceProps) {
       if (!active) return;
       resize();
       if (video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+        const character = landingCharacterAt(video.currentTime);
+        if (character !== lastCharacter) {
+          lastCharacter = character;
+          window.dispatchEvent(
+            new CustomEvent(LANDING_BEAT_EVENT, { detail: character }),
+          );
+        }
         gl.bindTexture(gl.TEXTURE_2D, texture);
         gl.texImage2D(
           gl.TEXTURE_2D,

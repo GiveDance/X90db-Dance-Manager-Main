@@ -11,6 +11,7 @@ This changelog documents the product work completed after DanceManager was creat
 - Reorganized the homepage into concise Chinese mode tabs, a differentiated upload surface, a shared project library, and lower-priority early-access features.
 - Unified Learning and Performing project cards with linked state buttons and bidirectional project generation that reuses stored media and rhythm data.
 - Added development-status entry cards for the motion calibrator and mobile/Apple Watch beat vibration companion.
+- Removed the interactive gradient background and its tuning controls, and synchronized the two-line Chinese slogan character-by-character to the landing video's corrected 148 BPM playback.
 
 ### Performing workspace
 
