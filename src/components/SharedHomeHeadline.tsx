@@ -1,10 +1,16 @@
 "use client";
 
-import { useEffect, useRef, type RefObject } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
+import {
+  LANDING_BEAT_EVENT,
+  LANDING_SLOGAN_CHARACTERS,
+} from "@/lib/landingRhythm";
 
 interface SharedHomeHeadlineProps {
   scrollerRef: RefObject<HTMLDivElement | null>;
 }
+
+const SLOGAN_LINES = ["让每一拍清晰可见", "让每一步准确合拍"] as const;
 
 function mix(start: number, end: number, progress: number) {
   return start + (end - start) * progress;
@@ -15,6 +21,24 @@ export function SharedHomeHeadline({
 }: SharedHomeHeadlineProps) {
   const titleRef = useRef<HTMLHeadingElement>(null);
   const sloganRef = useRef<HTMLParagraphElement>(null);
+  const [animateSlogan, setAnimateSlogan] = useState(true);
+  const [activeCharacter, setActiveCharacter] = useState(0);
+
+  useEffect(() => {
+    if (!animateSlogan) return;
+    const updateCharacter = (event: Event) => {
+      const character = (event as CustomEvent<number>).detail;
+      if (
+        Number.isInteger(character) &&
+        character >= -1 &&
+        character < LANDING_SLOGAN_CHARACTERS
+      ) {
+        setActiveCharacter(character);
+      }
+    };
+    window.addEventListener(LANDING_BEAT_EVENT, updateCharacter);
+    return () => window.removeEventListener(LANDING_BEAT_EVENT, updateCharacter);
+  }, [animateSlogan]);
 
   useEffect(() => {
     const scroller = scrollerRef.current;
@@ -42,10 +66,11 @@ export function SharedHomeHeadline({
       title.style.transform = `translate(${centeredOffset}%, ${centeredOffset}%)`;
 
       slogan.style.left = `${mix(width / 2, contentLeft, progress)}px`;
-      slogan.style.top = `${mix(height * 0.54, 98, progress) - afterLanding}px`;
+      slogan.style.top = `${mix(height * 0.5, 98, progress) - afterLanding}px`;
       slogan.style.fontSize = `${mix(width < 640 ? 18 : 24, 16, progress)}px`;
       slogan.style.transform = `translateX(${centeredOffset}%)`;
       slogan.style.color = `rgba(255,255,255,${mix(0.72, 0.5, progress)})`;
+      setAnimateSlogan(scrollTop < height * 0.9);
     };
     const requestUpdate = () => {
       if (!animationFrame) animationFrame = window.requestAnimationFrame(update);
@@ -71,9 +96,67 @@ export function SharedHomeHeadline({
       </h1>
       <p
         ref={sloganRef}
-        className="absolute whitespace-nowrap font-medium tracking-tight"
+        aria-label={SLOGAN_LINES.join("，")}
+        className="absolute flex whitespace-nowrap font-semibold tracking-[-0.015em]"
       >
-        让节拍看得见，让每一步都合拍。
+        {SLOGAN_LINES.map((line, lineIndex) => {
+          const lineOffset = lineIndex * line.length;
+          return (
+            <span
+              key={line}
+              aria-hidden="true"
+              className={lineIndex === 0 ? "mr-[0.9em]" : undefined}
+            >
+              {[...line].map((character, characterIndex) => {
+                const index = lineOffset + characterIndex;
+                const isActive =
+                  animateSlogan && index === activeCharacter;
+                return (
+                  <span
+                    key={`${line}-${characterIndex}`}
+                    className="relative inline-block"
+                  >
+                    {animateSlogan && (
+                      <span
+                        aria-hidden="true"
+                        className={`absolute bottom-[calc(100%+0.2em)] left-1/2 w-px -translate-x-1/2 transition-all duration-100 ${
+                          isActive
+                            ? "h-2.5 bg-white"
+                            : characterIndex === 0
+                              ? "h-2 bg-blue-300/65"
+                              : "h-1.5 bg-white/25"
+                        }`}
+                      />
+                    )}
+                    <span
+                      className={
+                        animateSlogan
+                          ? isActive
+                            ? "font-bold text-white transition-colors duration-100 motion-reduce:font-inherit motion-reduce:text-inherit"
+                            : "text-white/70 transition-colors duration-100 contrast-more:text-white/90 motion-reduce:text-inherit"
+                          : "text-inherit"
+                      }
+                    >
+                      {character}
+                    </span>
+                    {animateSlogan && (
+                      <span
+                        aria-hidden="true"
+                        className={`absolute left-1/2 top-[calc(100%+0.2em)] w-px -translate-x-1/2 transition-all duration-100 ${
+                          isActive
+                            ? "h-2.5 bg-white"
+                            : characterIndex === 0
+                              ? "h-2 bg-blue-300/65"
+                              : "h-1.5 bg-white/25"
+                        }`}
+                      />
+                    )}
+                  </span>
+                );
+              })}
+            </span>
+          );
+        })}
       </p>
     </div>
   );

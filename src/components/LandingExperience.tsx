@@ -3,6 +3,11 @@
 import { useEffect, useRef } from "react";
 import { ArrowDown, GraduationCap, Sparkles } from "lucide-react";
 import type { WorkspaceMode } from "./Home";
+import {
+  LANDING_BEAT_EVENT,
+  LANDING_VIDEO_PLAYBACK_RATE,
+  landingCharacterAt,
+} from "@/lib/landingRhythm";
 
 const VERTEX_SHADER = `
   attribute vec2 aPosition;
@@ -73,7 +78,7 @@ const FRAGMENT_SHADER = `
     float vignette = pow(clamp(vignetteUv.x * vignetteUv.y * 18.0, 0.0, 1.0), 0.34);
     monochrome *= mix(0.38, 1.0, vignette) * inside;
 
-    gl_FragColor = vec4(vec3(monochrome * 0.72), 1.0);
+    gl_FragColor = vec4(vec3(monochrome * 0.58), 1.0);
   }
 `;
 
@@ -180,6 +185,8 @@ export function LandingExperience({ onEnter }: LandingExperienceProps) {
     ).matches;
     let animationFrame = 0;
     let active = true;
+    let lastCharacter = -1;
+    video.playbackRate = LANDING_VIDEO_PLAYBACK_RATE;
 
     const resize = () => {
       const ratio = Math.min(window.devicePixelRatio || 1, 1.5);
@@ -200,6 +207,13 @@ export function LandingExperience({ onEnter }: LandingExperienceProps) {
       if (!active) return;
       resize();
       if (video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+        const character = landingCharacterAt(video.currentTime);
+        if (character !== lastCharacter) {
+          lastCharacter = character;
+          window.dispatchEvent(
+            new CustomEvent(LANDING_BEAT_EVENT, { detail: character }),
+          );
+        }
         gl.bindTexture(gl.TEXTURE_2D, texture);
         gl.texImage2D(
           gl.TEXTURE_2D,
@@ -281,14 +295,14 @@ export function LandingExperience({ onEnter }: LandingExperienceProps) {
       <div className="absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-black/55 to-transparent" />
       <div className="absolute inset-x-0 bottom-0 h-52 bg-gradient-to-t from-black/80 to-transparent" />
 
-      <div className="absolute inset-x-0 top-[24%] z-10 mx-auto max-w-5xl px-6">
-        <p className="flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[11px] tracking-[0.16em] text-white/58">
+      <header className="absolute inset-x-0 top-7 z-10 mx-auto flex max-w-5xl justify-center px-6">
+        <p className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-center font-mono text-[11px] tracking-[0.16em] text-white/58">
           <span>听障人士舞蹈小助手</span>
           <span className="text-white/38">
             Designed for X90dB 聋人街舞团 by Studio 8 × Give
           </span>
         </p>
-      </div>
+      </header>
 
       <div className="absolute inset-x-6 bottom-8 z-10 flex flex-col items-center gap-5">
         <div className="flex w-full max-w-md gap-3">

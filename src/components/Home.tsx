@@ -7,14 +7,9 @@ import {
   Sparkles,
   Watch,
 } from "lucide-react";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useRef } from "react";
 import { Uploader } from "./Uploader";
 import { ProjectLibrary } from "./ProjectLibrary";
-import {
-  DEFAULT_GRADIENT_SETTINGS,
-  InteractiveGradient,
-} from "./InteractiveGradient";
-import { GradientTuner } from "./GradientTuner";
 import { LandingExperience } from "./LandingExperience";
 import { SharedHomeHeadline } from "./SharedHomeHeadline";
 import { DevToolsButton } from "./DevToolsButton";
@@ -66,28 +61,8 @@ export function Home({
   onOpenPerformingProject,
   onDeletePerformingProject,
 }: HomeProps) {
-  const [gradientSettings, setGradientSettings] = useState(
-    DEFAULT_GRADIENT_SETTINGS,
-  );
-  const updateGradientSettings = useCallback(
-    (settings: typeof DEFAULT_GRADIENT_SETTINGS) => {
-      setGradientSettings(settings);
-    },
-    [],
-  );
   const workspaceRef = useRef<HTMLElement>(null);
   const homeScrollRef = useRef<HTMLDivElement>(null);
-  const gradientScrollProgressRef = useRef(0);
-  const trackGradientScroll = useCallback(
-    (event: React.UIEvent<HTMLDivElement>) => {
-      const scroller = event.currentTarget;
-      gradientScrollProgressRef.current = Math.min(
-        1,
-        scroller.scrollTop / Math.max(1, scroller.clientHeight),
-      );
-    },
-    [],
-  );
   const enterWorkspace = useCallback(
     (nextMode: WorkspaceMode) => {
       onModeChange(nextMode);
@@ -124,19 +99,10 @@ export function Home({
   return (
     <div
       ref={homeScrollRef}
-      onScroll={trackGradientScroll}
       className="relative h-full overflow-y-auto bg-black text-white"
     >
-      <InteractiveGradient
-        settings={gradientSettings}
-        scrollProgressRef={gradientScrollProgressRef}
-      />
       <SharedHomeHeadline scrollerRef={homeScrollRef} />
-      <div className="absolute right-6 top-6 z-10 flex items-center gap-2">
-        <GradientTuner
-          settings={gradientSettings}
-          onChange={updateGradientSettings}
-        />
+      <div className="absolute right-6 top-6 z-10">
         <DevToolsButton />
       </div>
       <LandingExperience onEnter={enterWorkspace} />
