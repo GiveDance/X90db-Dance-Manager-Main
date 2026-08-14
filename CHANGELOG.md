@@ -1,8 +1,16 @@
 # Changelog
 
+- Added a full-screen, muted monochrome video landing experience with a custom retro CRT WebGL shader and mode-specific entry CTAs.
+
 This changelog documents the product work completed after DanceManager was created from the DancePlayer codebase.
 
 ## [Unreleased] - 2026-08-13
+
+### Home
+
+- Reorganized the homepage into concise Chinese mode tabs, a differentiated upload surface, a shared project library, and lower-priority early-access features.
+- Unified Learning and Performing project cards with linked state buttons and bidirectional project generation that reuses stored media and rhythm data.
+- Added development-status entry cards for the motion calibrator and mobile/Apple Watch beat vibration companion.
 
 ### Performing workspace
 
@@ -20,6 +28,7 @@ This changelog documents the product work completed after DanceManager was creat
 - Added independently configurable corner-flash and mirrored beat-point performer signals, with subtle tile-inspired styling, preset and custom beat/accent colors, adjustable spacing, single/double-row layouts, multi-position placement, shared secondary accents, collapsible settings, and a lower-opacity white 5·6·7·8 visual lead.
 - Unified the Performing sidebar spacing, title hierarchy, toggle styling, and Chinese localization across material settings and the material library.
 - Added an Original Video underlay track, shared hidden-track ghost states, full-height timeline beat guides, stronger selected-material focus, blank-area deselection, current beat labels, silent-range free placement, and persistent native drag-session drop feedback.
+- Added one-click conversion from a saved Learning video into a persisted Performing project while preserving its calibrated BPM, offset, onset, presentation start, and tracked beat data.
 
 ### Playback precision
 
