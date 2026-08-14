@@ -78,7 +78,7 @@ const FRAGMENT_SHADER = `
     float vignette = pow(clamp(vignetteUv.x * vignetteUv.y * 18.0, 0.0, 1.0), 0.34);
     monochrome *= mix(0.38, 1.0, vignette) * inside;
 
-    gl_FragColor = vec4(vec3(monochrome * 0.72), 1.0);
+    gl_FragColor = vec4(vec3(monochrome * 0.58), 1.0);
   }
 `;
 
