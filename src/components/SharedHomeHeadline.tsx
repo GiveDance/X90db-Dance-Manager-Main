@@ -30,7 +30,7 @@ export function SharedHomeHeadline({
       const character = (event as CustomEvent<number>).detail;
       if (
         Number.isInteger(character) &&
-        character >= 0 &&
+        character >= -1 &&
         character < LANDING_SLOGAN_CHARACTERS
       ) {
         setActiveCharacter(character);
@@ -97,7 +97,7 @@ export function SharedHomeHeadline({
       <p
         ref={sloganRef}
         aria-label={SLOGAN_LINES.join("，")}
-        className="absolute flex whitespace-nowrap font-medium tracking-tight"
+        className="absolute flex whitespace-nowrap font-semibold tracking-[-0.015em] [text-shadow:0_1px_3px_rgba(0,0,0,1),0_3px_18px_rgba(0,0,0,0.95)]"
       >
         {SLOGAN_LINES.map((line, lineIndex) => {
           const lineOffset = lineIndex * line.length;
@@ -115,8 +115,8 @@ export function SharedHomeHeadline({
                     className={
                       animateSlogan
                         ? index === activeCharacter
-                          ? "text-white transition-colors duration-100 motion-reduce:text-inherit"
-                          : "text-white/35 transition-colors duration-100 motion-reduce:text-inherit"
+                          ? "font-bold text-white transition-colors duration-100 motion-reduce:font-inherit motion-reduce:text-inherit"
+                          : "text-white/70 transition-colors duration-100 contrast-more:text-white/90 motion-reduce:text-inherit"
                         : "text-inherit"
                     }
                   >
