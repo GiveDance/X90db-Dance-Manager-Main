@@ -171,8 +171,11 @@ async function detectMusicStartFromMedia(
     const analyser = context.createAnalyser();
     analyser.fftSize = 2048;
     analyser.smoothingTimeConstant = 0;
+    const silentOutput = context.createGain();
+    silentOutput.gain.value = 0;
     source.connect(analyser);
-    analyser.connect(context.destination);
+    analyser.connect(silentOutput);
+    silentOutput.connect(context.destination);
     try {
       await context.resume();
     } catch (error) {
@@ -297,8 +300,11 @@ async function captureAudioFromMedia(
     const analyser = context.createAnalyser();
     analyser.fftSize = 2048;
     analyser.smoothingTimeConstant = 0;
+    const silentOutput = context.createGain();
+    silentOutput.gain.value = 0;
     source.connect(analyser);
-    analyser.connect(context.destination);
+    analyser.connect(silentOutput);
+    silentOutput.connect(context.destination);
     const samples = new Float32Array(analyser.fftSize);
     const chunks: Float32Array[] = [];
 
