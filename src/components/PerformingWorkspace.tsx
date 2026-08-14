@@ -165,8 +165,23 @@ export function PerformingWorkspace({
     [bpm, offset, state.duration],
   );
   const beats = useMemo(
-    () => segments.flatMap((segment) => segment.beats),
-    [segments],
+    () => {
+      const savedBeats = (project.beats ?? [])
+        .map((beat) => beat.time)
+        .filter(
+          (time) =>
+            Number.isFinite(time) && time >= 0 && time <= state.duration,
+        )
+        .sort((first, second) => first - second)
+        .filter(
+          (time, index, all) =>
+            index === 0 || time - all[index - 1] > 0.001,
+        );
+      return savedBeats.length
+        ? savedBeats
+        : segments.flatMap((segment) => segment.beats);
+    },
+    [project.beats, segments, state.duration],
   );
   const currentBeatLabel = useMemo(() => {
     let beatIndex = -1;
