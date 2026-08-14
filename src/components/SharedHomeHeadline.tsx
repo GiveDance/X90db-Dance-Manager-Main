@@ -114,8 +114,20 @@ export function SharedHomeHeadline({
                 return (
                   <span
                     key={`${line}-${characterIndex}`}
-                    className="inline-block"
+                    className="relative inline-block"
                   >
+                    {animateSlogan && (
+                      <span
+                        aria-hidden="true"
+                        className={`absolute bottom-[calc(100%+0.2em)] left-1/2 w-px -translate-x-1/2 transition-all duration-100 ${
+                          isActive
+                            ? "h-2.5 bg-white"
+                            : characterIndex === 0
+                              ? "h-2 bg-blue-300/65"
+                              : "h-1.5 bg-white/25"
+                        }`}
+                      />
+                    )}
                     <span
                       className={
                         animateSlogan
@@ -127,66 +139,24 @@ export function SharedHomeHeadline({
                     >
                       {character}
                     </span>
+                    {animateSlogan && (
+                      <span
+                        aria-hidden="true"
+                        className={`absolute left-1/2 top-[calc(100%+0.2em)] w-px -translate-x-1/2 transition-all duration-100 ${
+                          isActive
+                            ? "h-2.5 bg-white"
+                            : characterIndex === 0
+                              ? "h-2 bg-blue-300/65"
+                              : "h-1.5 bg-white/25"
+                        }`}
+                      />
+                    )}
                   </span>
                 );
               })}
             </span>
           );
         })}
-        {animateSlogan && (
-          <span
-            aria-hidden="true"
-            className="absolute left-0 top-[calc(100%+0.35em)] flex h-[1.25em] items-end"
-          >
-            {SLOGAN_LINES.map((line, lineIndex) => (
-              <span
-                key={`${line}-timeline`}
-                className={`relative grid h-full w-[8em] grid-cols-8 border-b border-white/20 ${
-                  lineIndex === 0 ? "mr-[0.9em]" : ""
-                }`}
-              >
-                {[...line].map((_, beatIndex) => {
-                  const index = lineIndex * line.length + beatIndex;
-                  const isActive = index === activeCharacter;
-                  const isDownbeat = beatIndex === 0;
-                  const isQuarter = beatIndex % 4 === 0;
-                  return (
-                    <span
-                      key={`${line}-beat-${beatIndex}`}
-                      className="relative h-full"
-                    >
-                      <span
-                        className={`absolute bottom-0 left-1/2 w-px -translate-x-1/2 ${
-                          isActive
-                            ? "h-full bg-white"
-                            : isDownbeat
-                              ? "h-full bg-blue-400/45"
-                              : isQuarter
-                                ? "h-3/4 bg-blue-400/25"
-                                : "h-1/2 bg-white/[0.08]"
-                        }`}
-                      />
-                      <span
-                        className={`absolute bottom-0 left-1/2 h-[3px] w-1.5 -translate-x-1/2 rounded-t-full ${
-                          isActive
-                            ? "bg-white"
-                            : isDownbeat
-                              ? "bg-blue-300/75"
-                              : isQuarter
-                                ? "bg-blue-300/55"
-                                : "bg-neutral-500/35"
-                        }`}
-                      />
-                      {isActive && (
-                        <span className="absolute left-1/2 top-0 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white" />
-                      )}
-                    </span>
-                  );
-                })}
-              </span>
-            ))}
-          </span>
-        )}
       </p>
     </div>
   );
