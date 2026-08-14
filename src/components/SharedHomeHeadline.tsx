@@ -66,7 +66,7 @@ export function SharedHomeHeadline({
       title.style.transform = `translate(${centeredOffset}%, ${centeredOffset}%)`;
 
       slogan.style.left = `${mix(width / 2, contentLeft, progress)}px`;
-      slogan.style.top = `${mix(height * 0.54, 98, progress) - afterLanding}px`;
+      slogan.style.top = `${mix(height * 0.5, 98, progress) - afterLanding}px`;
       slogan.style.fontSize = `${mix(width < 640 ? 18 : 24, 16, progress)}px`;
       slogan.style.transform = `translateX(${centeredOffset}%)`;
       slogan.style.color = `rgba(255,255,255,${mix(0.72, 0.5, progress)})`;
