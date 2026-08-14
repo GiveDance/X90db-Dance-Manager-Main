@@ -38,6 +38,7 @@ interface HomeProps {
   performingOpeningId: string | null;
   onOpenPerformingProject: (id: string) => void;
   onDeletePerformingProject: (id: string) => void;
+  onOpenMotionAnalyzer: () => void;
 }
 
 export function Home({
@@ -60,6 +61,7 @@ export function Home({
   performingOpeningId,
   onOpenPerformingProject,
   onDeletePerformingProject,
+  onOpenMotionAnalyzer,
 }: HomeProps) {
   const workspaceRef = useRef<HTMLElement>(null);
   const homeScrollRef = useRef<HTMLDivElement>(null);
@@ -87,12 +89,14 @@ export function Home({
       title: "动作校准器",
       icon: Activity,
       iconClass: "bg-blue-400/10 text-blue-300",
+      available: true,
     },
     {
       title: "随身节拍震动器",
       icon: Smartphone,
       iconClass: "bg-violet-400/10 text-violet-300",
       secondaryIcon: Watch,
+      available: false,
     },
   ];
 
@@ -211,11 +215,15 @@ export function Home({
 
           <div className="grid gap-3 sm:grid-cols-2">
             {earlyAccessFeatures.map(
-              ({ title, icon: Icon, iconClass, secondaryIcon: SecondaryIcon }) => (
-                <article
-                  key={title}
-                  className="flex min-h-16 items-center justify-between rounded-xl bg-[linear-gradient(135deg,rgba(255,255,255,0.045),rgba(255,255,255,0.018))] px-4 py-3 ring-1 ring-inset ring-white/[0.06]"
-                >
+              ({
+                title,
+                icon: Icon,
+                iconClass,
+                secondaryIcon: SecondaryIcon,
+                available,
+              }) => {
+                const content = (
+                  <>
                   <div className="flex min-w-0 items-center gap-3">
                     <span
                       className={cn(
@@ -237,12 +245,43 @@ export function Home({
                       {title}
                     </h3>
                   </div>
-                  <span className="ml-4 inline-flex shrink-0 items-center gap-1.5 rounded-full bg-black/25 px-2.5 py-1 text-[10px] font-medium text-neutral-500">
-                    <span className="h-1.5 w-1.5 rounded-full bg-amber-300/60" />
-                    开发中
+                  <span
+                   className={cn(
+                     "ml-4 inline-flex shrink-0 items-center gap-1.5 rounded-full bg-black/25 px-2.5 py-1 text-[10px] font-medium",
+                     available ? "text-emerald-300/80" : "text-neutral-500",
+                   )}
+                  >
+                   <span
+                     className={cn(
+                       "h-1.5 w-1.5 rounded-full",
+                       available ? "bg-emerald-300/70" : "bg-amber-300/60",
+                     )}
+                   />
+                   {available ? "可用" : "开发中"}
                   </span>
-                </article>
-              ),
+                  </>
+                );
+                const cardClass =
+                  "flex min-h-16 w-full items-center justify-between rounded-xl bg-[linear-gradient(135deg,rgba(255,255,255,0.045),rgba(255,255,255,0.018))] px-4 py-3 text-left ring-1 ring-inset ring-white/[0.06]";
+
+                return available ? (
+                  <button
+                   key={title}
+                   type="button"
+                   onClick={onOpenMotionAnalyzer}
+                   className={cn(
+                     cardClass,
+                     "cursor-pointer transition hover:bg-white/[0.06] hover:ring-blue-300/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300/60",
+                   )}
+                  >
+                   {content}
+                  </button>
+                ) : (
+                  <article key={title} className={cardClass}>
+                   {content}
+                  </article>
+                );
+              },
             )}
           </div>
         </section>
