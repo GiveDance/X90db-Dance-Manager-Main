@@ -1,9 +1,22 @@
 "use client";
 
-import { GraduationCap, Sparkles } from "lucide-react";
+import {
+  Activity,
+  GraduationCap,
+  Smartphone,
+  Sparkles,
+  Watch,
+} from "lucide-react";
+import { useCallback, useRef, useState } from "react";
 import { Uploader } from "./Uploader";
-import { DanceLibrary } from "./DanceLibrary";
-import { PerformingLibrary } from "./PerformingLibrary";
+import { ProjectLibrary } from "./ProjectLibrary";
+import {
+  DEFAULT_GRADIENT_SETTINGS,
+  InteractiveGradient,
+} from "./InteractiveGradient";
+import { GradientTuner } from "./GradientTuner";
+import { LandingExperience } from "./LandingExperience";
+import { SharedHomeHeadline } from "./SharedHomeHeadline";
 import { DevToolsButton } from "./DevToolsButton";
 import type { PerformingProject, SavedDanceMeta } from "@/lib/types";
 import { cn } from "@/lib/cn";
@@ -17,7 +30,11 @@ interface HomeProps {
   onOpen: (id: string) => void;
   onDelete: (id: string) => void;
   onExport: (id: string) => void;
+  onCreatePerformance: (id: string) => void;
+  onCreateLearning: (id: string) => void;
   openingId: string | null;
+  creatingPerformanceId: string | null;
+  creatingLearningId: string | null;
   libraryError: string | null;
   mode: WorkspaceMode;
   onModeChange: (mode: WorkspaceMode) => void;
@@ -35,7 +52,11 @@ export function Home({
   onOpen,
   onDelete,
   onExport,
+  onCreatePerformance,
+  onCreateLearning,
   openingId,
+  creatingPerformanceId,
+  creatingLearningId,
   libraryError,
   mode,
   onModeChange,
@@ -45,77 +66,142 @@ export function Home({
   onOpenPerformingProject,
   onDeletePerformingProject,
 }: HomeProps) {
+  const [gradientSettings, setGradientSettings] = useState(
+    DEFAULT_GRADIENT_SETTINGS,
+  );
+  const updateGradientSettings = useCallback(
+    (settings: typeof DEFAULT_GRADIENT_SETTINGS) => {
+      setGradientSettings(settings);
+    },
+    [],
+  );
+  const workspaceRef = useRef<HTMLElement>(null);
+  const homeScrollRef = useRef<HTMLDivElement>(null);
+  const gradientScrollProgressRef = useRef(0);
+  const trackGradientScroll = useCallback(
+    (event: React.UIEvent<HTMLDivElement>) => {
+      const scroller = event.currentTarget;
+      gradientScrollProgressRef.current = Math.min(
+        1,
+        scroller.scrollTop / Math.max(1, scroller.clientHeight),
+      );
+    },
+    [],
+  );
+  const enterWorkspace = useCallback(
+    (nextMode: WorkspaceMode) => {
+      onModeChange(nextMode);
+      window.requestAnimationFrame(() => {
+        const scroller = homeScrollRef.current;
+        const workspace = workspaceRef.current;
+        if (!scroller || !workspace) return;
+        scroller.scrollTo({
+          top: workspace.offsetTop,
+          behavior: "smooth",
+        });
+      });
+    },
+    [onModeChange],
+  );
+  const modeFeatures =
+    mode === "learning"
+      ? ["节奏拆解", "节拍可视化", "分段练习", "团舞走位设计"]
+      : ["节拍可视化", "生成素材", "自由合成"];
+  const earlyAccessFeatures = [
+    {
+      title: "动作校准器",
+      icon: Activity,
+      iconClass: "bg-blue-400/10 text-blue-300",
+    },
+    {
+      title: "随身节拍震动器",
+      icon: Smartphone,
+      iconClass: "bg-violet-400/10 text-violet-300",
+      secondaryIcon: Watch,
+    },
+  ];
+
   return (
-    <div className="relative h-full overflow-y-auto bg-black">
-      <div className="absolute right-6 top-6 z-10">
+    <div
+      ref={homeScrollRef}
+      onScroll={trackGradientScroll}
+      className="relative h-full overflow-y-auto bg-black text-white"
+    >
+      <InteractiveGradient
+        settings={gradientSettings}
+        scrollProgressRef={gradientScrollProgressRef}
+      />
+      <SharedHomeHeadline scrollerRef={homeScrollRef} />
+      <div className="absolute right-6 top-6 z-10 flex items-center gap-2">
+        <GradientTuner
+          settings={gradientSettings}
+          onChange={updateGradientSettings}
+        />
         <DevToolsButton />
       </div>
-      <div className="mx-auto max-w-5xl px-6 py-12">
-        <header className="mb-8 text-center">
-          <h1 className="text-3xl font-semibold tracking-tight text-white">
-            {mode === "learning" ? "Dance Learning Player" : "Dance Manager"}
-          </h1>
-          <p className="mt-2 text-sm text-neutral-400">
-            {mode === "learning"
-              ? "上传练舞视频，自动切分八拍 · 单段循环 · 节拍可视化 · 镜像跟练"
-              : "Compose video, stage visuals, and performer cues."}
-          </p>
-        </header>
+      <LandingExperience onEnter={enterWorkspace} />
+      <section
+        ref={workspaceRef}
+        aria-label="Dance Manager 功能区"
+        className="relative z-[3] min-h-full"
+      >
+      <div className="mx-auto max-w-5xl px-6 pb-16 pt-11">
+        <div className="mb-8 h-[74px]" aria-hidden="true" />
 
-        <div className="mb-5 grid gap-3 sm:grid-cols-2">
+        <section>
+          <div className="mb-3 inline-flex rounded-xl border border-white/[0.08] bg-white/[0.035] p-1">
           <button
             type="button"
             aria-pressed={mode === "learning"}
             onClick={() => onModeChange("learning")}
             className={cn(
-              "flex items-center gap-4 rounded-2xl border px-5 py-4 text-left transition-all",
+              "flex h-9 items-center gap-2 rounded-lg px-4 text-sm font-medium transition-colors",
               mode === "learning"
-                ? "border-blue-400/60 bg-blue-500/10"
-                : "border-neutral-800 bg-neutral-900/45 hover:border-blue-400/40 hover:bg-blue-500/5",
+                ? "bg-blue-500/20 text-blue-200"
+                : "text-neutral-500 hover:bg-white/5 hover:text-neutral-300",
             )}
           >
-            <span className={cn(
-              "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl",
-              mode === "learning" ? "bg-blue-500/15 text-blue-300" : "bg-white/5 text-neutral-400",
-            )}>
-              <GraduationCap className="h-5 w-5" />
-            </span>
-            <span>
-              <span className="block text-sm font-semibold text-white">Learning</span>
-              <span className="mt-0.5 block text-xs text-neutral-500">
-                Loop, calibrate, mark, and rehearse
-              </span>
-            </span>
+            <GraduationCap className="h-4 w-4" />
+            练习
           </button>
           <button
             type="button"
             aria-pressed={mode === "performing"}
             onClick={() => onModeChange("performing")}
             className={cn(
-              "group flex items-center gap-4 rounded-2xl border px-5 py-4 text-left transition-all",
+              "flex h-9 items-center gap-2 rounded-lg px-4 text-sm font-medium transition-colors",
               mode === "performing"
-                ? "border-violet-400/60 bg-violet-500/10"
-                : "border-neutral-800 bg-neutral-900/45 hover:border-violet-400/40 hover:bg-violet-500/5",
+                ? "bg-violet-500/20 text-violet-200"
+                : "text-neutral-500 hover:bg-white/5 hover:text-neutral-300",
             )}
           >
-            <span className={cn(
-              "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl transition-colors",
-              mode === "performing"
-                ? "bg-violet-500/15 text-violet-300"
-                : "bg-white/5 text-neutral-400 group-hover:text-violet-300",
-            )}>
-              <Sparkles className="h-5 w-5" />
-            </span>
-            <span>
-              <span className="block text-sm font-semibold text-white">Performing</span>
-              <span className="mt-0.5 block text-xs text-neutral-500">
-                Compose, stage, and export
-              </span>
-            </span>
+            <Sparkles className="h-4 w-4" />
+            演出
           </button>
-        </div>
+          </div>
 
-        <Uploader onFile={onFile} mode={mode} />
+          <div className="mb-5 flex min-h-7 flex-wrap items-center gap-x-5 gap-y-2">
+            {modeFeatures.map((feature, index) => (
+              <span key={feature} className="flex items-center gap-5">
+                {index > 0 && (
+                  <span className="h-1 w-1 rounded-full bg-neutral-700" />
+                )}
+                <span
+                  className={cn(
+                    "text-xs font-medium",
+                    mode === "learning"
+                      ? "text-blue-200/70"
+                      : "text-violet-200/70",
+                  )}
+                >
+                  {feature}
+                </span>
+              </span>
+            ))}
+          </div>
+
+          <Uploader onFile={onFile} mode={mode} />
+        </section>
 
         {libraryError && (
           <div
@@ -126,26 +212,76 @@ export function Home({
           </div>
         )}
 
-        {mode === "learning" ? (
-          <DanceLibrary
-            dances={dances}
-            loading={loading}
-            onOpen={onOpen}
-            onDelete={onDelete}
-            onExport={onExport}
-            openingId={openingId}
-            className="mt-12"
-          />
-        ) : (
-          <PerformingLibrary
-            projects={performingProjects}
-            loading={performingLoading}
-            openingId={performingOpeningId}
-            onOpen={onOpenPerformingProject}
-            onDelete={onDeletePerformingProject}
-          />
-        )}
+        <ProjectLibrary
+          mode={mode}
+          dances={dances}
+          performingProjects={performingProjects}
+          loading={loading || performingLoading}
+          openingLearningId={openingId}
+          openingPerformingId={performingOpeningId}
+          creatingLearningId={creatingLearningId}
+          creatingPerformanceId={creatingPerformanceId}
+          onOpenLearning={onOpen}
+          onOpenPerforming={onOpenPerformingProject}
+          onCreateLearning={onCreateLearning}
+          onCreatePerformance={onCreatePerformance}
+          onExportLearning={onExport}
+          onDeleteLearning={onDelete}
+          onDeletePerforming={onDeletePerformingProject}
+        />
+
+        <section
+          aria-labelledby="early-access-heading"
+          className="mt-14 border-t border-white/[0.07] pt-8"
+        >
+          <div className="mb-4 flex items-center">
+            <h2
+              id="early-access-heading"
+              className="text-sm font-semibold text-neutral-200"
+            >
+              抢先体验
+            </h2>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            {earlyAccessFeatures.map(
+              ({ title, icon: Icon, iconClass, secondaryIcon: SecondaryIcon }) => (
+                <article
+                  key={title}
+                  className="flex min-h-16 items-center justify-between rounded-xl bg-[linear-gradient(135deg,rgba(255,255,255,0.045),rgba(255,255,255,0.018))] px-4 py-3 ring-1 ring-inset ring-white/[0.06]"
+                >
+                  <div className="flex min-w-0 items-center gap-3">
+                    <span
+                      className={cn(
+                        "relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
+                        iconClass,
+                      )}
+                    >
+                      <Icon
+                        className={cn(
+                          "h-4.5 w-4.5",
+                          SecondaryIcon && "-translate-x-0.5",
+                        )}
+                      />
+                      {SecondaryIcon && (
+                        <SecondaryIcon className="absolute bottom-1.5 right-1.5 h-3 w-3" />
+                      )}
+                    </span>
+                    <h3 className="truncate text-sm font-medium text-neutral-200">
+                      {title}
+                    </h3>
+                  </div>
+                  <span className="ml-4 inline-flex shrink-0 items-center gap-1.5 rounded-full bg-black/25 px-2.5 py-1 text-[10px] font-medium text-neutral-500">
+                    <span className="h-1.5 w-1.5 rounded-full bg-amber-300/60" />
+                    开发中
+                  </span>
+                </article>
+              ),
+            )}
+          </div>
+        </section>
       </div>
+      </section>
     </div>
   );
 }

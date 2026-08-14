@@ -125,6 +125,9 @@ export interface PerformingProject {
   bpm?: number;
   offset?: number;
   musicStart?: number | null;
+  performanceStart?: number | null;
+  beats?: RhythmBeat[];
+  learningProjectId?: string;
   clips?: PerformingClip[];
   stage?: PerformingStageSettings;
 }
