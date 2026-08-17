@@ -15,7 +15,11 @@ import {
   useState,
 } from "react";
 import { usePlayer } from "@/hooks/usePlayer";
-import { adjacentBeatTime, deriveSegments } from "@/lib/segments";
+import {
+  adjacentBeatTime,
+  beatGridAnchorIndex,
+  deriveSegments,
+} from "@/lib/segments";
 import {
   clipAtTimelineTime,
   fitClipStartToGap,
@@ -52,8 +56,8 @@ type LibraryTab = "clips" | "generated";
 const OVERLAY_MATERIAL_ID = "performing-overlay";
 const GENERATED_TEMPLATE_NAMES: Record<GeneratedStageTemplate, string> = {
   street: "Prismatic Spectrum",
-  pulse: "Aurora Pulse",
-  constellation: "Coalesce Cue",
+  pulse: "Neon Kaleidoscope",
+  constellation: "Particle Burst",
   minimal: "Minimal Stage",
 };
 
@@ -158,31 +162,65 @@ export function PerformingWorkspace({
     }),
     [project.stage],
   );
-  const bpm = project.bpm ?? 120;
-  const offset = project.offset ?? 0;
-  const segments = useMemo(
-    () => deriveSegments(bpm, offset, state.duration),
-    [bpm, offset, state.duration],
+  const parsedBeats = useMemo(
+    () =>
+      (project.beats ?? [])
+        .filter(
+          (beat) =>
+            Number.isFinite(beat.time) &&
+            beat.time >= 0 &&
+            beat.time <= state.duration,
+        )
+        .sort((first, second) => first.time - second.time)
+        .filter(
+          (beat, index, all) =>
+            index === 0 || beat.time - all[index - 1].time > 0.001,
+        ),
+    [project.beats, state.duration],
+  );
+  const beatAnchorIndex = useMemo(
+    () =>
+      beatGridAnchorIndex(
+        parsedBeats,
+        project.performanceStart ?? project.musicStart ?? null,
+      ),
+    [parsedBeats, project.musicStart, project.performanceStart],
+  );
+  const fallbackBeats = useMemo(
+    () =>
+      deriveSegments(
+        project.bpm ?? 120,
+        project.offset ?? 0,
+        state.duration,
+      ).flatMap((segment) => segment.beats),
+    [project.bpm, project.offset, state.duration],
   );
   const beats = useMemo(
-    () => {
-      const savedBeats = (project.beats ?? [])
-        .map((beat) => beat.time)
-        .filter(
-          (time) =>
-            Number.isFinite(time) && time >= 0 && time <= state.duration,
-        )
-        .sort((first, second) => first - second)
-        .filter(
-          (time, index, all) =>
-            index === 0 || time - all[index - 1] > 0.001,
-        );
-      return savedBeats.length
-        ? savedBeats
-        : segments.flatMap((segment) => segment.beats);
-    },
-    [project.beats, segments, state.duration],
+    () =>
+      parsedBeats.length
+        ? parsedBeats.slice(beatAnchorIndex).map((beat) => beat.time)
+        : fallbackBeats,
+    [beatAnchorIndex, fallbackBeats, parsedBeats],
   );
+  const countdownBeats = useMemo(
+    () => {
+      if (beatAnchorIndex >= 4) {
+        return parsedBeats
+          .slice(beatAnchorIndex - 4, beatAnchorIndex + 1)
+          .map((beat) => beat.time);
+      }
+      if (!parsedBeats.length && fallbackBeats.length) {
+        const secondsPerBeat = 60 / (project.bpm ?? 120);
+        return Array.from(
+          { length: 5 },
+          (_, index) => fallbackBeats[0] - secondsPerBeat * (4 - index),
+        ).filter((time) => time >= 0);
+      }
+      return [];
+    },
+    [beatAnchorIndex, fallbackBeats, parsedBeats, project.bpm],
+  );
+  const performanceStart = beats[0] ?? null;
   const currentBeatLabel = useMemo(() => {
     let beatIndex = -1;
     for (let index = 0; index < beats.length; index++) {
@@ -190,9 +228,7 @@ export function PerformingWorkspace({
       beatIndex = index;
     }
     return beatIndex < 0
-      ? beats.length
-        ? "1-1"
-        : "–"
+      ? "–"
       : `${Math.floor(beatIndex / 8) + 1}-${(beatIndex % 8) + 1}`;
   }, [beats, state.currentTime]);
   const layout = useMemo(() => layoutPerformingClips(clips), [clips]);
@@ -527,7 +563,7 @@ export function PerformingWorkspace({
       return;
     }
     const snappedDrop =
-      dropTime < (project.musicStart ?? offset)
+      performanceStart != null && dropTime < performanceStart
         ? dropTime
         : snapToNearbyBeatTime(beats, dropTime);
     let timelineStart = Math.max(
@@ -708,8 +744,7 @@ export function PerformingWorkspace({
             <PerformerSignalRenderer
               time={state.currentTime}
               beats={beats}
-              bpm={bpm}
-              countInStart={project.musicStart ?? offset}
+              countdownBeats={countdownBeats}
               settings={stageSettings}
             />
           )}
@@ -717,6 +752,7 @@ export function PerformingWorkspace({
             <PerformanceStageRenderer
               time={state.currentTime}
               beats={beats}
+              countdownBeats={countdownBeats}
               template={displayedGeneratedClip.generatedTemplate ?? "street"}
               playing={state.isPlaying}
               showBeatCode={false}
@@ -730,6 +766,7 @@ export function PerformingWorkspace({
             <PerformanceStageRenderer
               time={state.currentTime}
               beats={beats}
+              countdownBeats={countdownBeats}
               template="minimal"
               playing={state.isPlaying}
               showBeatCode={false}
@@ -760,7 +797,7 @@ export function PerformingWorkspace({
             layout={layout}
             beats={beats}
             duration={state.duration}
-            snapStartTime={project.musicStart ?? offset}
+            snapStartTime={performanceStart ?? 0}
             sourceName={project.sourceName ?? project.name}
             sourceThumbnail={project.cover}
             trackVisibility={trackVisibility}

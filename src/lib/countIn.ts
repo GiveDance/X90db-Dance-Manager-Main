@@ -54,3 +54,33 @@ export function musicStartPreRoll(
     ),
   };
 }
+
+export function trackedBeatPreRoll(
+  time: number,
+  countdownBeats: number[],
+): {
+  count: 5 | 6 | 7 | 8;
+  duration: number;
+  phase: number;
+} | null {
+  if (
+    countdownBeats.length !== 5 ||
+    time < countdownBeats[0] ||
+    time >= countdownBeats[4]
+  ) {
+    return null;
+  }
+
+  let index = 0;
+  while (index < 3 && time >= countdownBeats[index + 1]) index++;
+  const start = countdownBeats[index];
+  const end = countdownBeats[index + 1];
+  const duration = end - start;
+  if (!Number.isFinite(duration) || duration <= 0) return null;
+
+  return {
+    count: (5 + index) as 5 | 6 | 7 | 8,
+    duration,
+    phase: Math.max(0, Math.min(1, (time - start) / duration)),
+  };
+}

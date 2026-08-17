@@ -1,20 +1,18 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { musicStartPreRoll } from "@/lib/countIn";
+import { trackedBeatPreRoll } from "@/lib/countIn";
 import { drawPerformerSignal } from "@/lib/performerSignal";
 import type { PerformingStageSettings } from "@/lib/types";
 
 export function PerformerSignalRenderer({
   beats,
-  bpm,
-  countInStart,
+  countdownBeats,
   settings,
   time,
 }: {
   beats: number[];
-  bpm: number;
-  countInStart: number | null;
+  countdownBeats: number[];
   settings: PerformingStageSettings;
   time: number;
 }) {
@@ -50,7 +48,7 @@ export function PerformerSignalRenderer({
     }
     context.setTransform(dpr, 0, 0, dpr, 0, 0);
     const preRoll = settings.visualLeadEnabled
-      ? musicStartPreRoll(time, bpm, countInStart)
+      ? trackedBeatPreRoll(time, countdownBeats)
       : null;
     drawPerformerSignal(
       context,
@@ -82,14 +80,16 @@ export function PerformerSignalRenderer({
         secondaryAccentCount: settings.secondaryAccentCount,
         beatOverride: preRoll
           ? {
+              count: preRoll.count,
+              duration: preRoll.duration,
               index: preRoll.count - 1,
-              elapsed: preRoll.phase * (60 / bpm),
+              elapsed: preRoll.phase * preRoll.duration,
               visualLead: true,
             }
           : undefined,
       },
     );
-  }, [beats, bpm, countInStart, settings, size, time]);
+  }, [beats, countdownBeats, settings, size, time]);
 
   return (
     <canvas

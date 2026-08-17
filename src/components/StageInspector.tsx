@@ -20,17 +20,19 @@ const TEMPLATES: Array<{
   },
   {
     id: "pulse",
-    name: "极光脉冲",
-    description: "柔和氛围 / 光环呼吸",
+    name: "霓虹万花筒",
+    description: "渐变霓虹 / 放射爱心",
     preview:
-      "bg-[radial-gradient(circle_at_42%_50%,rgba(101,73,232,0.4),transparent_28%),radial-gradient(circle_at_74%_64%,rgba(235,76,97,0.18),transparent_24%),linear-gradient(135deg,#01030a,#071024)]",
+      "bg-[radial-gradient(circle,#f4f4ef_0_34%,transparent_38%),radial-gradient(circle,#f10d19_0_34%,transparent_38%),#000] bg-[size:14px_14px,18px_18px] bg-[position:0_0,7px_8px]",
+    thumbnail: "/media/heart-marquee-thumbnail.png",
   },
   {
     id: "constellation",
-    name: "聚合提示",
-    description: "粒子聚合 / 提示爆发",
+    name: "粒子爆发",
+    description: "光谱粒子 / 聚散爆发",
     preview:
       "bg-[radial-gradient(circle_at_35%_35%,#e1e7ff_0_1px,transparent_2px),radial-gradient(circle_at_70%_55%,#ef7053_0_1px,transparent_2px),radial-gradient(circle_at_50%_50%,rgba(101,73,232,0.24),transparent_27%),linear-gradient(135deg,#040208,#0d0812)]",
+    thumbnail: "/media/coalesce-cue-thumbnail.png",
   },
   {
     id: "minimal",
@@ -38,6 +40,7 @@ const TEMPLATES: Array<{
     description: "克制舞台 / 少干扰",
     preview:
       "bg-[linear-gradient(115deg,transparent_42%,rgba(225,231,255,0.15)_43%,transparent_44%),radial-gradient(circle_at_65%_45%,rgba(77,102,232,0.08),transparent_24%),linear-gradient(135deg,#030407,#0a0b12)]",
+    thumbnail: "/media/minimal-stage-thumbnail.png",
   },
 ];
 

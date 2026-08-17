@@ -127,6 +127,8 @@ export interface PerformingProject {
   musicStart?: number | null;
   performanceStart?: number | null;
   beats?: RhythmBeat[];
+  analysisEngine?: RhythmAnalysisEngine;
+  analysisConfidence?: number;
   learningProjectId?: string;
   clips?: PerformingClip[];
   stage?: PerformingStageSettings;
