@@ -43,10 +43,10 @@ export const PERFORMER_SIGNAL_THEMES: Array<{
   beat: RGB;
   down: RGB;
 }> = [
-  { id: "neon", label: "霓虹", beat: [124, 108, 255], down: [255, 92, 138] },
+  { id: "neon", label: "霓虹", beat: [82, 100, 238], down: [244, 72, 38] },
   { id: "gold", label: "暖金", beat: [255, 196, 84], down: [255, 255, 255] },
   { id: "white", label: "纯白", beat: [190, 198, 230], down: [255, 255, 255] },
-  { id: "contrast", label: "高对比", beat: [0, 210, 255], down: [255, 60, 60] },
+  { id: "contrast", label: "高对比", beat: [0, 111, 255], down: [255, 214, 0] },
 ];
 
 interface PerformerSignalRenderSettings {
@@ -61,6 +61,7 @@ interface PerformerSignalRenderSettings {
   beatPoints: {
     enabled: boolean;
     shape: BeatPointShape;
+    theme: PerformerSignalTheme;
     beatColor: string;
     accentColor: string;
     size: number;
@@ -75,6 +76,40 @@ interface PerformerSignalRenderSettings {
     elapsed: number;
     visualLead: true;
   };
+}
+
+const LEGACY_NEON_BEAT = "#7c6cff";
+const LEGACY_NEON_ACCENT = "#ff5c8a";
+const NEON_BEAT = "#5264ee";
+const NEON_ACCENT = "#f44826";
+
+function usesDefaultNeonPalette(
+  theme: PerformerSignalTheme,
+  beatColor: string,
+  accentColor: string,
+) {
+  if (theme !== "neon") return false;
+  const beat = beatColor.toLowerCase();
+  const accent = accentColor.toLowerCase();
+  return (
+    (beat === LEGACY_NEON_BEAT && accent === LEGACY_NEON_ACCENT) ||
+    (beat === NEON_BEAT && accent === NEON_ACCENT)
+  );
+}
+
+function usesDefaultTexturedPalette(
+  theme: PerformerSignalTheme,
+  beatColor: string,
+  accentColor: string,
+) {
+  if (usesDefaultNeonPalette(theme, beatColor, accentColor)) return true;
+  const beat = beatColor.toLowerCase();
+  const accent = accentColor.toLowerCase();
+  return (
+    (theme === "gold" && beat === "#ffc454" && accent === "#ffffff") ||
+    (theme === "white" && beat === "#bec6e6" && accent === "#ffffff") ||
+    (theme === "contrast" && beat === "#006fff" && accent === "#ffd600")
+  );
 }
 
 function hexToRgb(value: string, fallback: RGB): RGB {
@@ -154,6 +189,208 @@ function drawBloom(
     );
     context.stroke();
   }
+}
+
+type SoftOrbKind =
+    | "neon-beat"
+    | "neon-down"
+    | "gold-beat"
+    | "gold-down"
+    | "white-beat"
+    | "white-down"
+    | "contrast-beat"
+    | "contrast-down";
+
+const SOFT_ORB_PALETTES: Record<SoftOrbKind, RGB[]> = {
+    "neon-beat": [
+      [68, 73, 210],
+      [68, 112, 255],
+      [159, 177, 255],
+      [219, 184, 255],
+      [239, 157, 255],
+      [167, 202, 154],
+    ],
+    "neon-down": [
+      [255, 132, 34],
+      [255, 78, 31],
+      [232, 42, 91],
+      [190, 35, 136],
+      [105, 42, 168],
+      [48, 35, 106],
+    ],
+    "gold-beat": [
+      [180, 104, 18],
+      [244, 158, 35],
+      [255, 199, 84],
+      [255, 225, 142],
+      [255, 243, 202],
+      [224, 134, 42],
+    ],
+    "gold-down": [
+      [255, 226, 166],
+      [255, 240, 209],
+      [255, 251, 239],
+      [255, 255, 255],
+      [255, 255, 255],
+      [245, 218, 172],
+    ],
+    "white-beat": [
+      [128, 132, 145],
+      [153, 159, 174],
+      [181, 187, 200],
+      [198, 195, 206],
+      [218, 218, 220],
+      [144, 153, 159],
+    ],
+    "white-down": [
+      [196, 211, 239],
+      [224, 235, 255],
+      [244, 240, 255],
+      [255, 255, 255],
+      [235, 247, 250],
+      [205, 190, 229],
+    ],
+    "contrast-beat": [
+      [0, 45, 148],
+      [0, 91, 232],
+      [0, 111, 255],
+      [65, 153, 255],
+      [154, 204, 255],
+      [33, 62, 177],
+    ],
+    "contrast-down": [
+      [189, 123, 0],
+      [239, 176, 0],
+      [255, 214, 0],
+      [255, 233, 77],
+      [255, 248, 176],
+      [255, 194, 24],
+    ],
+};
+
+const SOFT_ORB_BLOBS = [
+    { x: -0.26, y: 0.08, rx: 0.72, ry: 0.78 },
+    { x: 0.22, y: -0.24, rx: 0.78, ry: 0.68 },
+    { x: 0.31, y: 0.25, rx: 0.7, ry: 0.74 },
+    { x: -0.02, y: 0.34, rx: 0.74, ry: 0.56 },
+    { x: -0.22, y: -0.3, rx: 0.56, ry: 0.62 },
+    { x: 0.1, y: -0.42, rx: 0.46, ry: 0.4 },
+] as const;
+
+const softOrbSprites = new Map<string, HTMLCanvasElement>();
+
+function createSoftOrbSprite(key: string, palette: RGB[]) {
+  const cached = softOrbSprites.get(key);
+  if (cached) return cached;
+
+  const canvas = document.createElement("canvas");
+  canvas.width = 512;
+  canvas.height = 512;
+  const context = canvas.getContext("2d");
+  if (!context) return canvas;
+
+  const center = canvas.width / 2;
+  const radius = 150;
+  const halo = context.createRadialGradient(
+    center,
+    center,
+    0,
+    center,
+    center,
+    radius * 1.3,
+  );
+  const haloColor = palette[2];
+  halo.addColorStop(
+    0,
+    `rgba(${haloColor[0]},${haloColor[1]},${haloColor[2]},0.42)`,
+  );
+  halo.addColorStop(
+    0.5,
+    `rgba(${haloColor[0]},${haloColor[1]},${haloColor[2]},0.22)`,
+  );
+  halo.addColorStop(1, "rgba(0,0,0,0)");
+  context.filter = `blur(${radius * 0.18}px)`;
+  context.fillStyle = halo;
+  context.beginPath();
+  context.arc(center, center, radius * 1.32, 0, Math.PI * 2);
+  context.fill();
+
+  SOFT_ORB_BLOBS.forEach((blob, index) => {
+    const color = palette[index];
+    context.save();
+    context.translate(center + radius * blob.x, center + radius * blob.y);
+    context.scale(blob.rx, blob.ry);
+    const gradient = context.createRadialGradient(0, 0, 0, 0, 0, radius);
+    gradient.addColorStop(
+      0,
+      `rgba(${color[0]},${color[1]},${color[2]},0.96)`,
+    );
+    gradient.addColorStop(
+      0.42,
+      `rgba(${color[0]},${color[1]},${color[2]},0.68)`,
+    );
+    gradient.addColorStop(1, `rgba(${color[0]},${color[1]},${color[2]},0)`);
+    context.filter = `blur(${radius * 0.09}px)`;
+    context.fillStyle = gradient;
+    context.beginPath();
+    context.arc(0, 0, radius, 0, Math.PI * 2);
+    context.fill();
+    context.restore();
+  });
+
+  softOrbSprites.set(key, canvas);
+  return canvas;
+}
+
+function drawTexturedBeatPoint(
+  context: CanvasRenderingContext2D,
+  icon: IconPath,
+  cx: number,
+  cy: number,
+  size: number,
+  spriteKey: string,
+  palette: RGB[],
+  paletteOpacity: number,
+  intensity: number,
+) {
+  const sprite = createSoftOrbSprite(spriteKey, palette);
+  const orbSize = size * 2.35;
+
+  context.save();
+  context.globalCompositeOperation = "lighter";
+  context.globalAlpha *= (0.45 + 0.35 * intensity) * paletteOpacity;
+  context.drawImage(
+    sprite,
+    cx - orbSize / 2,
+    cy - orbSize / 2,
+    orbSize,
+    orbSize,
+  );
+  context.restore();
+
+  context.save();
+  icon(context, cx, cy, size);
+  context.clip();
+  context.globalAlpha *= (0.94 + 0.06 * intensity) * paletteOpacity;
+  context.drawImage(
+    sprite,
+    cx - orbSize / 2,
+    cy - orbSize / 2,
+    orbSize,
+    orbSize,
+  );
+  context.restore();
+}
+
+function customSoftOrbPalette(color: RGB): RGB[] {
+  return [
+    mixColor(color, [0, 0, 0], 0.38),
+    mixColor(color, [0, 0, 0], 0.12),
+    color,
+    mixColor(color, [255, 255, 255], 0.28),
+    mixColor(mixColor(color, [255, 255, 255], 0.48), [255, 196, 226], 0.12),
+    mixColor(mixColor(color, [255, 255, 255], 0.2), [135, 190, 255], 0.14),
+  ];
 }
 
 function drawBurst(
@@ -314,11 +551,31 @@ function drawBeatPoints(
   const spacing = Math.max(0.5, Math.min(1.5, settings.spacing));
   const baseSize = Math.min(minSide * 0.045, 34) * size;
   const gap = baseSize * 0.51 * spacing;
+  const defaultTexture = usesDefaultTexturedPalette(
+    settings.theme,
+    settings.beatColor,
+    settings.accentColor,
+  );
+  const softOrbKind = defaultTexture
+    ? (`${settings.theme}-${accentBeat ? "down" : "beat"}` as SoftOrbKind)
+    : null;
+  const customTextureColor = accentBeat ? theme.down : theme.beat;
+  const textureKey = softOrbKind
+    ? softOrbKind
+    : `custom-${customTextureColor.join("-")}`;
+  const texturePalette = softOrbKind
+    ? SOFT_ORB_PALETTES[softOrbKind]
+    : customSoftOrbPalette(customTextureColor);
+  const textureOpacity = softOrbKind === "white-beat" ? 0.68 : 1;
   const activeColor = visualLead
     ? ([255, 255, 255] as RGB)
     : accentBeat
-      ? theme.down
-      : theme.beat;
+      ? settings.theme === "neon" && defaultTexture
+        ? PERFORMER_SIGNAL_THEMES[0].down
+        : theme.down
+      : settings.theme === "neon" && defaultTexture
+        ? PERFORMER_SIGNAL_THEMES[0].beat
+        : theme.beat;
   const icon: IconPath =
     settings.shape === "tiles"
       ? tile
@@ -372,26 +629,70 @@ function drawBeatPoints(
       const hasPassed = current >= 0 && index < current;
 
       if (isCurrent) {
-        context.shadowColor = color(activeColor, 0.7);
-        context.shadowBlur = minSide * (0.012 + flash * 0.016);
-        context.fillStyle = color(activeColor, 0.58 + 0.32 * flash);
-        icon(context, cx, cy, baseSize * (1 + 0.14 * flash));
-        context.fill();
-        context.lineWidth = Math.max(0.75, baseSize * 0.03);
-        context.strokeStyle = color([255, 255, 255], 0.68);
+        const activeSize =
+          baseSize * (1 + 0.14 * flash) * (accentBeat ? 1.28 : 1);
+        if (accentBeat) {
+          context.save();
+          context.shadowColor = color(activeColor, 0.82);
+          context.shadowBlur = minSide * (0.018 + flash * 0.02);
+          context.lineWidth = Math.max(2, baseSize * 0.075);
+          context.strokeStyle = color([255, 255, 255], 0.48 + 0.38 * flash);
+          icon(
+            context,
+            cx,
+            cy,
+            activeSize * (1.25 + 0.1 * (1 - flash)),
+          );
+          context.stroke();
+          context.restore();
+        }
+        if (!visualLead) {
+          drawTexturedBeatPoint(
+            context,
+            icon,
+            cx,
+            cy,
+            activeSize,
+            textureKey,
+            texturePalette,
+            textureOpacity,
+            flash,
+          );
+        } else {
+          context.shadowColor = color(activeColor, 0.7);
+          context.shadowBlur = minSide * (0.012 + flash * 0.016);
+          context.fillStyle = color(activeColor, 0.58 + 0.32 * flash);
+          icon(context, cx, cy, activeSize);
+          context.fill();
+        }
+        icon(context, cx, cy, activeSize);
+        if (accentBeat) {
+          context.lineWidth = Math.max(2.5, baseSize * 0.11);
+          context.strokeStyle = color([0, 0, 0], 0.72);
+          context.stroke();
+          icon(context, cx, cy, activeSize);
+        }
+        context.lineWidth = Math.max(
+          accentBeat ? 1.5 : 0.9,
+          baseSize * (accentBeat ? 0.055 : 0.035),
+        );
+        context.strokeStyle = color(
+          [255, 255, 255],
+          accentBeat ? 0.94 : 0.78,
+        );
         context.stroke();
         context.shadowBlur = 0;
       } else if (hasPassed) {
-        context.fillStyle = color([255, 255, 255], 0.055);
-        context.strokeStyle = color([255, 255, 255], 0.26);
-        context.lineWidth = Math.max(0.75, baseSize * 0.03);
+        context.fillStyle = color([255, 255, 255], 0.075);
+        context.strokeStyle = color([255, 255, 255], 0.38);
+        context.lineWidth = Math.max(0.9, baseSize * 0.035);
         icon(context, cx, cy, baseSize);
         context.fill();
         context.stroke();
       } else {
-        context.lineWidth = Math.max(0.75, baseSize * 0.03);
-        context.strokeStyle = color([255, 255, 255], 0.24);
-        context.fillStyle = color([255, 255, 255], 0.02);
+        context.lineWidth = Math.max(0.9, baseSize * 0.035);
+        context.strokeStyle = color([255, 255, 255], 0.34);
+        context.fillStyle = color([255, 255, 255], 0.035);
         icon(context, cx, cy, baseSize);
         context.fill();
         context.stroke();

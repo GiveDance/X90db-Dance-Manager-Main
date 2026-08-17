@@ -9,34 +9,35 @@ const TEMPLATES: Array<{
   name: string;
   description: string;
   preview: string;
+  thumbnail?: string;
 }> = [
   {
     id: "street",
-    name: "街舞信号",
-    description: "街舞霓虹 / 8 拍可读",
-    preview:
-      "bg-[radial-gradient(circle_at_50%_100%,rgba(244,63,94,0.55),transparent_45%),linear-gradient(135deg,#09090b,#27112d)]",
+    name: "棱彩波谱",
+    description: "高饱和棱彩 / 几何拼贴",
+    preview: "bg-[#050713]",
+    thumbnail: "/media/chromatic-impact-thumbnail.png",
   },
   {
     id: "pulse",
     name: "极光脉冲",
     description: "柔和氛围 / 光环呼吸",
     preview:
-      "bg-[radial-gradient(circle_at_50%_50%,rgba(34,211,238,0.5),transparent_35%),linear-gradient(135deg,#07101c,#201047)]",
+      "bg-[radial-gradient(circle_at_42%_50%,rgba(101,73,232,0.4),transparent_28%),radial-gradient(circle_at_74%_64%,rgba(235,76,97,0.18),transparent_24%),linear-gradient(135deg,#01030a,#071024)]",
   },
   {
     id: "constellation",
     name: "聚合提示",
     description: "粒子聚合 / 提示爆发",
     preview:
-      "bg-[radial-gradient(circle_at_35%_35%,#fff_0_1px,transparent_2px),radial-gradient(circle_at_70%_55%,#c4b5fd_0_1px,transparent_2px),linear-gradient(135deg,#080812,#17113a)]",
+      "bg-[radial-gradient(circle_at_35%_35%,#e1e7ff_0_1px,transparent_2px),radial-gradient(circle_at_70%_55%,#ef7053_0_1px,transparent_2px),radial-gradient(circle_at_50%_50%,rgba(101,73,232,0.24),transparent_27%),linear-gradient(135deg,#040208,#0d0812)]",
   },
   {
     id: "minimal",
     name: "极简舞台",
     description: "克制舞台 / 少干扰",
     preview:
-      "bg-[linear-gradient(115deg,transparent_42%,rgba(255,255,255,0.18)_43%,transparent_44%),linear-gradient(135deg,#050505,#171717)]",
+      "bg-[linear-gradient(115deg,transparent_42%,rgba(225,231,255,0.15)_43%,transparent_44%),radial-gradient(circle_at_65%_45%,rgba(77,102,232,0.08),transparent_24%),linear-gradient(135deg,#030407,#0a0b12)]",
   },
 ];
 
@@ -59,9 +60,17 @@ export function StageInspector() {
             className="cursor-grab overflow-hidden rounded-lg border border-white/[0.07] bg-white/[0.025] text-left transition-colors hover:border-violet-300/40 active:cursor-grabbing"
           >
             <span
-              className={`relative flex aspect-video items-center justify-center ${template.preview}`}
+              className={`relative flex aspect-video items-center justify-center overflow-hidden ${template.preview}`}
             >
-              <Sparkles className="h-5 w-5 text-white/35" />
+              {template.thumbnail ? (
+                <img
+                  src={template.thumbnail}
+                  alt={`${template.name} 模板预览`}
+                  className="absolute inset-0 h-full w-full object-cover"
+                />
+              ) : (
+                <Sparkles className="h-5 w-5 text-white/35" />
+              )}
             </span>
             <span className="block px-2.5 py-2">
               <strong className="block truncate text-[11px] font-medium text-neutral-200">
