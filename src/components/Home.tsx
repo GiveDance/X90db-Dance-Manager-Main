@@ -2,9 +2,7 @@
 
 import {
   Activity,
-  GraduationCap,
   Smartphone,
-  Sparkles,
   Watch,
 } from "lucide-react";
 import { useCallback, useRef } from "react";
@@ -12,6 +10,7 @@ import { Uploader } from "./Uploader";
 import { ProjectLibrary } from "./ProjectLibrary";
 import { LandingExperience } from "./LandingExperience";
 import { SharedHomeHeadline } from "./SharedHomeHeadline";
+import { SharedModeSelector } from "./SharedModeSelector";
 import { DevToolsButton } from "./DevToolsButton";
 import type { PerformingProject, SavedDanceMeta } from "@/lib/types";
 import { cn } from "@/lib/cn";
@@ -38,6 +37,7 @@ interface HomeProps {
   performingOpeningId: string | null;
   onOpenPerformingProject: (id: string) => void;
   onDeletePerformingProject: (id: string) => void;
+  onOpenMotionAnalyzer: () => void;
 }
 
 export function Home({
@@ -60,6 +60,7 @@ export function Home({
   performingOpeningId,
   onOpenPerformingProject,
   onDeletePerformingProject,
+  onOpenMotionAnalyzer,
 }: HomeProps) {
   const workspaceRef = useRef<HTMLElement>(null);
   const homeScrollRef = useRef<HTMLDivElement>(null);
@@ -78,6 +79,17 @@ export function Home({
     },
     [onModeChange],
   );
+  const selectMode = useCallback(
+    (nextMode: WorkspaceMode) => {
+      const scroller = homeScrollRef.current;
+      if (scroller && scroller.scrollTop < scroller.clientHeight * 0.9) {
+        enterWorkspace(nextMode);
+        return;
+      }
+      onModeChange(nextMode);
+    },
+    [enterWorkspace, onModeChange],
+  );
   const modeFeatures =
     mode === "learning"
       ? ["节奏拆解", "节拍可视化", "分段练习", "团舞走位设计"]
@@ -87,12 +99,16 @@ export function Home({
       title: "动作校准器",
       icon: Activity,
       iconClass: "bg-blue-400/10 text-blue-300",
+      available: true,
+      href: null,
     },
     {
       title: "随身节拍震动器",
       icon: Smartphone,
       iconClass: "bg-violet-400/10 text-violet-300",
       secondaryIcon: Watch,
+      available: true,
+      href: "https://github.com/GiveDance/Yating-VibeBeat-App",
     },
   ];
 
@@ -102,10 +118,15 @@ export function Home({
       className="relative h-full overflow-y-auto bg-black text-white"
     >
       <SharedHomeHeadline scrollerRef={homeScrollRef} />
+      <SharedModeSelector
+        scrollerRef={homeScrollRef}
+        mode={mode}
+        onSelect={selectMode}
+      />
       <div className="absolute right-6 top-6 z-10">
         <DevToolsButton />
       </div>
-      <LandingExperience onEnter={enterWorkspace} />
+      <LandingExperience />
       <section
         ref={workspaceRef}
         aria-label="Dance Manager 功能区"
@@ -115,36 +136,7 @@ export function Home({
         <div className="mb-8 h-[74px]" aria-hidden="true" />
 
         <section>
-          <div className="mb-3 inline-flex rounded-xl border border-white/[0.08] bg-white/[0.035] p-1">
-          <button
-            type="button"
-            aria-pressed={mode === "learning"}
-            onClick={() => onModeChange("learning")}
-            className={cn(
-              "flex h-9 items-center gap-2 rounded-lg px-4 text-sm font-medium transition-colors",
-              mode === "learning"
-                ? "bg-blue-500/20 text-blue-200"
-                : "text-neutral-500 hover:bg-white/5 hover:text-neutral-300",
-            )}
-          >
-            <GraduationCap className="h-4 w-4" />
-            练习
-          </button>
-          <button
-            type="button"
-            aria-pressed={mode === "performing"}
-            onClick={() => onModeChange("performing")}
-            className={cn(
-              "flex h-9 items-center gap-2 rounded-lg px-4 text-sm font-medium transition-colors",
-              mode === "performing"
-                ? "bg-violet-500/20 text-violet-200"
-                : "text-neutral-500 hover:bg-white/5 hover:text-neutral-300",
-            )}
-          >
-            <Sparkles className="h-4 w-4" />
-            演出
-          </button>
-          </div>
+          <div className="mb-3 h-[46px]" aria-hidden="true" />
 
           <div className="mb-5 flex min-h-7 flex-wrap items-center gap-x-5 gap-y-2">
             {modeFeatures.map((feature, index) => (
@@ -211,11 +203,16 @@ export function Home({
 
           <div className="grid gap-3 sm:grid-cols-2">
             {earlyAccessFeatures.map(
-              ({ title, icon: Icon, iconClass, secondaryIcon: SecondaryIcon }) => (
-                <article
-                  key={title}
-                  className="flex min-h-16 items-center justify-between rounded-xl bg-[linear-gradient(135deg,rgba(255,255,255,0.045),rgba(255,255,255,0.018))] px-4 py-3 ring-1 ring-inset ring-white/[0.06]"
-                >
+              ({
+                title,
+                icon: Icon,
+                iconClass,
+                secondaryIcon: SecondaryIcon,
+                available,
+                href,
+              }) => {
+                const content = (
+                  <>
                   <div className="flex min-w-0 items-center gap-3">
                     <span
                       className={cn(
@@ -237,12 +234,48 @@ export function Home({
                       {title}
                     </h3>
                   </div>
-                  <span className="ml-4 inline-flex shrink-0 items-center gap-1.5 rounded-full bg-black/25 px-2.5 py-1 text-[10px] font-medium text-neutral-500">
-                    <span className="h-1.5 w-1.5 rounded-full bg-amber-300/60" />
-                    开发中
+                  <span
+                   className="ml-4 inline-flex shrink-0 items-center gap-1.5 rounded-full bg-black/25 px-2.5 py-1 text-[10px] font-medium text-neutral-500"
+                  >
+                   <span className="h-1.5 w-1.5 rounded-full bg-amber-300/60" />
+                   开发中
                   </span>
-                </article>
-              ),
+                  </>
+                );
+                const cardClass =
+                  "flex min-h-16 w-full items-center justify-between rounded-xl bg-[linear-gradient(135deg,rgba(255,255,255,0.045),rgba(255,255,255,0.018))] px-4 py-3 text-left ring-1 ring-inset ring-white/[0.06]";
+
+                return href ? (
+                  <a
+                   key={title}
+                   href={href}
+                   target="_blank"
+                   rel="noreferrer"
+                   className={cn(
+                     cardClass,
+                     "cursor-pointer transition hover:bg-white/[0.06] hover:ring-violet-300/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300/60",
+                   )}
+                  >
+                   {content}
+                  </a>
+                ) : available ? (
+                  <button
+                   key={title}
+                   type="button"
+                   onClick={onOpenMotionAnalyzer}
+                   className={cn(
+                     cardClass,
+                     "cursor-pointer transition hover:bg-white/[0.06] hover:ring-blue-300/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300/60",
+                   )}
+                  >
+                   {content}
+                  </button>
+                ) : (
+                  <article key={title} className={cardClass}>
+                   {content}
+                  </article>
+                );
+              },
             )}
           </div>
         </section>

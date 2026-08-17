@@ -38,3 +38,30 @@ body {
 .scrollbar-thin::-webkit-scrollbar-track {
   background: transparent;
 }
+
+.motion-analyzer::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.motion-analyzer::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.motion-analyzer::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 3px;
+}
+
+.motion-analyzer input[type="range"] {
+  --range-track: #262626;
+  --range-fill: #fe2c55;
+}
+
+.motion-analyzer input[type="range"]::-webkit-slider-runnable-track {
+  background: var(--range-track);
+}
+
+.motion-analyzer input[type="range"]::-webkit-slider-thumb {
+  box-shadow: 0 0 8px rgba(254, 44, 85, 0.5);
+}

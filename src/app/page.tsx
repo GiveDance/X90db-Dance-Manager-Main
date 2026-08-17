@@ -6,6 +6,7 @@ import { AnalyzingScreen } from "@/components/AnalyzingScreen";
 import { Player } from "@/components/Player";
 import { ExportDialog } from "@/components/ExportDialog";
 import { PerformingWorkspace } from "@/components/PerformingWorkspace";
+import { MotionAnalyzer } from "@/features/motion-analyzer/MotionAnalyzer";
 import {
   analyzeAudio,
   type AnalyzeStage,
@@ -40,7 +41,12 @@ import type {
   PerformingProject,
 } from "@/lib/types";
 
-type Phase = "home" | "analyzing" | "player" | "performing";
+type Phase =
+  | "home"
+  | "analyzing"
+  | "player"
+  | "performing"
+  | "motion-analyzer";
 
 interface CurrentDance {
   id: string;
@@ -644,6 +650,9 @@ export default function HomePage() {
   if (phase === "analyzing") {
     return <AnalyzingScreen stage={stage} fileName={pendingName} />;
   }
+  if (phase === "motion-analyzer") {
+    return <MotionAnalyzer onBack={() => setPhase("home")} />;
+  }
   if (phase === "player" && current) {
     return (
       <Player
@@ -738,6 +747,7 @@ export default function HomePage() {
         performingOpeningId={performingOpeningId}
         onOpenPerformingProject={handleOpenPerformingProject}
         onDeletePerformingProject={(id) => void handleDeletePerformingProject(id)}
+        onOpenMotionAnalyzer={() => setPhase("motion-analyzer")}
       />
       {exportTarget && (
         <ExportDialog

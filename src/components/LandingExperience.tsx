@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { ArrowDown, GraduationCap, Sparkles } from "lucide-react";
-import type { WorkspaceMode } from "./Home";
+import { ArrowDown } from "lucide-react";
 import {
   LANDING_BEAT_EVENT,
   LANDING_VIDEO_PLAYBACK_RATE,
@@ -82,10 +81,6 @@ const FRAGMENT_SHADER = `
   }
 `;
 
-interface LandingExperienceProps {
-  onEnter: (mode: WorkspaceMode) => void;
-}
-
 function compileShader(
   gl: WebGLRenderingContext,
   type: number,
@@ -103,7 +98,7 @@ function compileShader(
   return shader;
 }
 
-export function LandingExperience({ onEnter }: LandingExperienceProps) {
+export function LandingExperience() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -304,30 +299,10 @@ export function LandingExperience({ onEnter }: LandingExperienceProps) {
         </p>
       </header>
 
-      <div className="absolute inset-x-6 bottom-8 z-10 flex flex-col items-center gap-5">
-        <div className="flex w-full max-w-md gap-3">
-          <button
-            type="button"
-            onClick={() => onEnter("learning")}
-            className="flex h-14 flex-1 items-center justify-center gap-2 rounded-full border-0 bg-white/10 text-sm font-semibold text-white backdrop-blur-md transition-colors hover:bg-white hover:text-black"
-          >
-            <GraduationCap className="h-4 w-4" />
-            扒舞练习
-          </button>
-          <button
-            type="button"
-            onClick={() => onEnter("performing")}
-            className="flex h-14 flex-1 items-center justify-center gap-2 rounded-full border-0 bg-white/10 text-sm font-semibold text-white backdrop-blur-md transition-colors hover:bg-white hover:text-black"
-          >
-            <Sparkles className="h-4 w-4" />
-            舞台演出
-          </button>
-        </div>
-        <span className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.24em] text-white/45">
-          <ArrowDown className="h-3.5 w-3.5 animate-bounce" />
-          选择模式开始
-        </span>
-      </div>
+      <span className="absolute inset-x-6 bottom-8 z-10 flex items-center justify-center gap-2 font-mono text-[10px] uppercase tracking-[0.24em] text-white/45">
+        <ArrowDown className="h-3.5 w-3.5 animate-bounce" />
+        选择模式开始
+      </span>
     </section>
   );
 }
