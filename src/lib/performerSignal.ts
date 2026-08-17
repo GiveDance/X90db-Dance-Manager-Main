@@ -72,6 +72,8 @@ interface PerformerSignalRenderSettings {
   };
   secondaryAccentCount: number;
   beatOverride?: {
+    count?: 5 | 6 | 7 | 8;
+    duration: number;
     index: number;
     elapsed: number;
     visualLead: true;
@@ -542,6 +544,7 @@ function drawBeatPoints(
   flash: number,
   accentBeat: boolean,
   visualLead: boolean,
+  visualLeadCount: 5 | 6 | 7 | 8 | undefined,
   theme: { beat: RGB; down: RGB },
   settings: PerformerSignalRenderSettings["beatPoints"],
 ) {
@@ -682,6 +685,19 @@ function drawBeatPoints(
         );
         context.stroke();
         context.shadowBlur = 0;
+        if (visualLeadCount != null) {
+          context.save();
+          context.globalAlpha =
+            Math.max(0.2, Math.min(1, settings.opacity)) * 0.96;
+          context.fillStyle = "#ffffff";
+          context.font = `800 ${Math.max(12, activeSize * 0.52)}px ui-sans-serif, system-ui, sans-serif`;
+          context.textAlign = "center";
+          context.textBaseline = "middle";
+          context.shadowColor = "rgba(0,0,0,0.9)";
+          context.shadowBlur = Math.max(3, activeSize * 0.14);
+          context.fillText(String(visualLeadCount), cx, cy + activeSize * 0.02);
+          context.restore();
+        }
       } else if (hasPassed) {
         context.fillStyle = color([255, 255, 255], 0.075);
         context.strokeStyle = color([255, 255, 255], 0.38);
@@ -721,6 +737,12 @@ export function drawPerformerSignal(
     (beatIndex >= 0
       ? Math.max(0, time - beats[beatIndex])
       : Number.POSITIVE_INFINITY);
+  const beatDuration =
+    settings.beatOverride?.duration ??
+    (beatIndex >= 0
+      ? (beats[beatIndex + 1] ?? beats[beatIndex]) - beats[beatIndex] ||
+       beats[beatIndex] - (beats[beatIndex - 1] ?? beats[beatIndex] - 0.5)
+      : 0.5);
   const downbeat = beatIndex >= 0 && beatIndex % 8 === 0;
   const secondary =
     !visualLead &&
@@ -728,7 +750,7 @@ export function drawPerformerSignal(
     beatIndex >= 0 &&
     beatIndex % 8 === settings.secondaryAccentCount - 1;
   const accentBeat = downbeat || secondary;
-  const flashDuration = accentBeat ? 0.3 : 0.22;
+  const flashDuration = Math.max(0.06, beatDuration * 0.25);
   const flash = Math.max(0, 1 - elapsed / flashDuration);
 
   if (settings.beatPoints.enabled) {
@@ -744,6 +766,7 @@ export function drawPerformerSignal(
       flash,
       accentBeat,
       visualLead,
+      settings.beatOverride?.count,
       theme,
       settings.beatPoints,
     );
@@ -768,7 +791,7 @@ export function drawPerformerSignal(
     const radius =
       Math.min(width, height) * 0.24 * size * (accentBeat ? 1.5 : 1);
     const intensity = Math.max(0.045, flash);
-    const ringDuration = accentBeat ? 0.5 : 0.34;
+    const ringDuration = flashDuration;
     context.save();
     context.globalAlpha = Math.max(
       0.2,

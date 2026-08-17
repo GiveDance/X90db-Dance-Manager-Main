@@ -190,10 +190,40 @@ export default function HomePage() {
           setPerformingError("该项目缺少主视频，请重新上传后继续。");
           return;
         }
+        let resolvedProject = project;
+        if (project.analysisEngine == null && project.beats == null) {
+          try {
+            const analysis = await analyzeAudio(media);
+            resolvedProject = {
+              ...project,
+              bpm: analysis.bpm,
+              offset: analysis.offset,
+              musicStart: analysis.musicStart,
+              beats: analysis.beats,
+              analysisEngine: analysis.engine,
+              analysisConfidence: analysis.confidence,
+              updatedAt: Date.now(),
+            };
+            await updatePerformingProject(resolvedProject);
+            setPerformingProjects((projects) =>
+              projects.map((item) =>
+                item.id === resolvedProject.id ? resolvedProject : item,
+              ),
+            );
+          } catch (error) {
+            console.error(
+              "Failed to migrate the Performing rhythm analysis.",
+              error,
+            );
+            setPerformingError(
+              "项目已打开，但旧节拍结果未能重新分析，请稍后重试。",
+            );
+          }
+        }
         revoke();
         const url = URL.createObjectURL(media);
         urlRef.current = url;
-        setCurrentPerforming({ project, url });
+        setCurrentPerforming({ project: resolvedProject, url });
         setPhase("performing");
       } catch (error) {
         console.error("Failed to open the Performing project.", error);
@@ -259,6 +289,8 @@ export default function HomePage() {
           offset,
           musicStart,
           beats: analysisResult?.beats,
+          analysisEngine: analysisResult?.engine,
+          analysisConfidence: analysisResult?.confidence,
         };
         setCurrentPerforming({ project, url });
         setPhase("performing");
@@ -354,6 +386,12 @@ export default function HomePage() {
           return;
         }
         let resolvedMeta = meta;
+        const regressedAnalysis =
+          meta.analysisEngine == null &&
+          meta.detectedBeats == null &&
+          meta.analysisBeats == null &&
+          meta.detectedBpm != null &&
+          meta.detectedOffset != null;
         if (
           meta.musicStart == null ||
           meta.detectedBpm == null ||
@@ -362,23 +400,46 @@ export default function HomePage() {
         ) {
           try {
             const analysis = await analyzeAudio(blob);
+            const preservedCalibration =
+              regressedAnalysis &&
+              (Math.abs(meta.bpm - (meta.detectedBpm ?? meta.bpm)) > 0.001 ||
+                Math.abs(meta.offset - (meta.detectedOffset ?? meta.offset)) >
+                  0.001);
+            const resolvedBpm = preservedCalibration ? meta.bpm : analysis.bpm;
+            const resolvedOffset = preservedCalibration
+              ? meta.offset
+              : analysis.offset;
             const migratedBeats = calibrateBeatGrid(
               analysis.beats,
               analysis.bpm,
               analysis.offset,
-              meta.bpm,
-              meta.offset,
+              resolvedBpm,
+              resolvedOffset,
             );
             const analysisPatch: Partial<SavedDanceMeta> = {
-              detectedBpm: meta.detectedBpm ?? analysis.bpm,
-              detectedOffset: meta.detectedOffset ?? analysis.offset,
-              detectedBeats: meta.detectedBeats ?? analysis.beats,
-              analysisEngine: meta.analysisEngine ?? analysis.engine,
-              analysisConfidence:
-                meta.analysisConfidence ?? analysis.confidence,
+              ...(regressedAnalysis && !preservedCalibration
+                ? { bpm: analysis.bpm, offset: analysis.offset }
+                : {}),
+              detectedBpm:
+                regressedAnalysis || meta.detectedBpm == null
+                  ? analysis.bpm
+                  : meta.detectedBpm,
+              detectedOffset:
+                regressedAnalysis || meta.detectedOffset == null
+                  ? analysis.offset
+                  : meta.detectedOffset,
+              detectedBeats:
+                regressedAnalysis || meta.detectedBeats == null
+                  ? analysis.beats
+                  : meta.detectedBeats,
+              analysisEngine: analysis.engine,
+              analysisConfidence: analysis.confidence,
               analysisBeats:
-                meta.analysisBeats ??
-                (migratedBeats.length ? migratedBeats : undefined),
+                regressedAnalysis || meta.analysisBeats == null
+                  ? migratedBeats.length
+                    ? migratedBeats
+                    : undefined
+                  : meta.analysisBeats,
               updatedAt: Date.now(),
               ...(meta.musicStart == null
                 ? { musicStart: analysis.musicStart }
@@ -474,6 +535,8 @@ export default function HomePage() {
           musicStart: meta.musicStart ?? null,
           performanceStart: meta.performanceStart ?? null,
           beats,
+          analysisEngine: meta.analysisEngine,
+          analysisConfidence: meta.analysisConfidence,
           learningProjectId: meta.id,
         };
 
@@ -534,6 +597,8 @@ export default function HomePage() {
           detectedOffset: offset,
           detectedBeats: project.beats,
           analysisBeats: project.beats,
+          analysisEngine: project.analysisEngine,
+          analysisConfidence: project.analysisConfidence,
           musicStart: project.musicStart ?? null,
           performanceStart: project.performanceStart ?? null,
           duration: project.duration ?? 0,

@@ -6,6 +6,7 @@ import {
   useRef,
   type CSSProperties,
 } from "react";
+import { trackedBeatPreRoll } from "@/lib/countIn";
 import type {
   GeneratedStageTemplate,
   StageSignalPosition,
@@ -22,6 +23,7 @@ interface VisualSection {
 interface PerformanceStageRendererProps {
   time: number;
   beats: number[];
+  countdownBeats: number[];
   template: GeneratedStageTemplate;
   playing: boolean;
   showBeatCode: boolean;
@@ -78,6 +80,13 @@ const PARTICLE_COLORS = [
   "229,184,79",
   "225,231,255",
 ];
+
+const PULSE_PALETTES = [
+  [[255, 205, 235], [92, 163, 255]],
+  [[249, 171, 255], [255, 116, 95]],
+  [[255, 120, 149], [125, 237, 197]],
+  [[112, 139, 255], [251, 236, 144]],
+] as const;
 
 function beatIndexAtTime(beats: number[], time: number): number {
   let low = 0;
@@ -308,7 +317,7 @@ function drawStreetMotif(
     motif.rotation + Math.sin(clock * 58 + index) * beatHit * 0.045,
   );
   if (beforeAudio) {
-    const localBreath = 1 + Math.sin(clock * 1.7 + index * 0.72) * 0.014;
+    const localBreath = 1 + Math.sin(clock * 1.7 + index * 0.72) * 0.032;
     context.scale(localBreath, localBreath);
   }
 
@@ -608,9 +617,8 @@ function drawStreetGraphic(
     sync.beatHit * beatWeight,
     sync.preRollHit * 0.48,
   );
-  const polygonBreath = sync.beforeAudio
-    ? 1 + Math.sin(clock * 1.7) * 0.014
-    : 1;
+  const breathWave = sync.beforeAudio ? Math.sin(clock * 1.7) : 0;
+  const polygonBreath = 1 + breathWave * 0.035;
   const points = streetPolygonPoints(
     width,
     height,
@@ -621,7 +629,11 @@ function drawStreetGraphic(
     polygonBreath,
   );
   const minSide = Math.min(width, height);
-  const pulse = 1 + impactHit * 0.035 + sync.eightHit * 0.055;
+  const pulse =
+    1 +
+    breathWave * 0.018 +
+    impactHit * 0.035 +
+    sync.eightHit * 0.055;
   const centerX = width / 2;
   const centerY = height * 0.52;
   const fillPalette = STREET_POLYGON_PALETTES[sync.beatIndex % 8];
@@ -648,10 +660,11 @@ function drawStreetGraphic(
   context.save();
   context.globalCompositeOperation = "screen";
   context.filter = `blur(${minSide * 0.018}px)`;
-  context.fillStyle = "rgba(0,225,238,0.2)";
+  const breathGlow = sync.beforeAudio ? (breathWave + 1) * 0.035 : 0;
+  context.fillStyle = `rgba(0,225,238,${0.2 + breathGlow})`;
   polygonPath(context, points, -minSide * 0.012, minSide * 0.006);
   context.fill();
-  context.fillStyle = "rgba(255,30,134,0.22)";
+  context.fillStyle = `rgba(255,30,134,${0.22 + breathGlow})`;
   polygonPath(context, points, minSide * 0.013, -minSide * 0.006);
   context.fill();
   context.restore();
@@ -766,6 +779,7 @@ function drawStreetGraphic(
 export function PerformanceStageRenderer({
   time,
   beats,
+  countdownBeats,
   template,
   playing,
   showBeatCode,
@@ -793,21 +807,10 @@ export function PerformanceStageRenderer({
       : 0;
   const countIndex = beatIndex % 8;
   const beatHasStarted = beats.length > 0 && visualTime >= beats[0];
-  const firstBeatInterval =
-    beats.length > 1 && beats[1] > beats[0]
-      ? beats[1] - beats[0]
-      : 0.5;
   const beforeAudio = beats.length > 0 && visualTime < beats[0];
-  const preRollPosition =
-    beats.length > 0
-      ? (visualTime - (beats[0] - firstBeatInterval * 4)) /
-        firstBeatInterval
-      : -1;
-  const preRollPhase = preRollPosition - Math.floor(preRollPosition);
+  const preRoll = trackedBeatPreRoll(visualTime, countdownBeats);
   const preRollHit =
-    playing && beforeAudio && preRollPosition >= 0
-      ? Math.max(0, 1 - preRollPhase * 4)
-      : 0;
+    playing && preRoll ? Math.max(0, 1 - preRoll.phase * 4) : 0;
   const beatHit =
     playing && beatHasStarted ? Math.max(0, 1 - progress * 4) : 0;
   const eightHit = countIndex === 0 ? beatHit : 0;
@@ -875,8 +878,10 @@ export function PerformanceStageRenderer({
     const context = canvas?.getContext("2d");
     if (!canvas || !context) return;
     let frame = 0;
+    let previousFrameTime = performance.now() / 1000;
+    let pulseFlowPhase = 0;
     const particleCount =
-      template === "minimal" ? 28 : template === "pulse" ? 42 : 96;
+      template === "minimal" ? 28 : template === "pulse" ? 0 : 96;
     const particles = Array.from({ length: particleCount }, (_, index) => ({
       x: Math.random(),
       y: Math.random(),
@@ -898,74 +903,256 @@ export function PerformanceStageRenderer({
         canvas.height = Math.round(height * dpr);
       }
       context.setTransform(dpr, 0, 0, dpr, 0, 0);
+      context.globalAlpha = 1;
+      context.globalCompositeOperation = "source-over";
+      context.filter = "none";
+      context.shadowBlur = 0;
+      context.shadowColor = "transparent";
+      context.lineCap = "butt";
+      context.lineJoin = "miter";
+      context.lineWidth = 1;
       context.clearRect(0, 0, width, height);
       context.globalCompositeOperation = "lighter";
 
       const sync = syncRef.current;
       const energy = sync.playing ? 1 : 0.38;
       const cue = sync.cuePressure * sync.cuePressure;
+      const constellationCuePressure =
+        sync.beatStarted && Math.floor(sync.beatIndex / 8) % 2 === 0
+          ? (8 + (sync.beatIndex % 8)) / 16
+          : 0;
+      const constellationCue =
+        constellationCuePressure * constellationCuePressure;
+      const constellationRelease =
+        sync.beatStarted &&
+        Math.floor(sync.beatIndex / 8) % 2 === 1 &&
+        sync.beatIndex % 8 === 0;
+      const constellationBurstProgress = constellationRelease
+        ? Math.min(1, sync.progress * 1.05)
+        : 0;
+      const constellationBurstTravel =
+        constellationBurstProgress *
+        constellationBurstProgress *
+        (3 - 2 * constellationBurstProgress);
+      const constellationBurstFadeProgress = Math.max(
+        0,
+        Math.min(1, (constellationBurstTravel - 0.72) / 0.28),
+      );
+      const constellationBurstFade =
+        1 -
+        constellationBurstFadeProgress *
+          constellationBurstFadeProgress *
+          (3 - 2 * constellationBurstFadeProgress);
       const clock = now / 1000;
-
+      const frameDelta = Math.min(1 / 30, Math.max(0, clock - previousFrameTime));
+      previousFrameTime = clock;
+      const preAudioBreath = sync.beforeAudio
+        ? 0.5 + Math.sin(clock * 1.45) * 0.5
+        : 0;
       if (template === "street") {
         drawStreetGraphic(context, width, height, sync, clock);
       } else if (template === "pulse") {
-        for (let index = 0; index < 26; index += 1) {
-          const x = (index / 25) * width;
-          const drift =
-            Math.sin(clock * 0.42 + index * 0.7 + sync.sectionIndex) * 90;
-          const gradient = context.createLinearGradient(
-            x,
-            height * 0.7 + drift,
-            x,
-            height * 0.16 + drift * 0.34,
-          );
-          const lightColor =
-            PARTICLE_COLORS[
-              (index + sync.sectionIndex) % PARTICLE_COLORS.length
-            ];
-          gradient.addColorStop(0, `rgba(${lightColor},0)`);
-          gradient.addColorStop(
-            0.5,
-            `rgba(${lightColor},${
-              (0.2 + cue * 0.28 + sync.eightHit * 0.18) * energy
-            })`,
-          );
-          gradient.addColorStop(1, `rgba(${lightColor},0)`);
-          context.strokeStyle = gradient;
-          context.lineWidth = 10 + cue * 20 + sync.eightHit * 8;
-          context.beginPath();
-          context.moveTo(x, height * 0.7 + drift);
-          context.lineTo(
-            x + Math.sin(clock + index) * 80,
-            height * 0.16 + drift * 0.34,
-          );
-          context.stroke();
+        const beatFlow = Math.max(
+          sync.beatHit * 0.93,
+          sync.secondaryHit * 4.96,
+          sync.eightHit * 4.96,
+          sync.preRollHit * 0.55,
+        );
+        const flowSpeed = sync.playing ? 0.11 + beatFlow * 5.2 : 0.035;
+        pulseFlowPhase += frameDelta * flowSpeed;
+
+        context.save();
+        context.globalCompositeOperation = "source-over";
+        context.filter = "none";
+        context.shadowBlur = 0;
+        context.shadowColor = "transparent";
+        context.fillStyle = "#000000";
+        context.fillRect(0, 0, width, height);
+
+        const columns = Math.max(48, Math.ceil(width / 14));
+        const rows = Math.max(27, Math.ceil(height / 14));
+        const cellWidth = width / columns;
+        const cellHeight = height / rows;
+        const dotDiameter = Math.min(cellWidth, cellHeight) * 0.96;
+        const centerColumn = (columns - 1) / 2;
+        const centerRow = (rows - 1) / 2;
+        const pulsePalette =
+          PULSE_PALETTES[
+            Math.floor(sync.beatIndex / 16) % PULSE_PALETTES.length
+          ];
+
+        for (let row = 0; row < rows; row += 1) {
+          for (let column = 0; column < columns; column += 1) {
+            const gridX = column - centerColumn;
+            const gridY = centerRow - row;
+            const distance = Math.hypot(gridX, gridY);
+            const fieldDistance = Math.max(distance, 2.4);
+            const radialWave =
+              4.2 * Math.log(fieldDistance);
+            const angularWave =
+              distance > 0 ? 4 * Math.atan2(gridY, gridX) : 0;
+            const field = Math.cos(
+              Math.cos(radialWave - pulseFlowPhase) +
+                2 *
+                  Math.cos(
+                    angularWave -
+                      pulseFlowPhase -
+                      Math.abs(Math.sin(radialWave - pulseFlowPhase)),
+                  ),
+            );
+            const centerScale =
+              distance < 1.8
+                ? 0.42
+                : distance < 3.2
+                  ? 0.58
+                  : distance < 4.8
+                    ? 0.76
+                    : 1;
+            const leftEdgeScale =
+              column < 5
+                ? 0.24 + (column / 4) * 0.76
+                : 1;
+            const radius =
+              (dotDiameter *
+                Math.abs(2 / (1 + Math.exp(-5 * field)) - 1) *
+                centerScale *
+                leftEdgeScale) /
+              2;
+            const heartColorPhase =
+              radialWave * 0.24 +
+              angularWave * 0.18 -
+              pulseFlowPhase * 0.3 +
+              sync.sectionIndex * 0.7;
+            const heartColorBand =
+              ((Math.floor(heartColorPhase / Math.PI) % 2) + 2) % 2;
+            const heartColor = (
+              pulsePalette
+            )[heartColorBand];
+            const normalizedDistance = Math.min(
+              1,
+              Math.hypot(
+                gridX / Math.max(1, centerColumn),
+                gridY / Math.max(1, centerRow),
+              ),
+            );
+            const edgeProgress = Math.max(
+              0,
+              Math.min(1, (normalizedDistance - 0.52) / 0.48),
+            );
+            const edgeGradient =
+              edgeProgress * edgeProgress * (3 - 2 * edgeProgress);
+            const colorStrength = edgeGradient * 0.96;
+            const color = `rgb(${Math.round(
+              255 + (heartColor[0] - 255) * colorStrength,
+            )},${Math.round(
+              255 + (heartColor[1] - 255) * colorStrength,
+            )},${Math.round(
+              255 + (heartColor[2] - 255) * colorStrength,
+            )})`;
+
+            if (field >= 0) {
+              const whiteDotSeed = streetNoise(
+                column * 19.37 +
+                  row * row * 7.13 +
+                  column * row * 3.71 +
+                  sync.beatIndex * 101.9,
+              );
+              if (whiteDotSeed > 0.014) {
+                continue;
+              }
+              context.beginPath();
+              context.fillStyle = "#ffffff";
+              context.arc(
+                (column + 0.5) * cellWidth,
+                (row + 0.5) * cellHeight,
+                dotDiameter * (0.07 + whiteDotSeed * 1.8),
+                0,
+                Math.PI * 2,
+              );
+              context.fill();
+              continue;
+            }
+            context.beginPath();
+            context.fillStyle = color;
+            context.arc(
+              (column + 0.5) * cellWidth,
+              (row + 0.5) * cellHeight,
+              Math.max(0.45, radius),
+              0,
+              Math.PI * 2,
+            );
+            context.fill();
+          }
         }
+        context.restore();
       }
 
-      if (template !== "street") particles.forEach((particle, index) => {
+      if (template !== "street" && template !== "pulse") particles.forEach((particle, index) => {
         const color =
-          PARTICLE_COLORS[
-            (particle.hue + sync.sectionIndex) % PARTICLE_COLORS.length
-          ];
-        const luminousHighlight = color === "225,231,255";
+          template === "minimal"
+            ? "241,244,255"
+            : PARTICLE_COLORS[
+                (particle.hue + sync.sectionIndex) % PARTICLE_COLORS.length
+              ];
+        const luminousHighlight =
+          template === "minimal" || color === "225,231,255";
         const angle =
           particle.phase + clock * particle.speed + sync.beatIndex * 0.07;
         let x = particle.x * width;
         let y = particle.y * height;
         let size = particle.size;
         let alpha = 0.18 + cue * 0.24;
+        let particleCue = cue;
 
         if (template === "constellation") {
+          particleCue = constellationCue;
           const targetAngle =
             (index / particles.length) * Math.PI * 2 + clock * 0.4;
           const radius =
             Math.min(width, height) * (0.12 + (index % 8) * 0.015);
-          const pull = Math.max(0.18, cue);
+          const pull = Math.max(0.18, constellationCue);
           x += (width / 2 + Math.cos(targetAngle) * radius - x) * pull;
           y += (height / 2 + Math.sin(targetAngle) * radius - y) * pull;
-          size *= 1.6 + cue * 3.8 + sync.eightHit;
-          alpha = 0.16 + cue * 0.52;
+          size *=
+            1.6 +
+            constellationCue * 3.8 +
+            sync.eightHit +
+            preAudioBreath * 0.26 +
+            sync.preRollHit * 0.82;
+          alpha =
+            0.16 +
+            constellationCue * 0.52 +
+            preAudioBreath * 0.06 +
+            sync.preRollHit * 0.12;
+          if (constellationRelease) {
+            const burstAngle = Math.atan2(
+              particle.y - 0.5,
+              particle.x - 0.5,
+            );
+            const startRadius =
+              Math.min(width, height) * (0.12 + (index % 8) * 0.015);
+            const directionX = Math.cos(burstAngle);
+            const directionY = Math.sin(burstAngle);
+            const horizontalEdgeRadius =
+              directionX >= 0
+                ? width / 2 / Math.max(directionX, 0.001)
+                : -width / 2 / Math.min(directionX, -0.001);
+            const verticalEdgeRadius =
+              directionY >= 0
+                ? height / 2 / Math.max(directionY, 0.001)
+                : -height / 2 / Math.min(directionY, -0.001);
+            const burstRadius =
+              Math.min(horizontalEdgeRadius, verticalEdgeRadius) +
+              90 +
+              ((index * 17) % 9) * 12;
+            const releaseRadius =
+              startRadius +
+              (burstRadius - startRadius) * constellationBurstTravel;
+            x = width / 2 + directionX * releaseRadius;
+            y = height / 2 + directionY * releaseRadius;
+            size *= 4.8 - constellationBurstTravel * 2.3;
+            alpha = 0.62 * constellationBurstFade;
+          }
         } else if (template === "minimal") {
           x =
             width * 0.5 +
@@ -973,8 +1160,11 @@ export function PerformanceStageRenderer({
           y =
             height * 0.52 +
             Math.sin(angle + index) * (80 + (index % 8) * 18);
-          size = 1.2 + sync.eightHit * (index % 8 === 0 ? 2.4 : 0.7);
-          alpha = 0.1 + cue * 0.12;
+          size =
+            1.2 +
+            sync.eightHit * (index % 8 === 0 ? 2.4 : 0.7) +
+            sync.preRollHit * (index % 4 === 0 ? 1.4 : 0.4);
+          alpha = 0.1 + cue * 0.12 + sync.preRollHit * 0.16;
         } else {
           y = height * (0.45 + Math.sin(angle) * 0.18);
           x += Math.cos(angle * 0.3) * 28;
@@ -989,7 +1179,12 @@ export function PerformanceStageRenderer({
             : alpha * energy
         })`;
         context.shadowBlur =
-          (luminousHighlight ? 16 : 10) + cue * 24 + sync.eightHit * 12;
+          (luminousHighlight ? 16 : 10) +
+          particleCue * 24 +
+          sync.eightHit * 12 +
+          (template === "constellation"
+            ? preAudioBreath * 4 + sync.preRollHit * 10
+            : 0);
         context.shadowColor = `rgba(${color},.72)`;
         context.arc(x, y, size, 0, Math.PI * 2);
         context.fill();
@@ -1004,12 +1199,26 @@ export function PerformanceStageRenderer({
     return () => cancelAnimationFrame(frame);
   }, [signalOnly, template]);
 
+  const visualBeatHit =
+    beforeAudio && (template === "constellation" || template === "minimal")
+      ? preRollHit * (template === "minimal" ? 0.48 : 0.65)
+      : beatHit;
+  const minimalImpact = Math.max(
+    beatHit * 0.72,
+    secondaryHit * 1.5,
+    eightHit * 2.35,
+    beforeAudio ? preRollHit * 0.65 : 0,
+  );
+  const minimalHeavyHit = Math.max(secondaryHit, eightHit);
   const style = {
     "--section-color": sectionColor,
     "--cue-pressure": cuePressure,
-    "--beat-hit": beatHit,
+    "--beat-hit": visualBeatHit,
     "--eight-hit": eightHit,
     "--secondary-hit": secondaryHit,
+    "--minimal-heavy-hit": minimalHeavyHit,
+    "--minimal-impact": minimalImpact,
+    "--ring-impact": minimalImpact,
     "--count-angle": `${((countIndex + progress) / 8) * 360}deg`,
   } as CSSProperties;
 
@@ -1017,7 +1226,7 @@ export function PerformanceStageRenderer({
     <div
       className={`performance-stage performance-stage-${template} ${
         signalOnly ? "performance-stage-signal-only" : ""
-      }`}
+      } ${beforeAudio ? "performance-stage-pre-audio" : ""}`}
       style={style}
     >
       {!signalOnly && (

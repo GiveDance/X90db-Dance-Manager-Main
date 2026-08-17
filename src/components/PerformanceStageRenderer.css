@@ -16,11 +16,17 @@
 }
 
 .performance-stage-pulse {
-  background:
-    radial-gradient(circle at 50% 90%, rgba(72, 182, 210, 0.045), transparent 26%),
-    radial-gradient(circle at 20% 18%, rgba(101, 73, 232, 0.09), transparent 25%),
-    radial-gradient(circle at 82% 40%, rgba(240, 112, 67, 0.04), transparent 21%),
-    linear-gradient(180deg, #010207 0%, #04091a 52%, #010103 100%);
+  background: #000;
+}
+
+.performance-stage-pulse::before,
+.performance-stage-pulse::after,
+.performance-stage-pulse .performance-stage-grid,
+.performance-stage-pulse .performance-stage-aura,
+.performance-stage-pulse .performance-stage-disc,
+.performance-stage-pulse .performance-stage-downbeat,
+.performance-stage-pulse .performance-stage-cue {
+  display: none;
 }
 
 .performance-stage-constellation {
@@ -31,11 +37,42 @@
     linear-gradient(135deg, #020105 0%, #08050c 42%, #010102 100%);
 }
 
+.performance-stage-constellation .performance-stage-cue {
+  display: none;
+}
+
+.performance-stage-constellation .performance-stage-disc {
+  transform:
+    translate(-50%, -50%)
+    scale(calc(0.88 + var(--ring-impact) * 0.16));
+}
+
+.performance-stage-constellation.performance-stage-pre-audio
+  .performance-stage-disc {
+  animation: constellation-pre-audio-breath 2.8s ease-in-out infinite;
+}
+
+@keyframes constellation-pre-audio-breath {
+  0%,
+  100% {
+    transform: translate(-50%, -50%)
+      scale(calc(0.9 + var(--beat-hit) * 0.05));
+  }
+  50% {
+    transform: translate(-50%, -50%)
+      scale(calc(0.925 + var(--beat-hit) * 0.05));
+  }
+}
+
 .performance-stage-minimal {
   background:
-    radial-gradient(circle at center, rgba(225, 231, 255, 0.03), transparent 23%),
-    radial-gradient(circle at 64% 46%, rgba(77, 102, 232, 0.025), transparent 21%),
-    linear-gradient(135deg, #020204 0%, #07080d 50%, #010102 100%);
+    radial-gradient(circle at center, rgba(255, 255, 255, 0.035), transparent 24%),
+    linear-gradient(135deg, #020203 0%, #080808 50%, #010101 100%);
+}
+
+.performance-stage-minimal::before,
+.performance-stage-minimal .performance-stage-cue {
+  display: none;
 }
 
 .performance-stage::before,
@@ -184,18 +221,65 @@
 
 .performance-stage-minimal .performance-stage-disc {
   width: min(34%, 420px);
-  border-color: rgba(225, 231, 255, 0.38);
-  background: conic-gradient(
-    from var(--count-angle),
-    rgba(49, 94, 232, 0.5),
-    rgba(101, 73, 232, 0.66),
-    rgba(180, 52, 151, 0.58),
-    rgba(235, 76, 97, 0.62),
-    rgba(240, 137, 69, 0.56),
-    rgba(241, 244, 255, calc(0.62 + var(--eight-hit) * 0.18)),
-    rgba(49, 94, 232, 0.5)
+  border-color: rgba(255, 255, 255, 0.92);
+  background: radial-gradient(
+    circle at center,
+    rgba(255, 255, 255, 0.02) 0%,
+    rgba(255, 255, 255, 0.07) 42%,
+    rgba(255, 255, 255, 0.5) 68%,
+    rgba(255, 255, 255, 0.92) 78%,
+    rgba(255, 255, 255, 0.2) 91%,
+    transparent 100%
   );
-  box-shadow: 0 0 34px rgba(77, 102, 232, 0.18);
+  box-shadow:
+    inset 0 0 30px rgba(255, 255, 255, 0.1),
+    0 0 34px rgba(255, 255, 255, 0.2);
+  transform:
+    translate(-50%, -50%)
+    scale(calc(0.88 + var(--minimal-impact) * 0.16));
+}
+
+.performance-stage-minimal .performance-stage-downbeat {
+  width: calc(42% + var(--minimal-heavy-hit) * 8%);
+  border: calc(1px + var(--minimal-heavy-hit) * 2px) solid rgba(
+    255,
+    255,
+    255,
+    calc(0.34 + var(--minimal-heavy-hit) * 0.5)
+  );
+  background: radial-gradient(
+    circle,
+    transparent 0 54%,
+    rgba(255, 255, 255, calc(var(--minimal-heavy-hit) * 0.025)) 63%,
+    rgba(255, 255, 255, calc(var(--minimal-heavy-hit) * 0.1)) 74%,
+    rgba(255, 255, 255, calc(var(--minimal-heavy-hit) * 0.035)) 86%,
+    transparent 100%
+  );
+  box-shadow:
+    inset 0 0 28px rgba(255, 255, 255, calc(var(--minimal-heavy-hit) * 0.08)),
+    0 0 24px rgba(255, 255, 255, calc(var(--minimal-heavy-hit) * 0.15));
+  opacity: var(--minimal-heavy-hit);
+  transform: translate(-50%, -50%);
+}
+
+.performance-stage-minimal .performance-stage-downbeat::after {
+  position: absolute;
+  inset: -22%;
+  border: 1px solid rgba(
+    255,
+    255,
+    255,
+    calc(0.2 + var(--minimal-heavy-hit) * 0.42)
+  );
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    transparent 0 66%,
+    rgba(255, 255, 255, calc(var(--minimal-heavy-hit) * 0.06)) 78%,
+    transparent 100%
+  );
+  box-shadow: inset 0 0 24px rgba(255, 255, 255, calc(var(--minimal-heavy-hit) * 0.05));
+  content: "";
 }
 
 .performance-stage-downbeat {
