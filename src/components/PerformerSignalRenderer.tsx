@@ -70,6 +70,7 @@ export function PerformerSignalRenderer({
         beatPoints: {
           enabled: settings.showBeatCode,
           shape: settings.beatPointShape,
+          theme: settings.beatPointTheme,
           beatColor: settings.beatPointBeatColor,
           accentColor: settings.beatPointAccentColor,
           size: settings.beatPointSize,
@@ -93,6 +94,8 @@ export function PerformerSignalRenderer({
   return (
     <canvas
       ref={canvasRef}
+      role="img"
+      aria-label="八拍节拍信号。当前拍高亮，较大的双边框拍点表示重拍。"
       className="pointer-events-none absolute inset-0 z-10 h-full w-full"
     />
   );

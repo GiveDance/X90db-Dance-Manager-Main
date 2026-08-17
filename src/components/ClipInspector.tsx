@@ -6,7 +6,7 @@ import type { GeneratedStageTemplate } from "@/lib/types";
 import { Toggle } from "./Toggle";
 
 const GENERATED_NAMES: Record<GeneratedStageTemplate, string> = {
-  street: "街舞信号",
+  street: "棱彩波谱",
   pulse: "极光脉冲",
   constellation: "聚合提示",
   minimal: "极简舞台",

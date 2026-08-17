@@ -51,7 +51,7 @@ type LibraryTab = "clips" | "generated";
 
 const OVERLAY_MATERIAL_ID = "performing-overlay";
 const GENERATED_TEMPLATE_NAMES: Record<GeneratedStageTemplate, string> = {
-  street: "Street Signal",
+  street: "Prismatic Spectrum",
   pulse: "Aurora Pulse",
   constellation: "Coalesce Cue",
   minimal: "Minimal Stage",
@@ -741,23 +741,6 @@ export function PerformingWorkspace({
               signalOnly
             />
           )}
-          <div className="pointer-events-none absolute left-5 top-5 rounded-lg border border-white/10 bg-black/45 px-3 py-2 backdrop-blur">
-            <p className="text-[9px] font-semibold uppercase tracking-[0.16em] text-neutral-500">
-              {displayedGeneratedClip
-                ? "生成素材"
-                : displayedVideoClip
-                  ? `视频素材 ${layout.indexOf(displayedVideoClip) + 1}`
-                  : trackVisibility.source
-                    ? "原始视频"
-                    : "无可见素材"}
-            </p>
-            <p className="mt-1 max-w-56 truncate text-xs text-neutral-300">
-              {(trackVisibility.composition ? activeClip?.name : null) ??
-                (trackVisibility.source
-                  ? project.sourceName ?? project.name
-                  : "空白区间")}
-            </p>
-          </div>
           </div>
         </div>
 
