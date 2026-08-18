@@ -5,6 +5,27 @@ import { ZoomIn, ZoomOut } from "lucide-react";
 import { cn } from "@/lib/cn";
 
 const ZOOM_LEVELS = [1, 1.5, 2, 3, 4, 6, 8] as const;
+const BEATS_PER_EIGHT_COUNT = 8;
+const MAX_VISIBLE_EIGHT_COUNTS = 12;
+
+export function shouldCondenseTimelineBeats(
+  beatCount: number,
+  zoom: number,
+) {
+  const visibleEightCounts =
+    beatCount / BEATS_PER_EIGHT_COUNT / Math.max(zoom, 1);
+  return visibleEightCounts > MAX_VISIBLE_EIGHT_COUNTS;
+}
+
+export function shouldShowTimelineBeat(
+  index: number,
+  beatCount: number,
+  zoom: number,
+) {
+  if (!shouldCondenseTimelineBeats(beatCount, zoom)) return true;
+  const beatInEightCount = index % BEATS_PER_EIGHT_COUNT;
+  return beatInEightCount === 0 || beatInEightCount === 4;
+}
 
 export function useTimelineNavigation(contentKey: number) {
   const viewportRef = useRef<HTMLDivElement>(null);

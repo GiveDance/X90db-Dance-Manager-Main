@@ -11,6 +11,8 @@ import {
 } from "@/lib/composition";
 import type { GeneratedStageTemplate } from "@/lib/types";
 import {
+  shouldCondenseTimelineBeats,
+  shouldShowTimelineBeat,
   TimelineNavigationControls,
   useTimelineNavigation,
 } from "./TimelineNavigation";
@@ -266,25 +268,40 @@ export function CompositionTimeline({
     window.addEventListener("pointerup", end);
   };
 
+  const visibleBeats = beats
+    .map((time, index) => ({
+      time,
+      index,
+      primary: index % 8 === 0,
+      secondary: index % 8 === 4,
+    }))
+    .filter((beat) => shouldShowTimelineBeat(beat.index, beats.length, zoom));
+  const condensedBeats = shouldCondenseTimelineBeats(beats.length, zoom);
   const beatGuideLines = (prefix: string) =>
-    beats.map((beat, index) => (
+    visibleBeats.map((beat) => (
       <span
-        key={`${prefix}-beat-${beat}-${index}`}
+        key={`${prefix}-beat-${beat.time}-${beat.index}`}
         className={`pointer-events-none absolute inset-y-0 w-px ${
-          index % 8 === 0 ? "bg-violet-300/30" : "bg-white/[0.04]"
+          beat.primary
+            ? "bg-[#5b4a82a6]"
+            : beat.secondary
+              ? condensedBeats
+                ? "bg-white/[0.04]"
+                : "bg-white/[0.10]"
+              : "bg-white/[0.04]"
         }`}
-        style={{ left: `${percentage(beat)}%` }}
+        style={{ left: `${percentage(beat.time)}%` }}
       />
     ));
-  const beatDots = beats.map((beat, index) => (
-    <span
-      key={`timeline-beat-dot-${beat}-${index}`}
-      className={`pointer-events-none absolute bottom-0 h-[3px] w-[6px] -translate-x-1/2 rounded-t-full ${
-        index % 8 === 0 ? "bg-violet-200" : "bg-neutral-600/60"
-      }`}
-      style={{ left: `${percentage(beat)}%` }}
-    />
-  ));
+  const beatDots = visibleBeats
+    .filter((beat) => beat.primary)
+    .map((beat) => (
+      <span
+        key={`timeline-beat-dot-${beat.time}-${beat.index}`}
+        className="pointer-events-none absolute bottom-0 h-[3px] w-[6px] -translate-x-1/2 rounded-t-full bg-violet-200"
+        style={{ left: `${percentage(beat.time)}%` }}
+      />
+    ));
 
   const playhead = (
     <span
@@ -311,7 +328,7 @@ export function CompositionTimeline({
           className="grid min-w-full grid-cols-[112px_minmax(0,1fr)] overflow-hidden rounded-lg border border-white/[0.07] bg-black"
           style={{ width: `${zoom * 100}%` }}
         >
-          <div className="h-10 border-b border-white/[0.07]">
+          <div className="h-12 border-b border-white/[0.07]">
             <TrackHeader
               label="节拍信号"
               hidden={!trackVisibility.overlay}
@@ -320,7 +337,7 @@ export function CompositionTimeline({
             />
           </div>
           <div
-            className="relative h-10 overflow-hidden bg-neutral-950"
+            className="relative h-12 overflow-hidden bg-neutral-950"
             onClick={(event) => {
               onSeek(timeAtX(event.clientX));
               onSelect(null);
@@ -335,12 +352,12 @@ export function CompositionTimeline({
                 event.stopPropagation();
                 onSelectOverlay();
               }}
-              className={`absolute inset-y-1.5 left-0 flex min-w-16 items-center rounded-md border px-2 text-left text-[11px] font-medium transition-colors ${
+              className={`absolute inset-y-2 left-0 flex min-w-16 items-center rounded-md border px-2 text-left text-[11px] font-medium transition-colors ${
                 !trackVisibility.overlay
-                  ? "border-white/10 bg-white/[0.04] text-neutral-600"
+                  ? "border-[#262626] bg-[#141414db] text-neutral-600"
                   : overlaySelected
-                   ? "border-violet-300/55 bg-violet-400/48 text-white shadow-[0_0_12px_rgba(139,92,246,0.2)]"
-                    : "border-violet-300/35 bg-violet-400/22 text-violet-100/85 hover:bg-violet-400/30"
+                    ? "border-[#9f86ca] bg-[#594777db] text-white shadow-[0_0_12px_rgba(139,92,246,0.2)]"
+                    : "border-[#5b4a82] bg-[#2a233cdb] text-violet-100/85 hover:border-[#7561a0] hover:bg-[#3a3052db]"
               }`}
               style={{ width: `${percentage(duration)}%` }}
             >
@@ -349,7 +366,7 @@ export function CompositionTimeline({
             {playhead}
           </div>
 
-          <div className="h-14 border-b border-white/[0.07]">
+          <div className="h-12 border-b border-white/[0.07]">
             <TrackHeader
               label="合成素材"
               hidden={!trackVisibility.composition}
@@ -359,7 +376,7 @@ export function CompositionTimeline({
           </div>
           <div
             ref={laneRef}
-            className="relative h-14 overflow-hidden bg-neutral-950"
+            className="relative h-12 overflow-hidden bg-neutral-950"
             onClick={(event) => {
               onSeek(timeAtX(event.clientX));
               onSelect(null);
@@ -453,14 +470,14 @@ export function CompositionTimeline({
                     event.stopPropagation();
                     onSelect(clip.id);
                   }}
-                  className={`absolute inset-y-2 flex min-w-8 cursor-grab items-center overflow-hidden rounded-md border px-3 transition-colors active:cursor-grabbing ${trackContentClass("composition")} ${
+                  className={`absolute inset-y-0 flex min-w-8 cursor-grab items-center overflow-hidden rounded-md border py-0 pl-4 pr-3 transition-colors active:cursor-grabbing ${trackContentClass("composition")} ${
                     generated
                       ? selected
-                        ? "z-10 border-violet-300/55 bg-violet-400/48 shadow-[0_0_12px_rgba(139,92,246,0.2)]"
-                        : "border-violet-300/35 bg-violet-400/22 hover:bg-violet-400/30"
+                        ? "z-10 border-[#9f86ca] bg-[#594777db] shadow-[0_0_12px_rgba(139,92,246,0.2)]"
+                        : "border-[#5b4a82] bg-[#2a233cdb] hover:border-[#7561a0] hover:bg-[#3a3052db]"
                       : selected
-                        ? "z-10 border-[#30E6FF]/55 bg-[#30E6FF]/42 shadow-[0_0_12px_rgba(48,230,255,0.18)]"
-                        : "border-[#30E6FF]/35 bg-[#30E6FF]/18 hover:bg-[#30E6FF]/26"
+                        ? "z-10 border-[#55b9c2] bg-[#1d6871db] shadow-[0_0_12px_rgba(48,230,255,0.18)]"
+                        : "border-[#246b75] bg-[#102f35db] hover:border-[#33929e] hover:bg-[#17434bdb]"
                   } ${dragging ? "z-20 opacity-80 shadow-xl" : ""}`}
                   style={{
                     left: `${percentage(clip.timelineStart)}%`,
@@ -477,8 +494,8 @@ export function CompositionTimeline({
                     onPointerDown={(event) => startStartResize(event, clip)}
                     className={`absolute inset-y-0 left-0 z-10 w-2 cursor-ew-resize border-r ${
                       generated
-                        ? "border-violet-200/20 bg-violet-200/10 hover:bg-violet-200/25"
-                        : "border-[#30E6FF]/20 bg-[#30E6FF]/10 hover:bg-[#30E6FF]/25"
+                        ? "border-[#65548a] bg-[#41365bdb] hover:bg-[#594a78db]"
+                        : "border-[#28747f] bg-[#16434adb] hover:bg-[#205d66db]"
                     }`}
                   />
                   <p
@@ -494,8 +511,8 @@ export function CompositionTimeline({
                     onPointerDown={(event) => startEndResize(event, clip)}
                     className={`absolute inset-y-0 right-0 w-2 cursor-ew-resize border-l ${
                       generated
-                        ? "border-violet-200/20 bg-violet-200/10 hover:bg-violet-200/25"
-                        : "border-[#30E6FF]/20 bg-[#30E6FF]/10 hover:bg-[#30E6FF]/25"
+                        ? "border-[#65548a] bg-[#41365bdb] hover:bg-[#594a78db]"
+                        : "border-[#28747f] bg-[#16434adb] hover:bg-[#205d66db]"
                     }`}
                   />
                 </div>
@@ -504,7 +521,7 @@ export function CompositionTimeline({
             {playhead}
           </div>
 
-          <div className="h-10">
+          <div className="h-12">
             <TrackHeader
               label="原始视频"
               hidden={!trackVisibility.source}
@@ -513,7 +530,7 @@ export function CompositionTimeline({
             />
           </div>
           <div
-            className="relative h-10 overflow-hidden bg-neutral-950"
+            className="relative h-12 overflow-hidden bg-neutral-950"
             onClick={(event) => {
               onSeek(timeAtX(event.clientX));
               onSelect(null);
@@ -524,10 +541,10 @@ export function CompositionTimeline({
               {beatDots}
             </div>
             <div
-              className={`absolute inset-y-1.5 left-0 flex min-w-20 items-center overflow-hidden rounded-md border px-1.5 ${
+              className={`absolute inset-y-2 left-0 flex min-w-20 items-center overflow-hidden rounded-md border px-1.5 ${
                 trackVisibility.source
-                  ? "border-white/15 bg-white/[0.08]"
-                  : "border-white/10 bg-white/[0.04]"
+                  ? "border-[#333333] bg-[#202020db]"
+                  : "border-[#262626] bg-[#141414db]"
               }`}
               style={{ width: `${percentage(duration)}%` }}
             >
