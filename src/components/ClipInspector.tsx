@@ -46,7 +46,7 @@ export function ClipInspector({
       : clip.name;
     return (
       <div className="space-y-4">
-        <div className="flex min-h-7 items-center gap-3">
+        <div className="flex min-h-7 items-center gap-3 pl-2">
           <div className="min-w-0 flex-1">
             <p
               className="truncate text-sm font-medium text-white"
@@ -64,7 +64,7 @@ export function ClipInspector({
             <Trash2 className="h-4 w-4" />
           </button>
         </div>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="!mt-3 grid grid-cols-2 gap-2">
           <div className="rounded-lg border border-white/[0.07] bg-black/40 px-3 py-2">
             <span className="block text-[11px] text-neutral-500">开始</span>
             <span className="mt-1 block text-xs tabular-nums text-neutral-300">
@@ -84,7 +84,7 @@ export function ClipInspector({
 
   return (
     <div className="space-y-4">
-      <div className="flex min-h-7 items-center gap-3">
+      <div className="flex min-h-7 items-center gap-3 pl-2">
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium text-white" title={clip.name}>
             {clip.name}
@@ -121,8 +121,11 @@ export function ClipInspector({
           unit: "×",
           help: "调整速度会同步改变素材在时间线中的长度。",
         },
-      ].map((control) => (
-        <label key={control.key} className="block">
+      ].map((control, index) => (
+        <label
+          key={control.key}
+          className={index === 0 ? "!mt-3 block" : "block"}
+        >
           <span className="flex items-center justify-between text-[11px] text-neutral-500">
             {control.label}
             <span className="tabular-nums text-neutral-200">

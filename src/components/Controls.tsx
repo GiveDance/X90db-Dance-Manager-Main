@@ -96,7 +96,7 @@ function VizModeButton({
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
         className={cn(
-          "flex h-9 items-center justify-center rounded-lg px-2.5 text-neutral-300 transition-colors hover:bg-white/10 hover:text-white",
+          "flex h-9 items-center justify-center rounded-lg px-2.5 text-neutral-300 transition-colors hover:bg-white/10 hover:text-white [&_svg]:size-5 [&_svg]:shrink-0 [&_svg]:stroke-[1.75]",
           (open || anyOn) && "text-white",
           open && "bg-white/10",
         )}
@@ -308,7 +308,7 @@ function IconBtn({
       aria-label={title}
       onClick={onClick}
       className={cn(
-        "flex h-9 items-center justify-center rounded-lg px-2.5 text-neutral-300 transition-colors hover:bg-white/10 hover:text-white",
+        "flex h-9 items-center justify-center rounded-lg px-2.5 text-neutral-300 transition-colors hover:bg-white/10 hover:text-white [&_svg]:size-5 [&_svg]:shrink-0 [&_svg]:stroke-[1.75]",
         active && "bg-blue-500/20 text-blue-400 hover:bg-blue-500/25 hover:text-blue-300",
         className,
       )}
@@ -388,7 +388,7 @@ function RateButton({
         aria-expanded={open}
         onClick={() => setOpen(true)}
         className={cn(
-          "flex h-9 min-w-12 items-center justify-center rounded-lg px-2.5 text-xs font-medium tabular-nums text-neutral-200 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400",
+          "flex h-9 w-10 min-w-10 items-center justify-center rounded-lg px-0 text-[11px] font-medium tabular-nums text-neutral-200 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400",
           open && "bg-white/10 text-white",
         )}
       >
@@ -476,7 +476,7 @@ function VolumeControl(props: {
         data-tooltip={open ? undefined : muteLabel}
         aria-label={muteLabel}
         aria-expanded={open}
-        className="flex h-9 items-center justify-center rounded-lg px-2.5 text-neutral-300 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+        className="flex h-9 items-center justify-center rounded-lg px-2.5 text-neutral-300 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 [&_svg]:size-5 [&_svg]:shrink-0 [&_svg]:stroke-[1.75]"
       >
         {props.muted || props.volume === 0 ? (
           <VolumeX className="h-5 w-5" />
@@ -833,7 +833,7 @@ export function Controls(props: ControlsProps) {
   }, []);
 
   return (
-    <div className="border-t border-white/5 bg-black">
+    <div className="bg-neutral-950">
       {/* 全宽进度条（置顶；段落 tab 时由底部段落时间轴替代，这里隐藏） */}
       {props.showProgress && (
         <div className="px-5 pt-3">
@@ -970,6 +970,7 @@ export function Controls(props: ControlsProps) {
 }
 
 interface FormationControlsProps {
+  className?: string;
   isPlaying: boolean;
   currentTime: number;
   duration: number;
@@ -1007,7 +1008,12 @@ export function FormationControls(props: FormationControlsProps) {
   }, []);
 
   return (
-    <div className="shrink-0 border-t border-white/5 bg-black">
+    <div
+      className={cn(
+        "shrink-0 bg-black",
+        props.className,
+      )}
+    >
       {props.showProgress !== false && (
         <div className="px-5 pt-3">
           <ProgressBar

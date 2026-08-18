@@ -282,7 +282,7 @@ function SignalCard({
       </div>
       {expanded && (
         <div
-          className={`space-y-4 border-t border-violet-500/15 bg-black/25 p-3 ${
+          className={`space-y-4 bg-black/25 p-3 ${
             enabled ? "" : "pointer-events-none opacity-35"
           }`}
         >
@@ -301,15 +301,14 @@ export function OverlayInspector({
   const [cornerExpanded, setCornerExpanded] = useState(false);
 
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto p-4">
-      <div>
+    <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-3 pt-0">
+      <div className="pl-2">
         <p className="text-sm font-semibold text-white">节拍信号</p>
       </div>
 
-      <section className="mt-4">
-        <div className="flex items-center gap-2">
+      <section className="mt-3">
+        <div className="pl-2">
           <p className="text-xs font-medium text-neutral-300">节拍设定</p>
-          <div className="h-px flex-1 bg-white/[0.06]" />
         </div>
         <div className="mt-2 rounded-lg border border-white/[0.06] bg-white/[0.025] p-3">
           <div className="flex items-start justify-between gap-3">
@@ -344,10 +343,9 @@ export function OverlayInspector({
         </div>
       </section>
 
-      <section className="mt-5">
-        <div className="flex items-center gap-2">
+      <section className="mt-4">
+        <div className="pl-2">
           <p className="text-xs font-medium text-neutral-300">信号视觉</p>
-          <div className="h-px flex-1 bg-white/[0.06]" />
         </div>
         <div className="mt-2 flex flex-col gap-2">
           <SignalCard

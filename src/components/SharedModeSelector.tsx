@@ -64,10 +64,9 @@ export function SharedModeSelector({
       selector.style.top = `${mix(height - 122, 150, progress) - afterLanding}px`;
       selector.style.width = `${mix(landingWidth, 190, progress)}px`;
       selector.style.height = `${mix(56, 46, progress)}px`;
-      selector.style.padding = `${mix(0, 4, progress)}px`;
+      selector.style.removeProperty("padding");
       selector.style.gap = `${mix(12, 4, progress)}px`;
       selector.style.borderRadius = "999px";
-      selector.style.borderColor = `rgba(${mix(255, 64, progress)},${mix(255, 64, progress)},${mix(255, 64, progress)},${progress})`;
       selector.style.backgroundColor = `rgba(23,23,23,${progress})`;
       selector.style.transform = `translateX(${centeredOffset}%)`;
 
@@ -131,7 +130,7 @@ export function SharedModeSelector({
     <div
       ref={selectorRef}
       aria-label="选择 Dance Manager 模式"
-      className="fixed left-1/2 top-[calc(100%-122px)] z-10 flex h-14 w-[min(448px,calc(100%-48px))] gap-3 rounded-full border border-transparent backdrop-blur-md [transform:translateX(-50%)] will-change-[left,top,width,height,transform]"
+      className="fixed left-1/2 top-[calc(100%-122px)] z-10 flex h-14 w-[min(448px,calc(100%-48px))] gap-3 rounded-full !border-0 !p-0 backdrop-blur-md [transform:translateX(-50%)] will-change-[left,top,width,height,transform]"
     >
       <button
         ref={learningRef}

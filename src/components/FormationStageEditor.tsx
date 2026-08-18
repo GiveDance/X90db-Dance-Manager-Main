@@ -285,8 +285,8 @@ export function FormationStageEditor({
       }}
       className={cn(
         "aspect-video h-full max-h-full w-full touch-none",
-        transparentBackground ? "bg-transparent" : "bg-[#080808]",
-        framed && "rounded-xl border border-white/10",
+        transparentBackground ? "bg-transparent" : "bg-black",
+        framed && "rounded-xl",
       )}
       aria-label="走位舞台"
     >
@@ -295,7 +295,7 @@ export function FormationStageEditor({
         y="0"
         width={STAGE_WIDTH}
         height={STAGE_HEIGHT}
-        fill={transparentBackground ? "transparent" : "#080808"}
+        fill={transparentBackground ? "transparent" : "#000000"}
       />
       {editable &&
         Array.from(
@@ -310,8 +310,8 @@ export function FormationStageEditor({
             y2={STAGE_HEIGHT}
             stroke={
               index % 4 === 0
-                ? "rgba(255,255,255,0.07)"
-                : "rgba(255,255,255,0.035)"
+                ? "rgba(255,255,255,0.1)"
+                : "rgba(255,255,255,0.055)"
             }
             strokeWidth="1"
           />
@@ -327,8 +327,8 @@ export function FormationStageEditor({
               y2={index * GRID_STEP_Y * STAGE_HEIGHT}
               stroke={
                 index % 4 === 0
-                  ? "rgba(255,255,255,0.07)"
-                  : "rgba(255,255,255,0.035)"
+                  ? "rgba(255,255,255,0.1)"
+                  : "rgba(255,255,255,0.055)"
               }
               strokeWidth="1"
             />
@@ -339,7 +339,7 @@ export function FormationStageEditor({
         y1="0"
         x2={STAGE_WIDTH / 2}
         y2={STAGE_HEIGHT}
-        stroke="rgba(255,255,255,0.1)"
+        stroke="rgba(255,255,255,0.16)"
         strokeDasharray="10 10"
       />
       <line
@@ -347,7 +347,7 @@ export function FormationStageEditor({
         y1={STAGE_HEIGHT / 2}
         x2={STAGE_WIDTH}
         y2={STAGE_HEIGHT / 2}
-        stroke="rgba(255,255,255,0.1)"
+        stroke="rgba(255,255,255,0.16)"
         strokeDasharray="10 10"
       />
       <g
@@ -362,21 +362,12 @@ export function FormationStageEditor({
         }
         className="pointer-events-none"
       >
-        <rect
-          x="-77"
-          y="-23"
-          width="154"
-          height="46"
-          rx="23"
-          fill="rgba(255,255,255,0.08)"
-          stroke="rgba(255,255,255,0.14)"
-        />
         <text
           textAnchor="middle"
           dominantBaseline="central"
-          fill="rgba(255,255,255,0.82)"
-          fontSize="26"
-          fontWeight="600"
+          fill="rgba(255,255,255,0.52)"
+          fontSize="22"
+          fontWeight="500"
         >
           观众
         </text>

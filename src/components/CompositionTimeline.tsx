@@ -325,7 +325,7 @@ export function CompositionTimeline({
         className="overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         <div
-          className="grid min-w-full grid-cols-[112px_minmax(0,1fr)] overflow-hidden rounded-lg border border-white/[0.07] bg-black"
+          className="grid min-w-full grid-cols-[112px_minmax(0,1fr)] overflow-hidden rounded-lg border border-white/[0.07] bg-neutral-950"
           style={{ width: `${zoom * 100}%` }}
         >
           <div className="h-12 border-b border-white/[0.07]">
@@ -492,10 +492,10 @@ export function CompositionTimeline({
                     type="button"
                     aria-label={`调整 ${displayName} 的开始位置`}
                     onPointerDown={(event) => startStartResize(event, clip)}
-                    className={`absolute inset-y-0 left-0 z-10 w-2 cursor-ew-resize border-r ${
+                    className={`absolute inset-y-0 left-0 z-10 w-2 cursor-ew-resize ${
                       generated
-                        ? "border-[#65548a] bg-[#41365bdb] hover:bg-[#594a78db]"
-                        : "border-[#28747f] bg-[#16434adb] hover:bg-[#205d66db]"
+                        ? "bg-[#41365bdb] hover:bg-[#594a78db]"
+                        : "bg-[#16434adb] hover:bg-[#205d66db]"
                     }`}
                   />
                   <p
@@ -509,10 +509,10 @@ export function CompositionTimeline({
                     type="button"
                     aria-label={`调整 ${displayName} 的结束位置`}
                     onPointerDown={(event) => startEndResize(event, clip)}
-                    className={`absolute inset-y-0 right-0 w-2 cursor-ew-resize border-l ${
+                    className={`absolute inset-y-0 right-0 w-2 cursor-ew-resize ${
                       generated
-                        ? "border-[#65548a] bg-[#41365bdb] hover:bg-[#594a78db]"
-                        : "border-[#28747f] bg-[#16434adb] hover:bg-[#205d66db]"
+                        ? "bg-[#41365bdb] hover:bg-[#594a78db]"
+                        : "bg-[#16434adb] hover:bg-[#205d66db]"
                     }`}
                   />
                 </div>

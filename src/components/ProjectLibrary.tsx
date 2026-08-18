@@ -209,7 +209,7 @@ export function ProjectLibrary({
                         {busy ? (
                           <Loader2 className="h-5 w-5 animate-spin" />
                         ) : (
-                          <Play className="h-5 w-5 translate-x-0.5 fill-black" />
+                          <Play className="h-5 w-5 translate-x-px fill-black" />
                         )}
                       </span>
                     </div>
