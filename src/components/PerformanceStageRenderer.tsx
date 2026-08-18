@@ -591,7 +591,7 @@ function drawStreetComposition(
   });
 }
 
-function drawStreetGraphic(
+export function drawStreetGraphic(
   context: CanvasRenderingContext2D,
   width: number,
   height: number,

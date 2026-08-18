@@ -26,6 +26,7 @@ import {
   layoutPerformingClips,
   nearestTimelineGap,
   snapToNearbyBeatTime,
+  sourceTimeAtTimelineTime,
   VIDEO_CLIP_DRAG_TYPE,
 } from "@/lib/composition";
 import { formatTime } from "@/lib/format";
@@ -47,6 +48,7 @@ import {
 import { FormationControls } from "./Controls";
 import { DevToolsButton } from "./DevToolsButton";
 import { OverlayInspector } from "./OverlayInspector";
+import { PerformingExportDialog } from "./PerformingExportDialog";
 import { PerformerSignalRenderer } from "./PerformerSignalRenderer";
 import { PerformanceStageRenderer } from "./PerformanceStageRenderer";
 import { StageInspector } from "./StageInspector";
@@ -146,6 +148,7 @@ export function PerformingWorkspace({
   const [clipUrls, setClipUrls] = useState<Map<string, string>>(new Map());
   const [addingClips, setAddingClips] = useState(false);
   const [clipError, setClipError] = useState<string | null>(null);
+  const [exportOpen, setExportOpen] = useState(false);
   const [mediaAspectRatio, setMediaAspectRatio] = useState(16 / 9);
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
   const [trackVisibility, setTrackVisibility] = useState<
@@ -290,20 +293,10 @@ export function PerformingWorkspace({
   useEffect(() => {
     const video = clipVideoRef.current;
     if (!video || !activeVideoClip) return;
-    const elapsed =
-      (state.currentTime - activeVideoClip.timelineStart) *
-      activeVideoClip.playbackRate;
-    const availableSource = Math.max(
-      0.05,
-      activeVideoClip.sourceDuration - activeVideoClip.sourceIn,
+    const desiredTime = sourceTimeAtTimelineTime(
+      activeVideoClip,
+      state.currentTime,
     );
-    const desiredTime = activeVideoClip.repeat
-      ? activeVideoClip.sourceIn +
-        ((elapsed % availableSource) + availableSource) % availableSource
-      : Math.min(
-          activeVideoClip.sourceOut,
-          Math.max(activeVideoClip.sourceIn, activeVideoClip.sourceIn + elapsed),
-        );
     video.playbackRate = Math.max(
       0.25,
       Math.min(4, activeVideoClip.playbackRate),
@@ -680,9 +673,11 @@ export function PerformingWorkspace({
         </span>
         <button
           type="button"
-          disabled
-          title="下一阶段接入导出"
-          className="flex cursor-not-allowed items-center gap-1.5 rounded-lg bg-white/5 px-3 py-1.5 text-xs text-neutral-600"
+          onClick={() => {
+            actions.pause();
+            setExportOpen(true);
+          }}
+          className="flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-black transition-colors hover:bg-neutral-200"
         >
           <Download className="h-3.5 w-3.5" />
           导出
@@ -1031,6 +1026,21 @@ export function PerformingWorkspace({
         </section>
       </aside>
       </div>
+      {exportOpen && (
+        <PerformingExportDialog
+          project={{
+            ...project,
+            clips,
+            stage: stageSettings,
+          }}
+          src={src}
+          beats={beats}
+          countdownBeats={countdownBeats}
+          mirrored={state.mirrored}
+          visibility={trackVisibility}
+          onClose={() => setExportOpen(false)}
+        />
+      )}
     </div>
   );
 }
