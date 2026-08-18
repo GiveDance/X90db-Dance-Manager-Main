@@ -50,6 +50,7 @@ export const PERFORMER_SIGNAL_THEMES: Array<{
 ];
 
 interface PerformerSignalRenderSettings {
+  clear?: boolean;
   corner: {
     enabled: boolean;
     shape: CornerSignalShape;
@@ -726,7 +727,7 @@ export function drawPerformerSignal(
   beats: number[],
   settings: PerformerSignalRenderSettings,
 ) {
-  context.clearRect(0, 0, width, height);
+  if (settings.clear !== false) context.clearRect(0, 0, width, height);
   if (!settings.corner.enabled && !settings.beatPoints.enabled) return;
 
   const beatIndex =

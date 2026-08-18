@@ -87,6 +87,28 @@ export function clipAtTimelineTime(
   );
 }
 
+export function sourceTimeAtTimelineTime(
+  clip: PlacedPerformingClip,
+  timelineTime: number,
+): number {
+  const elapsed =
+    (timelineTime - clip.timelineStart) * Math.max(0.25, clip.playbackRate);
+  const availableSource = Math.max(
+    0.05,
+    clip.sourceDuration - clip.sourceIn,
+  );
+  if (clip.repeat) {
+    return (
+      clip.sourceIn +
+      ((elapsed % availableSource) + availableSource) % availableSource
+    );
+  }
+  return Math.min(
+    clip.sourceOut,
+    Math.max(clip.sourceIn, clip.sourceIn + elapsed),
+  );
+}
+
 export interface TimelineGap {
   start: number;
   end: number;
