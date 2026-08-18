@@ -526,8 +526,8 @@ export function FormationEditorPage({
       </header>
 
       <div className="flex min-h-0 flex-1">
-        <main className="flex min-w-0 flex-1 flex-col bg-black">
-          <div className="relative flex min-h-44 flex-[3] items-center justify-center overflow-hidden border-b border-white/5 bg-black">
+        <main className="flex min-w-0 flex-1 flex-col bg-neutral-950">
+          <div className="relative flex min-h-44 flex-[3] items-center justify-center overflow-hidden bg-black">
             <video
               {...videoProps}
               ref={videoRef}
@@ -551,7 +551,7 @@ export function FormationEditorPage({
               mirrored={mirrored}
             />
           </div>
-          <div className="flex h-10 shrink-0 items-center justify-center border-b border-white/5 bg-neutral-950 px-5">
+          <div className="flex h-10 shrink-0 items-center justify-center border-b border-white/5 bg-black px-5">
             <span className="text-base font-semibold text-white">
               {displayedBeat
                 ? `${displayedBeat.segment}-${displayedBeat.beat}`
@@ -560,15 +560,15 @@ export function FormationEditorPage({
           </div>
 
           <div className="flex min-h-[240px] flex-[2] flex-col bg-neutral-950">
-            <div className="flex min-h-12 shrink-0 items-center gap-2 border-b border-white/5 px-4 py-2">
+            <div className="flex shrink-0 items-center gap-2 px-4 py-2">
               {selectedChange ? (
-                <span className="whitespace-nowrap text-xs font-medium text-neutral-300">
+                <span className="ml-1 whitespace-nowrap text-xs font-medium text-neutral-300">
                   {selected?.endpoint === "start"
                     ? "初始走位"
                     : `走位 ${selectedIndex + 1}`}
                 </span>
               ) : (
-                <span className="text-xs font-medium text-neutral-500">
+                <span className="ml-1 text-xs font-medium text-neutral-500">
                   选中走位变化进行编辑
                 </span>
               )}
@@ -644,7 +644,7 @@ export function FormationEditorPage({
                 <Redo2 className="h-4 w-4" />
               </button>
             </div>
-            <div className="min-h-0 flex-1 p-4">
+            <div className="min-h-0 flex-1 px-4 pb-4 pt-0">
               <FormationStageEditor
                 positions={displayedPositions}
                 audiencePosition={audiencePosition}
@@ -696,6 +696,7 @@ export function FormationEditorPage({
           />
 
           <FormationControls
+            className="bg-neutral-950"
             isPlaying={isPlaying}
             currentTime={currentTime}
             duration={duration}

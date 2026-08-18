@@ -120,7 +120,7 @@ function SegmentSidebarImpl(props: SegmentSidebarProps) {
 
   return (
     <aside className="flex h-full w-[clamp(300px,28vw,380px)] shrink-0 flex-col border-l border-white/5 bg-neutral-950">
-      <div className="relative flex items-center justify-between py-4 pl-5 pr-3">
+      <div className="relative flex items-center justify-between pb-2 pl-5 pr-3 pt-4">
         <h2 className="text-base font-semibold text-white">舞蹈分段</h2>
         <div className="flex items-center gap-1.5">
           <button
@@ -179,7 +179,7 @@ function SegmentSidebarImpl(props: SegmentSidebarProps) {
 
       {tab === "beat" ? (
         <>
-          <div className="flex items-center justify-between border-y border-white/5 pl-5 pr-3 py-2">
+          <div className="flex items-center justify-between py-1.5 pl-5 pr-3">
             <span className="text-xs font-medium text-neutral-500">八拍视图</span>
             <div
               role="group"
@@ -268,55 +268,61 @@ function SegmentSidebarImpl(props: SegmentSidebarProps) {
                       </div>
                     )}
                   </div>
-                  <span
-                    role="checkbox"
-                    aria-checked={isSelected}
-                    aria-label={isSelected ? `取消选择第 ${seg.num} 个八拍` : `选择第 ${seg.num} 个八拍`}
-                    tabIndex={0}
-                    data-tooltip={isSelected ? "取消选择" : "选择该八拍"}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      onToggleBeatSelection(i);
-                    }}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" || event.key === " ") {
-                        event.preventDefault();
+                  <span className="flex shrink-0 items-center gap-0.5">
+                    <span
+                      role="checkbox"
+                      aria-checked={isSelected}
+                      aria-label={isSelected ? `取消选择第 ${seg.num} 个八拍` : `选择第 ${seg.num} 个八拍`}
+                      tabIndex={0}
+                      data-tooltip={isSelected ? "取消选择" : "选择该八拍"}
+                      onClick={(event) => {
                         event.stopPropagation();
                         onToggleBeatSelection(i);
-                      }
-                    }}
-                    className={cn(
-                      "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400",
-                      isSelected
-                        ? "border-blue-500 bg-blue-500 text-white"
-                        : "border-neutral-600 bg-neutral-900 text-transparent opacity-0 hover:border-neutral-400 hover:bg-neutral-800 group-hover/beat:opacity-100 focus:opacity-100",
-                    )}
-                  >
-                    <Check className="h-4 w-4" />
-                  </span>
-                  <span
-                    role="button"
-                    tabIndex={0}
-                    data-tooltip={isLooping ? "关闭单段循环" : "循环当前 8 拍"}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onToggleBeatLoop(i, seg);
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          onToggleBeatSelection(i);
+                        }
+                      }}
+                      className={cn(
+                        "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400",
+                        isSelected
+                          ? "bg-blue-500/20 text-blue-300 hover:bg-blue-500/25 hover:text-blue-200"
+                          : "text-neutral-500 opacity-0 hover:bg-white/10 hover:text-white group-hover/beat:opacity-100 focus-visible:opacity-100",
+                      )}
+                    >
+                      {isSelected ? (
+                        <Check className="h-4 w-4" />
+                      ) : (
+                        <span className="h-3.5 w-3.5 rounded-[3px] border border-current" />
+                      )}
+                    </span>
+                    <span
+                      role="button"
+                      tabIndex={0}
+                      data-tooltip={isLooping ? "关闭单段循环" : "循环当前 8 拍"}
+                      onClick={(e) => {
                         e.stopPropagation();
                         onToggleBeatLoop(i, seg);
-                      }
-                    }}
-                    className={cn(
-                      "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition-colors",
-                      isLooping
-                        ? "border-blue-500 bg-blue-500/20 text-blue-400"
-                        : "border-white/10 text-neutral-400 hover:bg-white/10 hover:text-white",
-                    )}
-                  >
-                    <Repeat className="h-4 w-4" />
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          onToggleBeatLoop(i, seg);
+                        }
+                      }}
+                      className={cn(
+                        "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400",
+                        isLooping
+                          ? "bg-blue-500/20 text-blue-300 hover:bg-blue-500/25 hover:text-blue-200"
+                          : "text-neutral-400 hover:bg-white/10 hover:text-white",
+                      )}
+                    >
+                      <Repeat className="h-4 w-4" />
+                    </span>
                   </span>
                 </button>
               );
@@ -393,13 +399,17 @@ function SegmentSidebarImpl(props: SegmentSidebarProps) {
                                 data-tooltip={isSelected ? "取消选择" : "选择该八拍"}
                                 onClick={() => onToggleBeatSelection(index)}
                                 className={cn(
-                                  "absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-200",
+                                  "absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-200",
                                   isSelected
-                                    ? "border-white bg-white text-blue-600"
-                                    : "border-neutral-500 bg-neutral-900 text-transparent opacity-0 group-hover/tile:opacity-100 focus:opacity-100",
+                                    ? "bg-blue-500/20 text-blue-300"
+                                    : "text-neutral-500 opacity-0 hover:bg-white/10 hover:text-white group-hover/tile:opacity-100 focus-visible:opacity-100",
                                 )}
                               >
-                                <Check className="h-3 w-3" />
+                                {isSelected ? (
+                                  <Check className="h-3 w-3" />
+                                ) : (
+                                  <span className="h-3 w-3 rounded-[3px] border border-current" />
+                                )}
                               </button>
 
                               <button
@@ -431,7 +441,7 @@ function SegmentSidebarImpl(props: SegmentSidebarProps) {
             )}
           </div>
           {selectedBeatIndices.length > 0 ? (
-            <div className="border-t border-white/5 p-3">
+            <div className="p-3">
               <button
                 type="button"
                 disabled={!selectionIsContinuous}
@@ -457,7 +467,7 @@ function SegmentSidebarImpl(props: SegmentSidebarProps) {
               </button>
             </div>
           ) : (
-            <div className="flex items-center gap-2 border-t border-white/5 px-5 py-3 text-xs text-neutral-500">
+            <div className="flex items-center gap-2 px-5 py-3 text-xs text-neutral-500">
               <Repeat className="h-3.5 w-3.5" />
               点击循环图标可开启当前 8 拍的单段循环
             </div>
@@ -499,55 +509,57 @@ function SegmentSidebarImpl(props: SegmentSidebarProps) {
                         <span className="ml-2 text-neutral-600">· {beats} 个八拍</span>
                       </div>
                     </div>
-                    <span
-                      role="button"
-                      tabIndex={0}
-                      title="编辑段落"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onEditSection(i);
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
+                    <span className="flex shrink-0 items-center gap-0.5">
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        title="编辑段落"
+                        onClick={(e) => {
                           e.stopPropagation();
                           onEditSection(i);
-                        }
-                      }}
-                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-white/10 text-neutral-400 transition-colors hover:bg-white/10 hover:text-white"
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </span>
-                    <span
-                      role="button"
-                      tabIndex={0}
-                      title={isLooping ? "关闭段落循环" : "循环该段落"}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onToggleSectionLoop(i);
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            onEditSection(i);
+                          }
+                        }}
+                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-neutral-400 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </span>
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        title={isLooping ? "关闭段落循环" : "循环该段落"}
+                        onClick={(e) => {
                           e.stopPropagation();
                           onToggleSectionLoop(i);
-                        }
-                      }}
-                      className={cn(
-                        "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition-colors",
-                        isLooping
-                          ? "border-blue-500 bg-blue-500/20 text-blue-400"
-                          : "border-white/10 text-neutral-400 hover:bg-white/10 hover:text-white",
-                      )}
-                    >
-                      <Repeat className="h-4 w-4" />
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            onToggleSectionLoop(i);
+                          }
+                        }}
+                        className={cn(
+                          "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400",
+                          isLooping
+                            ? "bg-blue-500/20 text-blue-300 hover:bg-blue-500/25 hover:text-blue-200"
+                            : "text-neutral-400 hover:bg-white/10 hover:text-white",
+                        )}
+                      >
+                        <Repeat className="h-4 w-4" />
+                      </span>
                     </span>
                   </button>
                 );
               })
             )}
           </div>
-          <div className="border-t border-white/5 p-3">
+          <div className="p-3">
             <button
               onClick={onAddSection}
               className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 py-3 text-sm font-medium text-neutral-200 transition-colors hover:bg-white/10 hover:text-white"

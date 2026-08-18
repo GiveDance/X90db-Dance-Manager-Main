@@ -163,7 +163,7 @@ export function FormationTimeline({
     );
 
   return (
-    <div className="flex shrink-0 flex-col border-t border-white/5 bg-black px-5 pb-2.5 pt-2.5">
+    <div className="flex shrink-0 flex-col bg-neutral-950 px-5 pb-0 pt-2.5">
       <TimelineNavigationControls
         navigation={navigation}
         className="order-2"
@@ -315,7 +315,7 @@ export function FormationTimeline({
                 onPointerDown={(event) =>
                   startResize(event, change, "start")
                 }
-                className="absolute inset-y-0 left-0 z-10 w-2 cursor-ew-resize border-r border-[#376d9e] bg-[#1d4268db] hover:bg-[#2b5f91db]"
+                className="absolute inset-y-0 left-0 z-10 w-2 cursor-ew-resize bg-[#1d4268db] hover:bg-[#2b5f91db]"
               />
               <p className="w-full truncate text-left text-[11px] font-medium">
                 变化 {index + 1}
@@ -324,7 +324,7 @@ export function FormationTimeline({
                 type="button"
                 aria-label={`调整变化 ${index + 1} 的结束位置`}
                 onPointerDown={(event) => startResize(event, change, "end")}
-                className="absolute inset-y-0 right-0 w-2 cursor-ew-resize border-l border-[#376d9e] bg-[#1d4268db] hover:bg-[#2b5f91db]"
+                className="absolute inset-y-0 right-0 w-2 cursor-ew-resize bg-[#1d4268db] hover:bg-[#2b5f91db]"
               />
             </div>
           );

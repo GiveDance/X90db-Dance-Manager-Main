@@ -123,7 +123,7 @@ export function Player({
   const [formationAudiencePosition, setFormationAudiencePosition] =
     useState<FormationAudiencePosition>(initialFormationAudiencePosition);
   const [tab, setTab] = useState<SidebarTab>("beat");
-  const [danmakuOn, setDanmakuOn] = useState(true);
+  const [danmakuOn, setDanmakuOn] = useState(false);
   const [formationOpen, setFormationOpen] = useState(false);
   const [formationEditing, setFormationEditing] = useState(false);
   const [vizConfig, setVizConfig] = useState<BeatVizConfig>(

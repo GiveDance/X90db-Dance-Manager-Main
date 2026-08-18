@@ -46,7 +46,7 @@ const TEMPLATES: Array<{
 
 export function StageInspector() {
   return (
-    <div className="grid grid-cols-2 gap-2 p-4">
+    <div className="grid grid-cols-2 gap-2 px-3 pb-3 pt-4">
       {TEMPLATES.map((template) => (
           <button
             type="button"
@@ -85,9 +85,6 @@ export function StageInspector() {
             </span>
           </button>
       ))}
-      <div className="col-span-2 mt-1 text-[10px] leading-4 text-neutral-700">
-        将生成素材拖拽到合成时间线的空白区域。
-      </div>
     </div>
   );
 }

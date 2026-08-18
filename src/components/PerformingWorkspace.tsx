@@ -779,8 +779,8 @@ export function PerformingWorkspace({
           </div>
         </div>
 
-        <div className="shrink-0 border-t border-white/5 bg-neutral-950 px-4 py-3">
-          <div className="mb-2 flex items-center justify-between">
+        <div className="shrink-0 bg-neutral-950 px-3 pb-0">
+          <div className="flex items-center justify-between py-4 pl-2 pr-3">
             <span className="text-xs font-medium text-neutral-300">
               合成时间线
             </span>
@@ -825,6 +825,7 @@ export function PerformingWorkspace({
         </div>
 
         <FormationControls
+          className="bg-neutral-950"
           isPlaying={state.isPlaying}
           currentTime={state.currentTime}
           duration={state.duration}
@@ -847,12 +848,9 @@ export function PerformingWorkspace({
 
       <aside className="flex h-full w-[clamp(300px,28vw,380px)] shrink-0 flex-col border-l border-white/5 bg-neutral-950">
         <section className="flex min-h-0 flex-[3] flex-col border-b border-white/5">
-          <div className="shrink-0 border-b border-white/5 px-4 py-3">
+          <div className="shrink-0 p-5">
             <p className="text-xs font-medium text-neutral-300">
               素材设置
-            </p>
-            <p className="mt-1 text-[10px] tracking-[0.08em] text-neutral-500">
-              编辑时间线中选中的素材
             </p>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto">
@@ -862,15 +860,15 @@ export function PerformingWorkspace({
                 onChange={updateStage}
               />
             ) : selectedClip ? (
-              <div className="p-4">
-              <ClipInspector
-                clip={selectedClip}
-                onChange={updateClip}
-                onDelete={removeClip}
-              />
+              <div className="px-3 pb-3 pt-0">
+                <ClipInspector
+                  clip={selectedClip}
+                  onChange={updateClip}
+                  onDelete={removeClip}
+                />
               </div>
             ) : (
-              <div className="flex h-full min-h-32 flex-col items-center justify-center px-4 text-center">
+              <div className="flex h-full min-h-32 flex-col items-center justify-center px-3 text-center">
                 <p className="text-xs text-neutral-600">
                   请在时间线中选择一个素材
                 </p>
@@ -883,15 +881,12 @@ export function PerformingWorkspace({
         </section>
 
         <section className="flex min-h-0 flex-[2] flex-col">
-          <div className="shrink-0 px-4 py-3">
+          <div className="shrink-0 p-5">
             <p className="text-xs font-medium text-neutral-300">
               素材库
             </p>
-            <p className="mt-1 text-[10px] tracking-[0.08em] text-neutral-500">
-              拖拽素材到合成时间线
-            </p>
           </div>
-          <div className="mx-4 mb-3 grid shrink-0 grid-cols-2 rounded-lg bg-neutral-900 p-0.5 text-sm">
+          <div className="mx-3 grid shrink-0 grid-cols-2 rounded-lg bg-neutral-900 text-sm">
             {([
               ["generated", "生成素材", Sparkles],
               ["clips", "视频素材", Clapperboard],
@@ -919,7 +914,7 @@ export function PerformingWorkspace({
                   setClipDropActive(false);
                   void addClipFiles(event.dataTransfer.files);
                 }}
-                className={`flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs transition-colors ${
+                className={`flex items-center justify-center gap-1.5 rounded-md px-3 py-2 text-xs transition-colors ${
                   libraryTab === id
                     ? id === "clips"
                       ? "bg-[#30E6FF] text-black"
@@ -936,7 +931,7 @@ export function PerformingWorkspace({
           <div className="min-h-0 flex-1 overflow-y-auto">
             {libraryTab === "clips" ? (
               <div
-                className={`min-h-full p-4 transition-colors ${
+                className={`min-h-full px-3 pb-3 pt-4 transition-colors ${
                   clipDropActive ? "bg-[#30E6FF]/[0.04]" : ""
                 }`}
                 onDragEnter={(event) => {

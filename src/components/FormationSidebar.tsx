@@ -176,14 +176,14 @@ export function FormationSidebar({
 }) {
   return (
     <aside className="flex h-full w-[clamp(310px,28vw,380px)] shrink-0 flex-col border-l border-white/5 bg-neutral-950">
-      <div className="flex h-14 shrink-0 items-center justify-between border-b border-white/5 px-5">
+      <div className="flex shrink-0 items-center justify-between px-5 pb-2 pt-4">
         <h2 className="text-base font-semibold text-white">走位变化</h2>
         <span className="text-xs tabular-nums text-neutral-600">
           {changes.length}
         </span>
       </div>
 
-      <div className="scrollbar-thin flex-1 space-y-3 overflow-y-auto p-3">
+      <div className="scrollbar-thin flex-1 space-y-3 overflow-y-auto px-3 pb-3 pt-1">
         {changes.length === 0 && (
           <div className="flex h-full min-h-48 flex-col items-center justify-center px-6 text-center">
             <p className="text-sm font-medium text-neutral-400">暂无走位变化</p>
@@ -337,7 +337,7 @@ export function FormationSidebar({
         })}
       </div>
 
-      <div className="shrink-0 border-t border-white/5 p-3">
+      <div className="shrink-0 p-3">
         <button
           type="button"
           onClick={onAdd}

@@ -175,7 +175,7 @@ export function TimelineNavigationControls({
     <div
       data-timeline-navigation
       className={cn(
-        "mt-2 flex h-8 items-center overflow-hidden rounded-lg border border-white/10 bg-white/[0.045]",
+        "mt-2 flex h-8 items-center overflow-hidden rounded-lg bg-white/[0.045]",
         className,
       )}
     >
