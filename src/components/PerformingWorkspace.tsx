@@ -6,6 +6,7 @@ import {
   Download,
   Plus,
   Sparkles,
+  Upload,
 } from "lucide-react";
 import {
   useCallback,
@@ -147,6 +148,7 @@ export function PerformingWorkspace({
   );
   const [clipUrls, setClipUrls] = useState<Map<string, string>>(new Map());
   const [addingClips, setAddingClips] = useState(false);
+  const [clipDropActive, setClipDropActive] = useState(false);
   const [clipError, setClipError] = useState<string | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
   const [mediaAspectRatio, setMediaAspectRatio] = useState(16 / 9);
@@ -898,6 +900,25 @@ export function PerformingWorkspace({
                 key={id}
                 type="button"
                 onClick={() => setLibraryTab(id)}
+                onDragOver={(event) => {
+                  if (
+                    id !== "clips" ||
+                    !event.dataTransfer.types.includes("Files")
+                  ) {
+                    return;
+                  }
+                  event.preventDefault();
+                  event.dataTransfer.dropEffect = "copy";
+                  setLibraryTab("clips");
+                  setClipDropActive(true);
+                }}
+                onDrop={(event) => {
+                  if (id !== "clips") return;
+                  event.preventDefault();
+                  setLibraryTab("clips");
+                  setClipDropActive(false);
+                  void addClipFiles(event.dataTransfer.files);
+                }}
                 className={`flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs transition-colors ${
                   libraryTab === id
                     ? id === "clips"
@@ -914,7 +935,36 @@ export function PerformingWorkspace({
 
           <div className="min-h-0 flex-1 overflow-y-auto">
             {libraryTab === "clips" ? (
-              <div className="p-4">
+              <div
+                className={`min-h-full p-4 transition-colors ${
+                  clipDropActive ? "bg-[#30E6FF]/[0.04]" : ""
+                }`}
+                onDragEnter={(event) => {
+                  if (!event.dataTransfer.types.includes("Files")) return;
+                  event.preventDefault();
+                  setClipDropActive(true);
+                }}
+                onDragOver={(event) => {
+                  if (!event.dataTransfer.types.includes("Files")) return;
+                  event.preventDefault();
+                  event.dataTransfer.dropEffect = "copy";
+                  setClipDropActive(true);
+                }}
+                onDragLeave={(event) => {
+                  const nextTarget = event.relatedTarget;
+                  if (
+                    !(nextTarget instanceof Node) ||
+                    !event.currentTarget.contains(nextTarget)
+                  ) {
+                    setClipDropActive(false);
+                  }
+                }}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  setClipDropActive(false);
+                  void addClipFiles(event.dataTransfer.files);
+                }}
+              >
             <input
               ref={clipInputRef}
               type="file"
@@ -927,10 +977,22 @@ export function PerformingWorkspace({
               type="button"
               onClick={() => clipInputRef.current?.click()}
               disabled={addingClips}
-              className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-[#30E6FF]/25 bg-[#30E6FF]/5 px-3 py-2.5 text-[11px] text-[#30E6FF] transition-colors hover:border-[#30E6FF]/50 hover:bg-[#30E6FF]/10 disabled:opacity-40"
+              className={`flex w-full items-center justify-center gap-2 rounded-lg border border-dashed px-3 py-2.5 text-[11px] text-[#30E6FF] transition-colors disabled:opacity-40 ${
+                clipDropActive
+                  ? "border-[#30E6FF]/70 bg-[#30E6FF]/15"
+                  : "border-[#30E6FF]/25 bg-[#30E6FF]/5 hover:border-[#30E6FF]/50 hover:bg-[#30E6FF]/10"
+              }`}
             >
-              <Plus className="h-4 w-4" />
-              {addingClips ? "正在添加…" : "添加视频素材"}
+              {clipDropActive ? (
+                <Upload className="h-4 w-4" />
+              ) : (
+                <Plus className="h-4 w-4" />
+              )}
+              {addingClips
+                ? "正在添加…"
+                : clipDropActive
+                  ? "松开以上传视频"
+                  : "点击或拖放视频素材"}
             </button>
             {clipError && (
               <p className="mt-2 text-[11px] leading-5 text-red-300/80">
@@ -966,8 +1028,8 @@ export function PerformingWorkspace({
                     }}
                     className={`flex w-full cursor-grab items-center gap-3 rounded-lg border p-2 text-left transition-colors active:cursor-grabbing ${
                       selectedId === clip.id && placed
-                        ? "border-[#30E6FF]/40 bg-[#30E6FF]/10"
-                        : "border-white/[0.07] bg-black/30 hover:border-white/15 hover:bg-white/[0.035]"
+                        ? "border-[#30e6ff66] bg-[#30E6FF]/10"
+                        : "border-white/[0.07] bg-black/30 hover:border-white/15 hover:bg-white/[0.035] active:border-white/25"
                     }`}
                   >
                     <span className="relative aspect-video w-20 shrink-0 overflow-hidden rounded-md bg-black">

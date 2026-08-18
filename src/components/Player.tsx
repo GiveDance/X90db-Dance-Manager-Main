@@ -635,8 +635,6 @@ export function Player({
         playbackRate={state.playbackRate}
         initialChanges={formationChanges}
         initialAudiencePosition={formationAudiencePosition}
-        activeSegmentNumber={activeSegmentNumber}
-        activeBeat={activeBeat}
         bpm={bpm}
         offset={performanceStart ?? offset}
         beatTimes={navigationBeats}

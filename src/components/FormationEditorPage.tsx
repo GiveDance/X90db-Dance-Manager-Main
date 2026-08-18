@@ -3,6 +3,7 @@
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type RefObject,
@@ -89,8 +90,6 @@ interface FormationEditorPageProps {
   playbackRate: number;
   initialChanges: FormationChange[];
   initialAudiencePosition: FormationAudiencePosition;
-  activeSegmentNumber: number | null;
-  activeBeat: number;
   bpm: number;
   offset: number;
   beatTimes: number[];
@@ -131,6 +130,38 @@ const linkFormationStarts = (changes: FormationChange[]) => {
   );
 };
 
+const alignFormationTimes = (
+  changes: FormationChange[],
+  beatTimes: number[],
+  bpm: number,
+  offset: number,
+  duration: number,
+) =>
+  changes.map((change) => {
+    const startTime = snapTimeToBeat(
+      change.startTime,
+      bpm,
+      offset,
+      duration,
+      beatTimes,
+    );
+    const snappedEnd = snapTimeToBeat(
+      change.endTime,
+      bpm,
+      offset,
+      duration,
+      beatTimes,
+    );
+    const nextBeat =
+      beatTimes.find((time) => time > startTime + 0.001) ??
+      Math.min(duration, startTime + 60 / Math.max(1, bpm));
+    return {
+      ...change,
+      startTime,
+      endTime: snappedEnd > startTime ? snappedEnd : nextBeat,
+    };
+  });
+
 export function FormationEditorPage({
   src,
   videoRef,
@@ -144,8 +175,6 @@ export function FormationEditorPage({
   playbackRate,
   initialChanges,
   initialAudiencePosition,
-  activeSegmentNumber,
-  activeBeat,
   bpm,
   offset,
   beatTimes,
@@ -160,7 +189,15 @@ export function FormationEditorPage({
 }: FormationEditorPageProps) {
   const resumeTimeRef = useRef(currentTime);
   const [changes, setChanges] = useState<FormationChange[]>(() =>
-    linkFormationStarts(initialChanges),
+    linkFormationStarts(
+      alignFormationTimes(
+        initialChanges,
+        beatTimes,
+        bpm,
+        offset,
+        duration,
+      ),
+    ),
   );
   const changesRef = useRef(changes);
   const [undoStack, setUndoStack] = useState<FormationChange[][]>([]);
@@ -177,6 +214,16 @@ export function FormationEditorPage({
     id: string;
     endpoint: Endpoint;
   } | null>(() => closestEndpoint(initialChanges, currentTime));
+  const displayedBeat = useMemo(() => {
+    const beatIndex = beatTimes.findLastIndex(
+      (time) => time <= currentTime + 0.05,
+    );
+    if (beatIndex < 0) return null;
+    return {
+      segment: Math.floor(beatIndex / 8) + 1,
+      beat: (beatIndex % 8) + 1,
+    };
+  }, [beatTimes, currentTime]);
 
   const setCurrentChanges = (next: FormationChange[]) => {
     changesRef.current = next;
@@ -282,10 +329,16 @@ export function FormationEditorPage({
 
   const createChange = (requestedStart: number, requestedEnd: number) => {
     const maxTime = duration > 0 ? duration : requestedEnd;
-    const startTime = snapTimeToBeat(requestedStart, bpm, offset, maxTime);
+    const startTime = snapTimeToBeat(
+      requestedStart,
+      bpm,
+      offset,
+      maxTime,
+      beatTimes,
+    );
     const endTime = Math.max(
       startTime,
-      snapTimeToBeat(requestedEnd, bpm, offset, maxTime),
+      snapTimeToBeat(requestedEnd, bpm, offset, maxTime, beatTimes),
     );
     const previous = [...changesRef.current]
       .filter((item) => item.startTime <= startTime)
@@ -500,8 +553,8 @@ export function FormationEditorPage({
           </div>
           <div className="flex h-10 shrink-0 items-center justify-center border-b border-white/5 bg-neutral-950 px-5">
             <span className="text-base font-semibold text-white">
-              {activeSegmentNumber != null && activeBeat >= 0
-                ? `${activeSegmentNumber}-${activeBeat + 1}`
+              {displayedBeat
+                ? `${displayedBeat.segment}-${displayedBeat.beat}`
                 : "–"}
             </span>
           </div>
@@ -516,7 +569,7 @@ export function FormationEditorPage({
                 </span>
               ) : (
                 <span className="text-xs font-medium text-neutral-500">
-                  选择右侧关键帧
+                  选中走位变化进行编辑
                 </span>
               )}
               <div className="min-w-2 flex-1" />
@@ -668,6 +721,7 @@ export function FormationEditorPage({
           duration={duration}
           bpm={bpm}
           offset={offset}
+          beatTimes={beatTimes}
           audiencePosition={audiencePosition}
           selected={selected}
           onAdd={() => createChange(currentTime, currentTime + 60 / bpm)}

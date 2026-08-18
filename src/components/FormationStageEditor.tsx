@@ -19,9 +19,13 @@ interface FormationStageEditorProps {
 }
 
 const STAGE_WIDTH = 1000;
-const STAGE_HEIGHT = 562;
+const STAGE_HEIGHT = 562.5;
 const MARKER_RADIUS = 27;
-const GRID_STEP = 0.05;
+const GRID_COLUMNS = 64;
+const GRID_ROWS = 36;
+const GRID_STEP_X = 1 / GRID_COLUMNS;
+const GRID_STEP_Y = 1 / GRID_ROWS;
+const POSITION_PRECISION = 1_000_000_000;
 
 interface Point {
   x: number;
@@ -75,23 +79,87 @@ export function FormationStageEditor({
     };
   };
 
+  const groupDeltaBounds = (origins: FormationPosition[]) => {
+    const insetX = MARKER_RADIUS / STAGE_WIDTH;
+    const insetY = MARKER_RADIUS / STAGE_HEIGHT;
+    return {
+      minimumX: Math.max(
+        ...origins.map((position) => insetX - position.x),
+      ),
+      maximumX: Math.min(
+        ...origins.map((position) => 1 - insetX - position.x),
+      ),
+      minimumY: Math.max(
+        ...origins.map((position) => insetY - position.y),
+      ),
+      maximumY: Math.min(
+        ...origins.map((position) => 1 - insetY - position.y),
+      ),
+    };
+  };
+
   const clampGroupDelta = (
     origins: FormationPosition[],
     delta: Point,
   ): Point => {
-    const insetX = MARKER_RADIUS / STAGE_WIDTH;
-    const insetY = MARKER_RADIUS / STAGE_HEIGHT;
-    const minimumX = Math.max(...origins.map((position) => insetX - position.x));
-    const maximumX = Math.min(
-      ...origins.map((position) => 1 - insetX - position.x),
-    );
-    const minimumY = Math.max(...origins.map((position) => insetY - position.y));
-    const maximumY = Math.min(
-      ...origins.map((position) => 1 - insetY - position.y),
-    );
+    const { minimumX, maximumX, minimumY, maximumY } =
+      groupDeltaBounds(origins);
     return {
       x: Math.max(minimumX, Math.min(maximumX, delta.x)),
       y: Math.max(minimumY, Math.min(maximumY, delta.y)),
+    };
+  };
+
+  const snapGroupDelta = (
+    origins: FormationPosition[],
+    delta: Point,
+    constrainedAxis: "x" | "y" | null,
+  ): Point => {
+    const anchor = origins[0];
+    const { minimumX, maximumX, minimumY, maximumY } =
+      groupDeltaBounds(origins);
+    const snapAxis = (
+      anchorPosition: number,
+      rawDelta: number,
+      step: number,
+      minimumDelta: number,
+      maximumDelta: number,
+    ) => {
+      const minimumGridPosition =
+        Math.ceil((anchorPosition + minimumDelta) / step) * step;
+      const maximumGridPosition =
+        Math.floor((anchorPosition + maximumDelta) / step) * step;
+      if (minimumGridPosition > maximumGridPosition) {
+        return Math.max(minimumDelta, Math.min(maximumDelta, rawDelta));
+      }
+      const target = Math.round((anchorPosition + rawDelta) / step) * step;
+      return (
+        Math.max(minimumGridPosition, Math.min(maximumGridPosition, target)) -
+        anchorPosition
+      );
+    };
+
+    return {
+      x:
+        constrainedAxis === "y"
+          ? 0
+          : snapAxis(
+              anchor.x,
+              delta.x,
+              GRID_STEP_X,
+              minimumX,
+              maximumX,
+            ),
+      y:
+        constrainedAxis === "x"
+          ? 0
+          : snapAxis(
+              anchor.y,
+              delta.y,
+              GRID_STEP_Y,
+              minimumY,
+              maximumY,
+            ),
     };
   };
 
@@ -107,8 +175,12 @@ export function FormationStageEditor({
       return origin
         ? {
             ...position,
-            x: Math.round((origin.x + delta.x) * 1000) / 1000,
-            y: Math.round((origin.y + delta.y) * 1000) / 1000,
+            x:
+              Math.round((origin.x + delta.x) * POSITION_PRECISION) /
+              POSITION_PRECISION,
+            y:
+              Math.round((origin.y + delta.y) * POSITION_PRECISION) /
+              POSITION_PRECISION,
           }
         : position;
     });
@@ -169,26 +241,11 @@ export function FormationStageEditor({
       onPointerUp={(event) => {
         const drag = draggingRef.current;
         if (drag && drag.pointerId === event.pointerId) {
-          const anchor = drag.origins[0];
-          let snappedDelta = {
-            x:
-              drag.constrainedAxis === "y"
-                ? 0
-                : Math.round(
-                    (anchor.x + drag.latestDelta.x) / GRID_STEP,
-                  ) *
-                    GRID_STEP -
-                  anchor.x,
-            y:
-              drag.constrainedAxis === "x"
-                ? 0
-                : Math.round(
-                    (anchor.y + drag.latestDelta.y) / GRID_STEP,
-                  ) *
-                    GRID_STEP -
-                  anchor.y,
-          };
-          snappedDelta = clampGroupDelta(drag.origins, snappedDelta);
+          const snappedDelta = snapGroupDelta(
+            drag.origins,
+            drag.latestDelta,
+            drag.constrainedAxis,
+          );
           onChange(positionsWithDelta(drag.origins, snappedDelta));
           draggingRef.current = null;
           event.currentTarget.releasePointerCapture(event.pointerId);
@@ -236,59 +293,72 @@ export function FormationStageEditor({
       <rect
         x="0"
         y="0"
-        width="1000"
-        height="562"
+        width={STAGE_WIDTH}
+        height={STAGE_HEIGHT}
         fill={transparentBackground ? "transparent" : "#080808"}
       />
       {editable &&
-        Array.from({ length: 19 }, (_, index) => index + 1).map((index) => (
+        Array.from(
+          { length: GRID_COLUMNS - 1 },
+          (_, index) => index + 1,
+        ).map((index) => (
           <line
             key={`grid-x-${index}`}
-            x1={index * GRID_STEP * STAGE_WIDTH}
+            x1={index * GRID_STEP_X * STAGE_WIDTH}
             y1="0"
-            x2={index * GRID_STEP * STAGE_WIDTH}
+            x2={index * GRID_STEP_X * STAGE_WIDTH}
             y2={STAGE_HEIGHT}
-            stroke="rgba(255,255,255,0.045)"
+            stroke={
+              index % 4 === 0
+                ? "rgba(255,255,255,0.07)"
+                : "rgba(255,255,255,0.035)"
+            }
             strokeWidth="1"
           />
         ))}
       {editable &&
-        Array.from({ length: 19 }, (_, index) => index + 1).map((index) => (
-          <line
-            key={`grid-y-${index}`}
-            x1="0"
-            y1={index * GRID_STEP * STAGE_HEIGHT}
-            x2={STAGE_WIDTH}
-            y2={index * GRID_STEP * STAGE_HEIGHT}
-            stroke="rgba(255,255,255,0.045)"
-            strokeWidth="1"
-          />
-        ))}
+        Array.from({ length: GRID_ROWS - 1 }, (_, index) => index + 1).map(
+          (index) => (
+            <line
+              key={`grid-y-${index}`}
+              x1="0"
+              y1={index * GRID_STEP_Y * STAGE_HEIGHT}
+              x2={STAGE_WIDTH}
+              y2={index * GRID_STEP_Y * STAGE_HEIGHT}
+              stroke={
+                index % 4 === 0
+                  ? "rgba(255,255,255,0.07)"
+                  : "rgba(255,255,255,0.035)"
+              }
+              strokeWidth="1"
+            />
+          ),
+        )}
       <line
-        x1="500"
+        x1={STAGE_WIDTH / 2}
         y1="0"
-        x2="500"
-        y2="562"
+        x2={STAGE_WIDTH / 2}
+        y2={STAGE_HEIGHT}
         stroke="rgba(255,255,255,0.1)"
         strokeDasharray="10 10"
       />
       <line
         x1="0"
-        y1="281"
-        x2="1000"
-        y2="281"
+        y1={STAGE_HEIGHT / 2}
+        x2={STAGE_WIDTH}
+        y2={STAGE_HEIGHT / 2}
         stroke="rgba(255,255,255,0.1)"
         strokeDasharray="10 10"
       />
       <g
         transform={
           audiencePosition === "top"
-            ? "translate(500 36)"
+            ? `translate(${STAGE_WIDTH / 2} 36)`
             : audiencePosition === "bottom"
-              ? "translate(500 526)"
+              ? `translate(${STAGE_WIDTH / 2} ${STAGE_HEIGHT - 36})`
               : audiencePosition === "left"
-                ? "translate(36 281) rotate(-90)"
-                : "translate(964 281) rotate(90)"
+                ? `translate(36 ${STAGE_HEIGHT / 2}) rotate(-90)`
+                : `translate(${STAGE_WIDTH - 36} ${STAGE_HEIGHT / 2}) rotate(90)`
         }
         className="pointer-events-none"
       >
