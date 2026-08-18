@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import type { FormationChange } from "@/lib/types";
 import { cn } from "@/lib/cn";
-import { beatTimeLabel, snapTimeToBeat } from "@/lib/formations";
+import { snapTimeToBeat } from "@/lib/formations";
 import { formatTime } from "@/lib/format";
 import {
   TimelineNavigationControls,
@@ -62,7 +62,7 @@ export function FormationTimeline({
     );
   };
   const timeFromX = (clientX: number) =>
-    snapTimeToBeat(rawTimeFromX(clientX), bpm, offset, duration);
+    snapTimeToBeat(rawTimeFromX(clientX), bpm, offset, duration, beatTimes);
   const ticks = [0];
   const baseTickStep = duration <= 60 ? 10 : 30;
   const tickStep =
@@ -234,19 +234,17 @@ export function FormationTimeline({
                 onSelect(change.id);
               }}
               className={cn(
-                "absolute bottom-1 top-1 overflow-hidden rounded-md border px-2 text-left text-[11px] font-medium transition-colors",
+                "absolute bottom-1 top-1 flex items-center overflow-hidden rounded-md border px-2 text-left text-[11px] font-medium transition-colors",
                 selectedId === change.id
-                  ? "border-blue-400/55 bg-blue-500/50 text-white shadow-[0_0_12px_rgba(59,130,246,0.18)]"
+                  ? "border-[#60a5fa8c] bg-blue-500/50 text-white shadow-[0_0_12px_rgba(59,130,246,0.18)]"
                   : active
-                    ? "border-blue-400/45 bg-blue-500/32 text-blue-100"
-                    : "border-blue-500/30 bg-blue-500/20 text-blue-200 hover:bg-blue-500/28",
+                    ? "border-[#60a5fa73] bg-blue-500/32 text-blue-100"
+                    : "border-[#3b82f64d] bg-blue-500/20 text-blue-200 hover:border-[#60a5fa80] hover:bg-blue-500/28 active:border-[#60a5fa]",
               )}
               style={{ left: `${left}%`, width: `${width}%` }}
             >
-              <span className="block truncate">走位 {index + 1}</span>
-              <span className="block truncate text-[9px] opacity-70">
-                {beatTimeLabel(change.startTime, bpm, offset)}–
-                {beatTimeLabel(change.endTime, bpm, offset)}
+              <span className="block w-full truncate text-left">
+                变化 {index + 1}
               </span>
               <span
                 onPointerDown={(event) => {

@@ -183,7 +183,7 @@ export function ProjectLibrary({
             return (
               <article
                 key={id}
-                className="group relative overflow-hidden rounded-xl border border-neutral-800 bg-neutral-900/60 transition-colors hover:border-neutral-700"
+                className="group relative overflow-hidden rounded-xl border border-neutral-800 bg-neutral-900/60 transition-colors hover:border-neutral-700 active:border-neutral-600"
               >
                 <button
                   type="button"

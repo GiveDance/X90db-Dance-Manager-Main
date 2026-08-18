@@ -23,6 +23,7 @@ function BeatTimeInput({
   time,
   bpm,
   offset,
+  beatTimes,
   label,
   minTime,
   maxTime,
@@ -31,20 +32,21 @@ function BeatTimeInput({
   time: number;
   bpm: number;
   offset: number;
+  beatTimes: number[];
   label: string;
   minTime: number;
   maxTime: number;
   onChange: (time: number) => void;
 }) {
-  const initialValue = beatTimeLabel(time, bpm, offset);
+  const initialValue = beatTimeLabel(time, bpm, offset, beatTimes);
   const [value, setValue] = useState(initialValue);
   const applyTime = (nextTime: number) => {
     const boundedTime = Math.min(maxTime, Math.max(minTime, nextTime));
-    setValue(beatTimeLabel(boundedTime, bpm, offset));
+    setValue(beatTimeLabel(boundedTime, bpm, offset, beatTimes));
     onChange(boundedTime);
   };
   const commit = () => {
-    const parsed = beatLabelTime(value, bpm, offset);
+    const parsed = beatLabelTime(value, bpm, offset, beatTimes);
     if (parsed == null) {
       setValue(initialValue);
       return;
@@ -52,6 +54,16 @@ function BeatTimeInput({
     applyTime(parsed);
   };
   const step = (direction: -1 | 1) => {
+    const match = value.trim().match(/^(\d+)-([1-8])$/);
+    if (beatTimes.length && match) {
+      const currentIndex = (Number(match[1]) - 1) * 8 + Number(match[2]) - 1;
+      const nextIndex = Math.max(
+        0,
+        Math.min(beatTimes.length - 1, currentIndex + direction),
+      );
+      applyTime(beatTimes[nextIndex]);
+      return;
+    }
     const parsed = beatLabelTime(value, bpm, offset);
     applyTime((parsed ?? time) + direction * (60 / Math.max(1, bpm)));
   };
@@ -138,6 +150,7 @@ export function FormationSidebar({
   duration,
   bpm,
   offset,
+  beatTimes,
   audiencePosition,
   selected,
   onAdd,
@@ -149,6 +162,7 @@ export function FormationSidebar({
   duration: number;
   bpm: number;
   offset: number;
+  beatTimes: number[];
   audiencePosition: FormationAudiencePosition;
   selected: { id: string; endpoint: Endpoint } | null;
   onAdd: () => void;
@@ -193,7 +207,12 @@ export function FormationSidebar({
           return (
             <div
               key={change.id}
-              className="relative rounded-xl border border-white/5 bg-neutral-900/60 p-3"
+              className={cn(
+                "relative rounded-xl border bg-neutral-900/60 p-3 transition-colors",
+                sourceSelected || targetSelected
+                  ? "border-[#60a5fa8c]"
+                  : "border-white/[0.05] hover:border-white/[0.12] active:border-white/20",
+              )}
             >
               {index > 0 && (
                 <span
@@ -258,6 +277,7 @@ export function FormationSidebar({
                     time={change.startTime}
                     bpm={bpm}
                     offset={offset}
+                    beatTimes={beatTimes}
                     label={`走位变化 ${index + 1} 开始拍子`}
                     minTime={0}
                     maxTime={duration || Number.POSITIVE_INFINITY}
@@ -287,11 +307,17 @@ export function FormationSidebar({
                     time={change.endTime}
                     bpm={bpm}
                     offset={offset}
+                    beatTimes={beatTimes}
                     label={`走位变化 ${index + 1} 结束拍子`}
-                    minTime={Math.min(
-                      duration || Number.POSITIVE_INFINITY,
-                      change.startTime + 60 / Math.max(1, bpm),
-                    )}
+                    minTime={
+                      beatTimes.find(
+                        (time) => time > change.startTime + 0.001,
+                      ) ??
+                      Math.min(
+                        duration || Number.POSITIVE_INFINITY,
+                        change.startTime + 60 / Math.max(1, bpm),
+                      )
+                    }
                     maxTime={duration || Number.POSITIVE_INFINITY}
                     onChange={(nextTime) =>
                       onTimeChange(

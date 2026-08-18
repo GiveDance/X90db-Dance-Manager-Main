@@ -17,9 +17,28 @@ export const FORMATION_COLORS = [
 
 const clamp = (value: number) => Math.max(0, Math.min(1, value));
 
-export function beatTimeLabel(time: number, bpm: number, offset: number) {
-  const secondsPerBeat = 60 / bpm;
-  const beatIndex = Math.max(0, Math.round((time - offset) / secondsPerBeat));
+function closestBeatIndex(beatTimes: number[], time: number): number {
+  if (beatTimes.length <= 1) return 0;
+  let low = 0;
+  let high = beatTimes.length - 1;
+  while (low < high) {
+    const middle = Math.floor((low + high) / 2);
+    if (beatTimes[middle] < time) low = middle + 1;
+    else high = middle;
+  }
+  if (low === 0) return 0;
+  return time - beatTimes[low - 1] <= beatTimes[low] - time ? low - 1 : low;
+}
+
+export function beatTimeLabel(
+  time: number,
+  bpm: number,
+  offset: number,
+  beatTimes?: number[],
+) {
+  const beatIndex = beatTimes?.length
+    ? closestBeatIndex(beatTimes, time)
+    : Math.max(0, Math.round((time - offset) / (60 / bpm)));
   return `${Math.floor(beatIndex / 8) + 1}-${(beatIndex % 8) + 1}`;
 }
 
@@ -27,13 +46,16 @@ export function beatLabelTime(
   value: string,
   bpm: number,
   offset: number,
+  beatTimes?: number[],
 ): number | null {
   const match = value.trim().match(/^(\d+)-([1-8])$/);
   if (!match) return null;
   const eightCount = Number(match[1]);
   const beat = Number(match[2]);
   if (eightCount < 1) return null;
-  return Math.max(0, offset + ((eightCount - 1) * 8 + beat - 1) * (60 / bpm));
+  const beatIndex = (eightCount - 1) * 8 + beat - 1;
+  if (beatTimes?.length) return beatTimes[beatIndex] ?? null;
+  return Math.max(0, offset + beatIndex * (60 / bpm));
 }
 
 export function snapTimeToBeat(
@@ -41,7 +63,11 @@ export function snapTimeToBeat(
   bpm: number,
   offset: number,
   duration: number,
+  beatTimes?: number[],
 ) {
+  if (beatTimes?.length) {
+    return beatTimes[closestBeatIndex(beatTimes, time)];
+  }
   const secondsPerBeat = 60 / bpm;
   const beatIndex = Math.round((time - offset) / secondsPerBeat);
   return Math.max(

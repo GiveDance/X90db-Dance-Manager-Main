@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { ArrowLeft, RotateCcw } from "lucide-react";
 import type { VideoFile, PoseData, AnalysisResult, AppStage } from "@/features/motion-analyzer/types";
 import { VideoUploadCard } from "@/features/motion-analyzer/components/VideoUploadCard";
 import { ScoreCard } from "@/features/motion-analyzer/components/ScoreCard";
@@ -274,33 +275,32 @@ export function MotionAnalyzer({ onBack }: MotionAnalyzerProps) {
 
   return (
     <div className="motion-analyzer h-full overflow-y-auto bg-[#121212]">
-      <header className="border-b border-white/8 backdrop-blur-xl bg-[#121212]/80 sticky top-0 z-50">
-        <div className="mx-auto max-w-6xl px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={handleBack}
-              className="mr-2 inline-flex items-center gap-2 rounded-full border border-white/10 px-3 py-1.5 text-sm text-white/60 transition-colors hover:border-white/20 hover:bg-white/5 hover:text-white"
-              aria-label="返回 Dance Manager 首页"
-            >
-              <span aria-hidden="true">←</span>
-              返回 Dance Manager
-            </button>
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-[#fe2c55] to-[#ff6f61]">
-              <svg className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0" />
-              </svg>
-            </div>
-            <h1 className="text-lg font-bold text-white tracking-tight">
-              舞蹈动作分析
-            </h1>
-          </div>
-          {stage === "results" && (
-            <button onClick={handleReset} className="text-sm text-white/50 hover:text-white transition-colors px-4 py-1.5 rounded-full border border-white/10 hover:border-white/20 hover:bg-white/5">
-              重新分析
-            </button>
-          )}
-        </div>
+      <header className="sticky top-0 z-50 flex h-12 shrink-0 items-center gap-2 border-b border-white/5 bg-neutral-950 px-4">
+        <button
+          type="button"
+          onClick={handleBack}
+          className="flex items-center gap-1.5 rounded-lg bg-white/5 px-3 py-1.5 text-xs text-neutral-300 transition-colors hover:bg-white/10 hover:text-white"
+          aria-label="返回 Dance Manager 首页"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+          返回
+        </button>
+        <h1 className="min-w-0 flex-1 truncate text-xs font-normal text-neutral-500">
+          舞蹈动作分析
+        </h1>
+        <span className="rounded-full border border-blue-400/20 bg-blue-400/10 px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.16em] text-blue-300">
+          Learning
+        </span>
+        {stage === "results" && (
+          <button
+            type="button"
+            onClick={handleReset}
+            className="flex items-center gap-1.5 rounded-lg bg-white/5 px-3 py-1.5 text-xs text-neutral-300 transition-colors hover:bg-white/10 hover:text-white"
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+            重新分析
+          </button>
+        )}
       </header>
 
       <main className="mx-auto max-w-6xl px-6 py-10">

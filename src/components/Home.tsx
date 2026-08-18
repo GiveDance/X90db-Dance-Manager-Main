@@ -351,7 +351,7 @@ export function Home({
                   </>
                 );
                 const cardClass =
-                  "flex min-h-16 w-full items-center justify-between rounded-xl border border-neutral-800 bg-[linear-gradient(135deg,rgba(255,255,255,0.045),rgba(255,255,255,0.018))] px-4 py-3 text-left transition-colors hover:border-neutral-700";
+                  "flex min-h-16 w-full items-center justify-between rounded-xl border border-neutral-800 bg-[linear-gradient(135deg,rgba(255,255,255,0.045),rgba(255,255,255,0.018))] px-4 py-3 text-left transition-colors hover:border-neutral-700 active:border-neutral-600";
 
                 return href ? (
                   <a

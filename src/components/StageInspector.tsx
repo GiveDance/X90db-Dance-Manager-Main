@@ -60,7 +60,7 @@ export function StageInspector() {
                 template.id,
               );
             }}
-            className="cursor-grab overflow-hidden rounded-lg border border-white/[0.07] bg-white/[0.025] text-left transition-colors hover:border-violet-300/40 active:cursor-grabbing"
+            className="cursor-grab overflow-hidden rounded-lg border border-white/[0.07] bg-white/[0.025] text-left transition-colors hover:border-[#c4b5fd66] active:cursor-grabbing active:border-[#c4b5fd8c]"
           >
             <span
               className={`relative flex aspect-video items-center justify-center overflow-hidden ${template.preview}`}
