@@ -47,6 +47,8 @@ type Phase =
   | "player"
   | "performing"
   | "motion-analyzer";
+type MotionAnalyzerOrigin = "home" | "player";
+type HomeTarget = "landing" | "workspace";
 
 interface CurrentDance {
   id: string;
@@ -62,6 +64,9 @@ interface CurrentPerformingProject {
 
 export default function HomePage() {
   const [phase, setPhase] = useState<Phase>("home");
+  const [motionAnalyzerOrigin, setMotionAnalyzerOrigin] =
+    useState<MotionAnalyzerOrigin>("home");
+  const [homeTarget, setHomeTarget] = useState<HomeTarget>("landing");
   const [mode, setMode] = useState<WorkspaceMode>("learning");
   const [dances, setDances] = useState<SavedDanceMeta[]>([]);
   const [libLoading, setLibLoading] = useState(true);
@@ -705,18 +710,37 @@ export default function HomePage() {
     [],
   );
 
-  const backToHome = useCallback(() => {
+  const returnHome = useCallback((target: HomeTarget) => {
     revoke();
     setCurrent(null);
     setCurrentPerforming(null);
+    setHomeTarget(target);
     setPhase("home");
   }, [revoke]);
+  const backToHome = useCallback(
+    () => returnHome("landing"),
+    [returnHome],
+  );
+  const backToWorkspace = useCallback(
+    () => returnHome("workspace"),
+    [returnHome],
+  );
 
   if (phase === "analyzing") {
     return <AnalyzingScreen stage={stage} fileName={pendingName} />;
   }
   if (phase === "motion-analyzer") {
-    return <MotionAnalyzer onBack={() => setPhase("home")} />;
+    return (
+      <MotionAnalyzer
+        onBack={() => {
+          if (motionAnalyzerOrigin === "player" && current) {
+            setPhase("player");
+            return;
+          }
+          backToHome();
+        }}
+      />
+    );
   }
   if (phase === "player" && current) {
     return (
@@ -750,7 +774,11 @@ export default function HomePage() {
         initialFormationAudiencePosition={
           current.meta.formationAudiencePosition
         }
-        onReset={backToHome}
+        onReset={backToWorkspace}
+        onOpenMotionAnalyzer={() => {
+          setMotionAnalyzerOrigin("player");
+          setPhase("motion-analyzer");
+        }}
         onPersist={handlePersist}
       />
     );
@@ -761,7 +789,7 @@ export default function HomePage() {
         key={currentPerforming.project.id}
         project={currentPerforming.project}
         src={currentPerforming.url}
-        onBack={backToHome}
+        onBack={backToWorkspace}
         onProjectChange={handlePerformingProjectChange}
       />
     );
@@ -812,7 +840,11 @@ export default function HomePage() {
         performingOpeningId={performingOpeningId}
         onOpenPerformingProject={handleOpenPerformingProject}
         onDeletePerformingProject={(id) => void handleDeletePerformingProject(id)}
-        onOpenMotionAnalyzer={() => setPhase("motion-analyzer")}
+        onOpenMotionAnalyzer={() => {
+          setMotionAnalyzerOrigin("home");
+          setPhase("motion-analyzer");
+        }}
+        initialTarget={homeTarget}
       />
       {exportTarget && (
         <ExportDialog
