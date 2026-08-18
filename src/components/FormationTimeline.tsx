@@ -6,6 +6,8 @@ import { cn } from "@/lib/cn";
 import { snapTimeToBeat } from "@/lib/formations";
 import { formatTime } from "@/lib/format";
 import {
+  shouldCondenseTimelineBeats,
+  shouldShowTimelineBeat,
   TimelineNavigationControls,
   useTimelineNavigation,
 } from "./TimelineNavigation";
@@ -40,12 +42,10 @@ export function FormationTimeline({
   onCreate,
 }: FormationTimelineProps) {
   const trackRef = useRef<HTMLDivElement>(null);
-  const resizeRef = useRef<{
-    id: string;
-    endpoint: "start" | "end";
-  } | null>(null);
   const seekingRef = useRef<number | null>(null);
   const createRef = useRef<{ startTime: number; moved: boolean } | null>(null);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [dragOffset, setDragOffset] = useState(0);
   const [creating, setCreating] = useState<{
     startTime: number;
     currentTime: number;
@@ -63,6 +63,78 @@ export function FormationTimeline({
   };
   const timeFromX = (clientX: number) =>
     snapTimeToBeat(rawTimeFromX(clientX), bpm, offset, duration, beatTimes);
+  const snapTime = (time: number) =>
+    snapTimeToBeat(time, bpm, offset, duration, beatTimes);
+  const startResize = (
+    event: React.PointerEvent,
+    change: FormationChange,
+    endpoint: "start" | "end",
+  ) => {
+    event.stopPropagation();
+    event.preventDefault();
+    onResizeStart();
+    const move = (pointerEvent: PointerEvent) => {
+      const time = timeFromX(pointerEvent.clientX);
+      onResize(
+        change.id,
+        endpoint === "start"
+          ? Math.min(time, change.endTime)
+          : change.startTime,
+        endpoint === "end"
+          ? Math.max(time, change.startTime)
+          : change.endTime,
+      );
+    };
+    const end = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", end);
+      window.removeEventListener("pointercancel", end);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", end);
+    window.addEventListener("pointercancel", end);
+  };
+  const startMove = (
+    event: React.PointerEvent,
+    change: FormationChange,
+  ) => {
+    event.stopPropagation();
+    const startX = event.clientX;
+    const grabOffset = rawTimeFromX(event.clientX) - change.startTime;
+    const changeDuration = change.endTime - change.startTime;
+    let moved = false;
+    onSelect(change.id);
+
+    const move = (pointerEvent: PointerEvent) => {
+      const offsetPx = pointerEvent.clientX - startX;
+      if (Math.abs(offsetPx) <= 4) return;
+      if (!moved) onResizeStart();
+      moved = true;
+      setDraggingId(change.id);
+      setDragOffset(offsetPx);
+    };
+    const end = (pointerEvent: PointerEvent) => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", end);
+      window.removeEventListener("pointercancel", end);
+      if (moved) {
+        const maxStart = Math.max(0, duration - changeDuration);
+        const start = Math.max(
+          0,
+          Math.min(
+            maxStart,
+            snapTime(rawTimeFromX(pointerEvent.clientX) - grabOffset),
+          ),
+        );
+        onResize(change.id, start, start + changeDuration);
+      }
+      setDraggingId(null);
+      setDragOffset(0);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", end);
+    window.addEventListener("pointercancel", end);
+  };
   const ticks = [0];
   const baseTickStep = duration <= 60 ? 10 : 30;
   const tickStep =
@@ -79,7 +151,16 @@ export function FormationTimeline({
   }
   const beatGuides = beatTimes
     .filter((time) => Number.isFinite(time) && time >= 0 && time <= duration)
-    .map((time, index) => ({ time, strong: index % 8 === 0 }));
+    .map((time, index, all) => ({
+      time,
+      index,
+      primary: index % 8 === 0,
+      secondary: index % 8 === 4,
+      beatCount: all.length,
+    }))
+    .filter((beat) =>
+      shouldShowTimelineBeat(beat.index, beat.beatCount, zoom),
+    );
 
   return (
     <div className="flex shrink-0 flex-col border-t border-white/5 bg-black px-5 pb-2.5 pt-2.5">
@@ -133,23 +214,6 @@ export function FormationTimeline({
             return;
           }
 
-          const resize = resizeRef.current;
-          if (resize) {
-            const change = changes.find((item) => item.id === resize.id);
-            if (!change) return;
-            const time = timeFromX(event.clientX);
-            onResize(
-              resize.id,
-              resize.endpoint === "start"
-                ? Math.min(time, change.endTime)
-                : change.startTime,
-              resize.endpoint === "end"
-                ? Math.max(time, change.startTime)
-                : change.endTime,
-            );
-            return;
-          }
-
           const creation = createRef.current;
           if (!creation) return;
           const time = timeFromX(event.clientX);
@@ -169,11 +233,6 @@ export function FormationTimeline({
             return;
           }
 
-          if (resizeRef.current) {
-            resizeRef.current = null;
-            event.currentTarget.releasePointerCapture?.(event.pointerId);
-            return;
-          }
           const creation = createRef.current;
           createRef.current = null;
           event.currentTarget.releasePointerCapture?.(event.pointerId);
@@ -192,7 +251,6 @@ export function FormationTimeline({
         }}
         onPointerCancel={() => {
           seekingRef.current = null;
-          resizeRef.current = null;
           createRef.current = null;
           setCreating(null);
         }}
@@ -204,18 +262,21 @@ export function FormationTimeline({
               key={`${beat.time}-${index}`}
               className={cn(
                 "absolute bottom-0 top-0 w-px",
-                beat.strong ? "bg-blue-400/30" : "bg-white/[0.04]",
+                beat.primary
+                  ? "bg-[#25568aa6]"
+                  : beat.secondary
+                    ? shouldCondenseTimelineBeats(beat.beatCount, zoom)
+                      ? "bg-white/[0.04]"
+                      : "bg-white/[0.10]"
+                    : "bg-white/[0.04]",
               )}
               style={{ left: `${pct(beat.time)}%` }}
             />
           ))}
-          {beatGuides.map((beat, index) => (
+          {beatGuides.filter((beat) => beat.primary).map((beat, index) => (
             <span
               key={`dot-${beat.time}-${index}`}
-              className={cn(
-                "absolute bottom-0 h-[3px] w-1.5 -translate-x-1/2 rounded-t-full",
-                beat.strong ? "bg-blue-300/55" : "bg-neutral-500/25",
-              )}
+              className="absolute bottom-0 h-[3px] w-1.5 -translate-x-1/2 rounded-t-full bg-blue-300/55"
               style={{ left: `${pct(beat.time)}%` }}
             />
           ))}
@@ -229,46 +290,41 @@ export function FormationTimeline({
             <div
               key={change.id}
               data-formation-range
-              onPointerDown={(event) => {
-                event.stopPropagation();
-                onSelect(change.id);
-              }}
+              onPointerDown={(event) => startMove(event, change)}
               className={cn(
-                "absolute bottom-1 top-1 flex items-center overflow-hidden rounded-md border px-2 text-left text-[11px] font-medium transition-colors",
+                "absolute bottom-1 top-1 flex min-w-8 cursor-grab items-center overflow-hidden rounded-md border py-0 pl-4 pr-3 transition-colors active:cursor-grabbing",
                 selectedId === change.id
-                  ? "border-[#60a5fa8c] bg-blue-500/50 text-white shadow-[0_0_12px_rgba(59,130,246,0.18)]"
+                  ? "border-[#6ba1d2] bg-[#2f6198db] text-white shadow-[0_0_12px_rgba(59,130,246,0.18)]"
                   : active
-                    ? "border-[#60a5fa73] bg-blue-500/32 text-blue-100"
-                    : "border-[#3b82f64d] bg-blue-500/20 text-blue-200 hover:border-[#60a5fa80] hover:bg-blue-500/28 active:border-[#60a5fa]",
+                    ? "border-[#4d83ba] bg-[#234b7adb] text-blue-100"
+                    : "border-[#25568a] bg-[#142b4adb] text-blue-200 hover:border-[#3c78b5] hover:bg-[#1c3d67db] active:border-[#4d83ba] active:bg-[#234b7adb]",
+                draggingId === change.id && "z-20 opacity-80 shadow-xl",
               )}
-              style={{ left: `${left}%`, width: `${width}%` }}
+              style={{
+                left: `${left}%`,
+                width: `${width}%`,
+                transform:
+                  draggingId === change.id
+                    ? `translateX(${dragOffset}px)`
+                    : undefined,
+              }}
             >
-              <span className="block w-full truncate text-left">
-                变化 {index + 1}
-              </span>
-              <span
-                onPointerDown={(event) => {
-                  event.stopPropagation();
-                  onResizeStart();
-                  resizeRef.current = {
-                    id: change.id,
-                    endpoint: "start",
-                  };
-                  trackRef.current?.setPointerCapture(event.pointerId);
-                }}
-                className="absolute bottom-0 left-0 top-0 w-1 cursor-ew-resize bg-blue-300/0 hover:bg-blue-300/40"
+              <button
+                type="button"
+                aria-label={`调整变化 ${index + 1} 的开始位置`}
+                onPointerDown={(event) =>
+                  startResize(event, change, "start")
+                }
+                className="absolute inset-y-0 left-0 z-10 w-2 cursor-ew-resize border-r border-[#376d9e] bg-[#1d4268db] hover:bg-[#2b5f91db]"
               />
-              <span
-                onPointerDown={(event) => {
-                  event.stopPropagation();
-                  onResizeStart();
-                  resizeRef.current = {
-                    id: change.id,
-                    endpoint: "end",
-                  };
-                  trackRef.current?.setPointerCapture(event.pointerId);
-                }}
-                className="absolute bottom-0 right-0 top-0 w-1 cursor-ew-resize bg-blue-300/0 hover:bg-blue-300/40"
+              <p className="w-full truncate text-left text-[11px] font-medium">
+                变化 {index + 1}
+              </p>
+              <button
+                type="button"
+                aria-label={`调整变化 ${index + 1} 的结束位置`}
+                onPointerDown={(event) => startResize(event, change, "end")}
+                className="absolute inset-y-0 right-0 w-2 cursor-ew-resize border-l border-[#376d9e] bg-[#1d4268db] hover:bg-[#2b5f91db]"
               />
             </div>
           );
@@ -276,7 +332,7 @@ export function FormationTimeline({
         {creating &&
           Math.abs(creating.currentTime - creating.startTime) > 0.4 && (
             <div
-              className="pointer-events-none absolute bottom-1 top-1 rounded-md border border-blue-300/70 bg-blue-300/20"
+              className="pointer-events-none absolute bottom-1 top-1 rounded-md border border-[#6ba1d2] bg-[#234b7adb]"
               style={{
                 left: `${pct(
                   Math.min(creating.startTime, creating.currentTime),
@@ -303,8 +359,7 @@ export function FormationTimeline({
           className="absolute bottom-0 top-0 z-10 w-4 -translate-x-1/2 cursor-ew-resize touch-none"
           style={{ left: `${pct(currentTime)}%` }}
         >
-          <span className="pointer-events-none absolute bottom-0 left-1/2 top-0 w-px -translate-x-1/2 bg-white/90 shadow-[0_0_5px_rgba(255,255,255,0.45)]" />
-          <span className="pointer-events-none absolute -top-0.5 left-1/2 h-2 w-2 -translate-x-1/2 rounded-full bg-white" />
+          <span className="pointer-events-none absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-white shadow-[0_0_8px_rgba(255,255,255,.7)]" />
         </div>
       </div>
       </div>

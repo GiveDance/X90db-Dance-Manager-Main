@@ -7,6 +7,8 @@ import { nearestSegEnd, nearestSegStart, sectionTimeRange } from "@/lib/segments
 import { formatTime } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import {
+  shouldCondenseTimelineBeats,
+  shouldShowTimelineBeat,
   TimelineNavigationControls,
   useTimelineNavigation,
 } from "./TimelineNavigation";
@@ -39,10 +41,12 @@ export function SectionTimeline({
   onStopLoop,
 }: SectionTimelineProps) {
   const trackRef = useRef<HTMLDivElement>(null);
-  const resizeRef = useRef<{ index: number; side: "left" | "right" } | null>(null);
   const seekingRef = useRef<number | null>(null);
   const createRef = useRef<{ startT: number; moved: boolean } | null>(null);
+  const suppressLoopClickRef = useRef(false);
   const [creating, setCreating] = useState<{ startT: number; curT: number } | null>(null);
+  const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
+  const [dragOffset, setDragOffset] = useState(0);
   const navigation = useTimelineNavigation(duration);
   const { zoom, viewportRef, syncScrollMetrics } = navigation;
 
@@ -55,32 +59,86 @@ export function SectionTimeline({
     return Math.max(0, Math.min(1, (clientX - r.left) / r.width)) * duration;
   };
 
-  // —— 拖拽段落边界（吸附八拍）——
-  const onHandleDown = (e: React.PointerEvent, index: number, side: "left" | "right") => {
-    e.stopPropagation();
-    e.preventDefault();
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
-    resizeRef.current = { index, side };
+  const startResize = (
+    event: React.PointerEvent,
+    index: number,
+    side: "left" | "right",
+  ) => {
+    event.stopPropagation();
+    event.preventDefault();
+    const section = sections[index];
+    if (!section) return;
+    if (sectionLoopKey === index) onStopLoop();
+
+    const move = (pointerEvent: PointerEvent) => {
+      const time = timeFromX(pointerEvent.clientX);
+      if (side === "left") {
+        const start = Math.min(
+          nearestSegStart(segments, time),
+          section.endSeg,
+        );
+        onResizeSection(index, start, section.endSeg);
+      } else {
+        const end = Math.max(
+          nearestSegEnd(segments, time),
+          section.startSeg,
+        );
+        onResizeSection(index, section.startSeg, end);
+      }
+    };
+    const end = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", end);
+      window.removeEventListener("pointercancel", end);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", end);
+    window.addEventListener("pointercancel", end);
   };
-  const onHandleMove = (e: React.PointerEvent) => {
-    const d = resizeRef.current;
-    if (!d) return;
-    const t = timeFromX(e.clientX);
-    const sec = sections[d.index];
-    if (!sec) return;
-    if (d.side === "left") {
-      const s = Math.min(nearestSegStart(segments, t), sec.endSeg);
-      onResizeSection(d.index, s, sec.endSeg);
-    } else {
-      const en = Math.max(nearestSegEnd(segments, t), sec.startSeg);
-      onResizeSection(d.index, sec.startSeg, en);
-    }
-  };
-  const onHandleUp = (e: React.PointerEvent) => {
-    if (resizeRef.current) {
-      (e.target as HTMLElement).releasePointerCapture?.(e.pointerId);
-      resizeRef.current = null;
-    }
+
+  const startMove = (
+    event: React.PointerEvent,
+    index: number,
+    section: DanceSection,
+    range: { start: number; end: number },
+  ) => {
+    event.stopPropagation();
+    const startX = event.clientX;
+    const grabOffset = timeFromX(event.clientX) - range.start;
+    const segmentSpan = section.endSeg - section.startSeg;
+    let moved = false;
+
+    const move = (pointerEvent: PointerEvent) => {
+      const offset = pointerEvent.clientX - startX;
+      if (Math.abs(offset) <= 4) return;
+      moved = true;
+      setDraggingIndex(index);
+      setDragOffset(offset);
+    };
+    const end = (pointerEvent: PointerEvent) => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", end);
+      window.removeEventListener("pointercancel", end);
+      if (moved) {
+        if (sectionLoopKey === index) onStopLoop();
+        const desiredStart = nearestSegStart(
+          segments,
+          timeFromX(pointerEvent.clientX) - grabOffset,
+        );
+        const maxStart = Math.max(0, segments.length - 1 - segmentSpan);
+        const start = Math.max(0, Math.min(maxStart, desiredStart));
+        onResizeSection(index, start, start + segmentSpan);
+        suppressLoopClickRef.current = true;
+        window.setTimeout(() => {
+          suppressLoopClickRef.current = false;
+        }, 0);
+      }
+      setDraggingIndex(null);
+      setDragOffset(0);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", end);
+    window.addEventListener("pointercancel", end);
   };
 
   // —— 空白区域：拖动=框选新建，点击=跳转 ——
@@ -142,17 +200,22 @@ export function SectionTimeline({
 
   const loopName = sectionLoopKey != null ? sections[sectionLoopKey]?.name : null;
   const beatGuides = segments
-    .flatMap((segment) =>
-      segment.beats.map((time, index) => ({
-        time,
-        strong: index === 0,
-      })),
-    )
+    .flatMap((segment) => segment.beats)
     .filter(
-      (beat, index, all) =>
-        beat.time >= 0 &&
-        beat.time <= duration &&
-        (index === 0 || Math.abs(beat.time - all[index - 1].time) > 0.001),
+      (time, index, all) =>
+        time >= 0 &&
+        time <= duration &&
+        (index === 0 || Math.abs(time - all[index - 1]) > 0.001),
+    )
+    .map((time, index, all) => ({
+      time,
+      index,
+      primary: index % 8 === 0,
+      secondary: index % 8 === 4,
+      beatCount: all.length,
+    }))
+    .filter((beat) =>
+      shouldShowTimelineBeat(beat.index, beat.beatCount, zoom),
     );
 
   return (
@@ -216,7 +279,6 @@ export function SectionTimeline({
             onPointerUp={onTrackUp}
             onPointerCancel={() => {
               seekingRef.current = null;
-              resizeRef.current = null;
               createRef.current = null;
               setCreating(null);
             }}
@@ -228,18 +290,21 @@ export function SectionTimeline({
               key={`${beat.time}-${index}`}
               className={cn(
                 "absolute bottom-0 top-0 w-px",
-                beat.strong ? "bg-blue-400/30" : "bg-white/[0.04]",
+                beat.primary
+                  ? "bg-[#25568aa6]"
+                  : beat.secondary
+                    ? shouldCondenseTimelineBeats(beat.beatCount, zoom)
+                      ? "bg-white/[0.04]"
+                      : "bg-white/[0.10]"
+                    : "bg-white/[0.04]",
               )}
               style={{ left: `${pct(beat.time)}%` }}
             />
           ))}
-          {beatGuides.map((beat, index) => (
+          {beatGuides.filter((beat) => beat.primary).map((beat, index) => (
             <span
               key={`dot-${beat.time}-${index}`}
-              className={cn(
-                "absolute bottom-0 h-[3px] w-1.5 -translate-x-1/2 rounded-t-full",
-                beat.strong ? "bg-blue-300/55" : "bg-neutral-500/25",
-              )}
+              className="absolute bottom-0 h-[3px] w-1.5 -translate-x-1/2 rounded-t-full bg-blue-300/55"
               style={{ left: `${pct(beat.time)}%` }}
             />
           ))}
@@ -251,39 +316,52 @@ export function SectionTimeline({
           const left = pct(r.start);
           const width = Math.max(0.5, pct(r.end) - left);
           const looping = sectionLoopKey === i;
-          const active = activeSectionIndex === i;
+          const active =
+            sectionLoopKey == null && activeSectionIndex === i;
           return (
             <div
               key={sec.id}
-              onPointerDown={(e) => e.stopPropagation()}
+              onPointerDown={(event) => startMove(event, i, sec, r)}
               onClick={(e) => {
                 e.stopPropagation();
+                if (suppressLoopClickRef.current) return;
                 onToggleSectionLoop(i);
               }}
-              title={`${sec.name}（点击循环）`}
+              title={`${sec.name}（拖动移动，点击循环）`}
               className={cn(
-                "group absolute top-1 bottom-1 flex items-center justify-center overflow-hidden rounded-md border text-xs font-medium transition-colors",
+                "group absolute bottom-1 top-1 flex min-w-8 cursor-grab items-center overflow-hidden rounded-md border py-0 pl-4 pr-3 transition-colors active:cursor-grabbing",
                 looping
-                  ? "border-blue-400/55 bg-blue-500/50 text-white shadow-[0_0_12px_rgba(59,130,246,0.18)]"
+                  ? "border-[#6ba1d2] bg-[#2f6198db] text-white shadow-[0_0_12px_rgba(59,130,246,0.18)]"
                   : active
-                    ? "border-blue-400/45 bg-blue-500/32 text-blue-100"
-                    : "border-blue-500/30 bg-blue-500/20 text-blue-200 hover:bg-blue-500/28",
+                    ? "border-[#4d83ba] bg-[#234b7adb] text-blue-100"
+                    : "border-[#25568a] bg-[#142b4adb] text-blue-200 hover:border-[#3c78b5] hover:bg-[#1c3d67db] active:border-[#4d83ba] active:bg-[#234b7adb]",
+                draggingIndex === i && "z-20 opacity-80 shadow-xl",
               )}
-              style={{ left: `${left}%`, width: `${width}%` }}
+              style={{
+                left: `${left}%`,
+                width: `${width}%`,
+                transform:
+                  draggingIndex === i
+                    ? `translateX(${dragOffset}px)`
+                    : undefined,
+              }}
             >
-              <span className="truncate px-2">{sec.name}</span>
-              {/* 左右边界拖拽手柄 */}
-              <span
-                onPointerDown={(e) => onHandleDown(e, i, "left")}
-                onPointerMove={onHandleMove}
-                onPointerUp={onHandleUp}
-                className="absolute left-0 top-0 h-full w-2 cursor-ew-resize bg-blue-300/0 hover:bg-blue-300/40"
+              <button
+                type="button"
+                aria-label={`调整 ${sec.name} 的开始位置`}
+                onPointerDown={(event) => startResize(event, i, "left")}
+                onClick={(e) => e.stopPropagation()}
+                className="absolute inset-y-0 left-0 z-10 w-2 cursor-ew-resize border-r border-[#376d9e] bg-[#1d4268db] hover:bg-[#2b5f91db]"
               />
-              <span
-                onPointerDown={(e) => onHandleDown(e, i, "right")}
-                onPointerMove={onHandleMove}
-                onPointerUp={onHandleUp}
-                className="absolute right-0 top-0 h-full w-2 cursor-ew-resize bg-blue-300/0 hover:bg-blue-300/40"
+              <p className="w-full truncate text-left text-[11px] font-medium">
+                {sec.name}
+              </p>
+              <button
+                type="button"
+                aria-label={`调整 ${sec.name} 的结束位置`}
+                onPointerDown={(event) => startResize(event, i, "right")}
+                onClick={(e) => e.stopPropagation()}
+                className="absolute inset-y-0 right-0 w-2 cursor-ew-resize border-l border-[#376d9e] bg-[#1d4268db] hover:bg-[#2b5f91db]"
               />
             </div>
           );
@@ -292,7 +370,7 @@ export function SectionTimeline({
         {/* 框选预览 */}
         {creating && Math.abs(creating.curT - creating.startT) > 0.4 && (
           <div
-            className="pointer-events-none absolute top-1 bottom-1 rounded-md border border-blue-300/70 bg-blue-300/20"
+            className="pointer-events-none absolute bottom-1 top-1 rounded-md border border-[#6ba1d2] bg-[#234b7adb]"
             style={{
               left: `${pct(Math.min(creating.startT, creating.curT))}%`,
               width: `${Math.abs(pct(creating.curT) - pct(creating.startT))}%`,
@@ -317,8 +395,7 @@ export function SectionTimeline({
               className="absolute bottom-0 top-0 z-10 w-4 -translate-x-1/2 cursor-ew-resize touch-none"
               style={{ left: `${pct(currentTime)}%` }}
             >
-              <span className="pointer-events-none absolute bottom-0 left-1/2 top-0 w-px -translate-x-1/2 bg-white/90 shadow-[0_0_5px_rgba(255,255,255,0.45)]" />
-              <span className="pointer-events-none absolute -top-0.5 left-1/2 h-2 w-2 -translate-x-1/2 rounded-full bg-white" />
+              <span className="pointer-events-none absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-white shadow-[0_0_8px_rgba(255,255,255,.7)]" />
             </div>
           </div>
         </div>
