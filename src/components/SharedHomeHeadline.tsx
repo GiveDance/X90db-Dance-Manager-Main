@@ -58,6 +58,13 @@ export function SharedHomeHeadline({
       const centeredOffset = -50 * (1 - progress);
       const landingTitleSize = Math.min(120, Math.max(60, width * 0.075));
       const workspaceTitleSize = width < 640 ? 30 : 36;
+      const workspaceHeadingGap = 12;
+      const workspaceSloganTop =
+        44 + workspaceTitleSize + workspaceHeadingGap;
+      scroller.style.setProperty(
+        "--workspace-heading-gap",
+        `${workspaceHeadingGap}px`,
+      );
 
       title.style.left = `${mix(width / 2, contentLeft, progress)}px`;
       title.style.top = `${mix(height * 0.43, 44, progress) - afterLanding}px`;
@@ -66,10 +73,10 @@ export function SharedHomeHeadline({
       title.style.transform = `translate(${centeredOffset}%, ${centeredOffset}%)`;
 
       slogan.style.left = `${mix(width / 2, contentLeft, progress)}px`;
-      slogan.style.top = `${mix(height * 0.5, 98, progress) - afterLanding}px`;
-      slogan.style.fontSize = `${mix(width < 640 ? 18 : 24, 16, progress)}px`;
+      slogan.style.top = `${mix(height * 0.49, workspaceSloganTop, progress) - afterLanding}px`;
+      slogan.style.fontSize = `${mix(width < 640 ? 18 : 24, 14, progress)}px`;
       slogan.style.transform = `translateX(${centeredOffset}%)`;
-      slogan.style.color = `rgba(255,255,255,${mix(0.72, 0.5, progress)})`;
+      slogan.style.color = `rgba(255,255,255,${mix(0.72, 0.64, progress)})`;
       setAnimateSlogan(scrollTop < height * 0.9);
     };
     const requestUpdate = () => {
@@ -116,18 +123,6 @@ export function SharedHomeHeadline({
                     key={`${line}-${characterIndex}`}
                     className="relative inline-block"
                   >
-                    {animateSlogan && (
-                      <span
-                        aria-hidden="true"
-                        className={`absolute bottom-[calc(100%+0.2em)] left-1/2 w-px -translate-x-1/2 transition-all duration-100 ${
-                          isActive
-                            ? "h-2.5 bg-white"
-                            : characterIndex === 0
-                              ? "h-2 bg-blue-300/65"
-                              : "h-1.5 bg-white/25"
-                        }`}
-                      />
-                    )}
                     <span
                       className={
                         animateSlogan

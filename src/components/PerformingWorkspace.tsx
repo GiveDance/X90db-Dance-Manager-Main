@@ -677,7 +677,8 @@ export function PerformingWorkspace({
             actions.pause();
             setExportOpen(true);
           }}
-          className="flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-black transition-colors hover:bg-neutral-200"
+          title="导出视频"
+          className="flex items-center gap-1.5 rounded-lg bg-white/5 px-3 py-1.5 text-xs text-neutral-300 transition-colors hover:bg-white/10 hover:text-white"
         >
           <Download className="h-3.5 w-3.5" />
           导出

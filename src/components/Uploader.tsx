@@ -78,22 +78,22 @@ export function Uploader({ onFile, mode = "learning" }: UploaderProps) {
                 ? mode === "learning"
                   ? "bg-blue-500/20 text-blue-400"
                   : "bg-violet-500/20 text-violet-300"
-                : "bg-neutral-800 text-neutral-300",
+                : "bg-neutral-800 text-ui-secondary",
             )}
           >
             <UploadCloud className="h-8 w-8" />
           </div>
-          <p className="text-lg font-medium text-white">
+          <p className="text-sm font-semibold text-white">
             {mode === "learning"
               ? "上传练舞视频"
               : "上传演出主视频"}
           </p>
-          <p className="mt-1 flex items-center gap-1.5 text-sm text-neutral-500">
+          <p className="text-ui-secondary mt-1 flex items-center gap-1.5 text-sm">
             <Film className="h-4 w-4" />
             点击选择或将视频拖入此处
           </p>
         </button>
-        <p className="mt-2 px-1 text-[11px] text-neutral-600">
+        <p className="text-ui-secondary mt-2 px-1 text-xs">
           推荐使用 H.264 编码的 MP4 · 所有处理均在本地完成
         </p>
 

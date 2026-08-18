@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence } from "framer-motion";
-import { ArrowLeft, Download } from "lucide-react";
+import { ArrowLeft, Download, Upload } from "lucide-react";
 import { VideoStage } from "./VideoStage";
 import { Controls } from "./Controls";
 import { SegmentSidebar, type SidebarTab } from "./SegmentSidebar";
@@ -80,6 +80,7 @@ interface PlayerProps {
   initialFormationChanges?: FormationChange[];
   initialFormationAudiencePosition?: FormationAudiencePosition;
   onReset: () => void;
+  onOpenMotionAnalyzer: () => void;
   /** 校准 / 标记 / 段落 / 时长变化时回调，用于自动保存到舞蹈库（防抖后触发）。 */
   onPersist?: (data: {
     bpm: number;
@@ -108,6 +109,7 @@ export function Player({
   initialFormationChanges,
   initialFormationAudiencePosition = "bottom",
   onReset,
+  onOpenMotionAnalyzer,
   onPersist,
 }: PlayerProps) {
   const { videoRef, videoProps, state, actions } = usePlayer();
@@ -675,6 +677,19 @@ export function Player({
           >
             {fileName}
           </span>
+          <button
+            type="button"
+            onClick={() => {
+              actions.pause();
+              persistCurrentState();
+              onOpenMotionAnalyzer();
+            }}
+            data-tooltip="上传自己的练舞视频，与当前原视频进行动作对比"
+            className="flex items-center gap-1.5 rounded-lg bg-white/5 px-3 py-1.5 text-xs text-neutral-300 transition-colors hover:bg-white/10 hover:text-white"
+          >
+            <Upload className="h-3.5 w-3.5" />
+            跟练复盘
+          </button>
           <button
             type="button"
             onClick={() => {

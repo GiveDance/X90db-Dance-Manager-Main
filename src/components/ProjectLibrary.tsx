@@ -122,18 +122,18 @@ export function ProjectLibrary({
 
   return (
     <section className="mt-10">
-      <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold text-neutral-300">
+      <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold text-white">
         <Music className="h-4 w-4" />
         我的项目
         {projects.length > 0 && (
-          <span className="text-neutral-600">· {projects.length}</span>
+          <span className="text-ui-secondary">· {projects.length}</span>
         )}
       </h2>
 
       {loading ? (
-        <p className="text-sm text-neutral-600">加载中…</p>
+        <p className="text-ui-secondary text-sm">加载中…</p>
       ) : projects.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-neutral-800 px-4 py-8 text-center text-sm text-neutral-600">
+        <p className="text-ui-secondary rounded-xl border border-dashed border-neutral-800 px-4 py-8 text-center text-sm">
           还没有项目。上传视频后会自动保存在这里。
         </p>
       ) : (
@@ -200,7 +200,7 @@ export function ProjectLibrary({
                         className="h-full w-full object-cover opacity-80"
                       />
                     ) : (
-                      <div className="flex h-full items-center justify-center text-neutral-600">
+                      <div className="text-ui-secondary flex h-full items-center justify-center">
                         <Music className="h-8 w-8" />
                       </div>
                     )}
@@ -220,7 +220,7 @@ export function ProjectLibrary({
                   <p className="truncate text-sm font-medium text-white" title={name}>
                     {name}
                   </p>
-                  <div className="mt-1 flex items-center gap-1.5 text-[11px] text-neutral-600">
+                  <div className="text-ui-secondary mt-1 flex items-center gap-1.5 text-xs">
                     <Clock className="h-3 w-3" />
                     <span>{projectDate(updatedAt)}</span>
                     {bpm != null && <span>· {Math.round(bpm)} BPM</span>}
@@ -243,7 +243,7 @@ export function ProjectLibrary({
                       className={
                         learning
                           ? "flex h-8 min-w-16 items-center justify-center gap-1.5 rounded-lg bg-blue-500/20 px-2.5 text-xs font-medium text-blue-200 hover:bg-blue-500/30"
-                          : "flex h-8 min-w-16 items-center justify-center gap-1.5 rounded-lg bg-white/5 px-2.5 text-xs font-medium text-neutral-600 hover:bg-blue-500/10 hover:text-blue-300 disabled:cursor-not-allowed"
+                          : "text-ui-disabled flex h-8 min-w-16 items-center justify-center gap-1.5 rounded-lg bg-white/5 px-2.5 text-xs font-medium hover:bg-blue-500/10 hover:text-blue-300 disabled:cursor-not-allowed"
                       }
                     >
                       <GraduationCap className="h-3.5 w-3.5" />
@@ -265,7 +265,7 @@ export function ProjectLibrary({
                       className={
                         performing
                           ? "flex h-8 min-w-16 items-center justify-center gap-1.5 rounded-lg bg-violet-500/20 px-2.5 text-xs font-medium text-violet-200 hover:bg-violet-500/30"
-                          : "flex h-8 min-w-16 items-center justify-center gap-1.5 rounded-lg bg-white/5 px-2.5 text-xs font-medium text-neutral-600 hover:bg-violet-500/10 hover:text-violet-300 disabled:cursor-not-allowed"
+                          : "text-ui-disabled flex h-8 min-w-16 items-center justify-center gap-1.5 rounded-lg bg-white/5 px-2.5 text-xs font-medium hover:bg-violet-500/10 hover:text-violet-300 disabled:cursor-not-allowed"
                       }
                     >
                       <Sparkles className="h-3.5 w-3.5" />
@@ -282,7 +282,7 @@ export function ProjectLibrary({
                       type="button"
                       onClick={() => onExportLearning(learning.id)}
                       aria-label={`导出 ${name}`}
-                      className="flex h-7 w-7 items-center justify-center rounded-lg bg-black/60 text-neutral-300 hover:bg-blue-500/80 hover:text-white"
+                      className="text-ui-secondary flex h-7 w-7 items-center justify-center rounded-lg bg-black/60 hover:bg-blue-500/80 hover:text-white"
                     >
                       <Download className="h-3.5 w-3.5" />
                     </button>
@@ -291,7 +291,7 @@ export function ProjectLibrary({
                     type="button"
                     onClick={deletePreferred}
                     aria-label={`删除 ${name}`}
-                    className="flex h-7 w-7 items-center justify-center rounded-lg bg-black/60 text-neutral-300 hover:bg-red-500/80 hover:text-white"
+                    className="text-ui-secondary flex h-7 w-7 items-center justify-center rounded-lg bg-black/60 hover:bg-red-500/80 hover:text-white"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
