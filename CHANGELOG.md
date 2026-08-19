@@ -4,7 +4,32 @@
 
 This changelog documents the product work completed after DanceManager was created from the DancePlayer codebase.
 
-## [Unreleased] - 2026-08-13
+## [Unreleased] - 2026-08-18
+
+### Performing export
+
+- Added browser-local Performing video export with automatic MP4/WebM capability detection.
+- Exported source media, composition clips, generated stage templates, overlays, mirrored playback, performer signals, and project audio through the same shared frame-rendering path used by preview.
+- Added export progress, cancellation, deterministic clip source-time mapping, and reliable media-resource cleanup.
+
+### Workspace navigation
+
+- Refined the responsive homepage snap navigation, spacing, typography hierarchy, project-card styling, mode selector, and hover playback affordances.
+- Added a follow-along review entry from the Learning Player and source-aware return navigation for Motion Analyzer.
+- Returned both Learning and Performing players to the homepage workspace and aligned their export presentation.
+
+### Formation editor
+
+- Refined the stage as a square 64-by-36 grid with matching snap behavior, clearer guides, a simplified audience marker, and a unified black editing surface.
+- Aligned formation timeline cards, beat labels, inspector timing, and walking-layout navigation to tracked beat timestamps.
+- Standardized project, formation, and Performing card states and enabled Performing video uploads by click or drag and drop.
+
+### Timeline and control system
+
+- Unified section, formation, and composition timeline card typography, spacing, fills, resize handles, playheads, navigation controls, and adaptive beat-guide density.
+- Matched section and formation drag and resize interactions to composition clips while preventing duplicate section highlights.
+- Unified Learning, Performing, and formation-editor transport controls, panel surfaces, sidebar actions, title hierarchy, spacing, and alignment.
+- Improved formation-grid readability, simplified redundant panel dividers, and disabled action hints by default.
 
 ### Home
 
