@@ -103,7 +103,7 @@ export function DevToolsButton() {
             <Languages className="h-3.5 w-3.5" />
             {t("语言")}
           </div>
-          <div className="grid grid-cols-2 gap-1">
+          <div className="flex flex-col gap-1">
             {LANGUAGE_OPTIONS.map((option) => (
               <button
                 key={option.value}
@@ -111,10 +111,10 @@ export function DevToolsButton() {
                 role="menuitemradio"
                 aria-checked={language === option.value}
                 onClick={() => setLanguage(option.value)}
-                className="flex items-center justify-between rounded-lg px-2 py-2 text-left transition-colors hover:bg-white/10"
+                className="flex items-center justify-between gap-4 rounded-lg px-2 py-2 text-left transition-colors hover:bg-white/10"
               >
-                {t(option.label)}
-                {language === option.value && <Check className="h-3.5 w-3.5" />}
+                <span className="min-w-0 flex-1">{t(option.label)}</span>
+                {language === option.value && <Check className="h-3.5 w-3.5 shrink-0" />}
               </button>
             ))}
           </div>

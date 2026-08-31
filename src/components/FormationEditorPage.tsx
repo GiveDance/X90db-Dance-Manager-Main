@@ -10,6 +10,7 @@ import {
 } from "react";
 import {
   ArrowLeft,
+  ChevronDown,
   Redo2,
   RefreshCw,
   RotateCcw,
@@ -585,41 +586,47 @@ export function FormationEditorPage({
               )}
               <label className="flex shrink-0 items-center gap-2 text-xs text-neutral-500">
                 {t("人数")}
-                <select
-                  value={dancerCount}
-                  onChange={(event) =>
-                    setDancerCount(Number(event.target.value))
-                  }
-                  className="h-8 rounded-lg border border-white/10 bg-neutral-900 px-2 text-xs text-neutral-200 outline-none"
-                >
-                  {Array.from({ length: 12 }, (_, index) => index + 1).map(
-                    (count) => (
-                      <option key={count} value={count}>
-                        {language === "en"
-                          ? `${count} ${count === 1 ? "performer" : "performers"}`
-                          : `${count} 人`}
-                      </option>
-                    ),
-                  )}
-                </select>
+                <span className="relative">
+                  <select
+                    value={dancerCount}
+                    onChange={(event) =>
+                      setDancerCount(Number(event.target.value))
+                    }
+                    className="h-9 appearance-none rounded-lg border border-white/10 bg-neutral-900 pl-3 pr-8 text-xs text-neutral-200 outline-none"
+                  >
+                    {Array.from({ length: 12 }, (_, index) => index + 1).map(
+                      (count) => (
+                        <option key={count} value={count}>
+                          {language === "en"
+                            ? `${count} ${count === 1 ? "performer" : "performers"}`
+                            : `${count} 人`}
+                        </option>
+                      ),
+                    )}
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-neutral-400" />
+                </span>
               </label>
               <label className="flex shrink-0 items-center gap-2 text-xs text-neutral-500">
                 {t("观众")}
-                <select
-                  value={audiencePosition}
-                  onChange={(event) =>
-                    setCurrentAudiencePosition(
-                      event.target.value as FormationAudiencePosition,
-                    )
-                  }
-                  aria-label={t("观众位置")}
-                  className="h-8 rounded-lg border border-white/10 bg-neutral-900 px-2 text-xs text-neutral-200 outline-none"
-                >
-                  <option value="bottom">{t("下方")}</option>
-                  <option value="top">{t("上方")}</option>
-                  <option value="left">{t("左侧")}</option>
-                  <option value="right">{t("右侧")}</option>
-                </select>
+                <span className="relative">
+                  <select
+                    value={audiencePosition}
+                    onChange={(event) =>
+                      setCurrentAudiencePosition(
+                        event.target.value as FormationAudiencePosition,
+                      )
+                    }
+                    aria-label={t("观众位置")}
+                    className="h-9 appearance-none rounded-lg border border-white/10 bg-neutral-900 pl-3 pr-8 text-xs text-neutral-200 outline-none"
+                  >
+                    <option value="bottom">{t("下方")}</option>
+                    <option value="top">{t("上方")}</option>
+                    <option value="left">{t("左侧")}</option>
+                    <option value="right">{t("右侧")}</option>
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-neutral-400" />
+                </span>
               </label>
               <button
                 type="button"

@@ -266,7 +266,7 @@ function SegmentSidebarImpl(props: SegmentSidebarProps) {
                       </span>
                       {isActive && <BarChart3 className="h-3.5 w-3.5 text-blue-400" />}
                     </div>
-                    <div className="text-xs tabular-nums text-neutral-500">
+                    <div className="truncate text-xs tabular-nums text-neutral-500">
                       {formatTime(seg.start)} - {formatTime(seg.end)}
                     </div>
                     {segMarkers.length > 0 && (

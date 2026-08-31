@@ -260,8 +260,8 @@ export function FormationSidebar({
                 />
               </span>
 
-              <div className="mb-3 flex h-7 items-center justify-between pl-[108px]">
-                <span className="text-sm font-medium text-neutral-200">
+              <div className="mb-3 flex h-7 items-center justify-between gap-2 pl-[108px]">
+                <span className="min-w-0 flex-1 truncate text-sm font-medium text-neutral-200">
                   {language === "en"
                     ? `Transition ${index + 1}`
                     : `走位变化 ${index + 1}`}

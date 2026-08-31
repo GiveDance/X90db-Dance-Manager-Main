@@ -161,8 +161,8 @@ export function ClipInspector({
       <div className="h-px bg-white/5" />
 
       <div className="min-w-0 pr-3">
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
+        <div className="flex items-center justify-between gap-4">
+          <div className="min-w-0 flex-1">
             <p className="text-sm font-medium text-neutral-200">{t("循环播放")}</p>
             <p className="mt-1 text-[11px] leading-4 text-neutral-500">
               {t("循环原视频以填充更长的时间范围。")}

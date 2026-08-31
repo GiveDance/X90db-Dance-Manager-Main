@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
-import { UploadCloud, Film, AlertCircle } from "lucide-react";
+import { UploadCloud, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useLanguage } from "@/i18n/LanguageProvider";
 
@@ -90,8 +90,7 @@ export function Uploader({ onFile, mode = "learning" }: UploaderProps) {
               ? t("上传练舞视频")
               : t("上传演出主视频")}
           </p>
-          <p className="text-ui-secondary mt-1 flex flex-wrap items-center justify-center gap-1.5 text-sm">
-            <Film className="h-4 w-4 shrink-0" />
+          <p className="text-ui-secondary mt-1 text-sm">
             {t("点击选择或将视频拖入此处")}
           </p>
         </button>

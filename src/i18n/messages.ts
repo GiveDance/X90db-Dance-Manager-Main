@@ -160,7 +160,7 @@ export const englishMessages = {
   "随身节拍震动器": "Portable haptic metronome",
   "Dance Manager 功能区": "Dance Manager features",
   "抢先体验": "Early access",
-  "开发中": "In development",
+  "开发中": "Beta",
   "听障人士舞蹈小助手": "Built for Deaf and hard-of-hearing dancers",
   "Designed for X90dB 聋人街舞团 by Studio 8 × Give":
     "by Studio 8 × Give",

@@ -421,14 +421,14 @@ function RateButton({
                   setOpen(false);
                 }}
                 className={cn(
-                  "flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-xs tabular-nums transition-colors hover:bg-white/10",
+                  "flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-xs tabular-nums transition-colors hover:bg-white/10",
                   rate === value
                     ? "bg-blue-500/15 text-blue-300"
                     : "text-neutral-300",
                 )}
               >
                 {rate}×
-                {rate === value && <Check className="h-3.5 w-3.5" />}
+                {rate === value && <Check className="h-3.5 w-3.5 shrink-0" />}
               </button>
             ))}
           </div>
@@ -616,7 +616,7 @@ function HintMenu(props: {
 
           {props.showToggle && (
             <>
-              <div className="flex items-center justify-between rounded-lg bg-white/5 px-3 py-2.5">
+              <div className="flex items-center justify-between gap-4 rounded-lg bg-white/5 px-3 py-2.5">
                 <div className="min-w-0 flex-1">
                   <div className="text-sm text-neutral-200">
                     {language === "en" ? t("动作提示") : t("显示提示")}

@@ -247,7 +247,7 @@ function SignalCard({
       }`}
     >
       <div
-        className={`flex items-center gap-2.5 px-3 py-2.5 ${
+        className={`flex items-center gap-3 px-3 py-2.5 ${
           enabled ? "bg-violet-500/10" : "bg-white/[0.025]"
         }`}
       >
@@ -325,14 +325,14 @@ export function OverlayInspector({
           <p className="text-xs font-medium text-neutral-300">{t("节拍设定")}</p>
         </div>
         <div className="mt-2 rounded-lg border border-white/[0.06] bg-white/[0.025] p-3">
-          <div className="flex items-start justify-between gap-3">
-            <div>
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0 flex-1">
               <p className="text-xs font-medium text-neutral-300">{t("次重拍")}</p>
               <p className="mt-0.5 text-[11px] text-neutral-500">
                 {t("选择使用重拍色的拍点")}
               </p>
             </div>
-            <span className="rounded bg-violet-400/10 px-1.5 py-0.5 text-[10px] tabular-nums text-violet-300">
+            <span className="shrink-0 rounded bg-violet-400/10 px-1.5 py-0.5 text-[10px] tabular-nums text-violet-300">
               {settings.secondaryAccentCount === 0
                 ? language === "en"
                   ? t("关")
@@ -551,7 +551,7 @@ export function OverlayInspector({
               }`}
             >
               <div
-                className={`flex items-center gap-2.5 px-3 py-2.5 ${
+                className={`flex items-center gap-4 px-3 py-2.5 ${
               settings.visualLeadEnabled
                 ? "bg-violet-500/10"
                 : "bg-white/[0.025]"
@@ -564,7 +564,7 @@ export function OverlayInspector({
                   <span className="block text-sm font-medium text-neutral-200">
                     {t("视觉预告")}
                   </span>
-                  <span className="block truncate text-[11px] text-neutral-500">
+                  <span className="block text-[11px] leading-4 text-neutral-500">
                     {t("显示开头预数拍")}
                   </span>
                 </span>

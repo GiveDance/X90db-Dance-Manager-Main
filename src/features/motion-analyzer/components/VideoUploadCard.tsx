@@ -69,7 +69,7 @@ export function VideoUploadCard({
             </span>
           </div>
         </div>
-        <div className="flex items-center justify-between gap-3 px-4 py-3">
+        <div className="flex items-center justify-between gap-4 px-4 py-3">
           <p className="min-w-0 flex-1 truncate text-sm text-white/60">
             {video.name}
           </p>

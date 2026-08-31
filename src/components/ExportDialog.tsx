@@ -417,7 +417,7 @@ export function ExportDialog({
                         }))
                       }
                       className={cn(
-                        "flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50",
+                        "flex w-full items-center gap-4 px-3 py-2.5 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50",
                         isFormation
                           ? "bg-transparent hover:bg-white/5"
                           : cn(
@@ -430,7 +430,7 @@ export function ExportDialog({
                     >
                       <span
                         className={cn(
-                          "flex h-8 w-8 items-center justify-center rounded-lg",
+                          "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
                           checked
                             ? "bg-blue-500/20 text-blue-400"
                             : "bg-neutral-800 text-neutral-400",
@@ -448,7 +448,7 @@ export function ExportDialog({
                       </span>
                       <span
                         className={cn(
-                          "flex h-5 w-5 items-center justify-center rounded-md border",
+                          "flex h-5 w-5 shrink-0 items-center justify-center rounded-md border",
                           checked
                             ? "border-blue-500 bg-blue-500 text-white"
                             : "border-white/20",

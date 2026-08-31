@@ -953,10 +953,10 @@ export function PerformingWorkspace({
             ))}
           </div>
 
-          <div className="min-h-0 flex-1 overflow-y-auto">
+          <div className="mt-3 min-h-0 flex-1 overflow-y-auto">
             {libraryTab === "clips" ? (
               <div
-                className={`min-h-full px-3 pb-3 pt-4 transition-colors ${
+                className={`min-h-full px-3 pb-3 transition-colors ${
                   clipDropActive ? "bg-[#30E6FF]/[0.04]" : ""
                 }`}
                 onDragEnter={(event) => {

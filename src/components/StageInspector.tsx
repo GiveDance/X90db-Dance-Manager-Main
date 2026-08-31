@@ -48,7 +48,7 @@ const TEMPLATES: Array<{
 export function StageInspector() {
   const { language, translateText } = useLanguage();
   return (
-    <div className="grid grid-cols-2 gap-2 px-3 pb-3 pt-4">
+    <div className="grid grid-cols-2 gap-2 px-3 pb-3">
       {TEMPLATES.map((template) => (
           <button
             type="button"
@@ -85,11 +85,11 @@ export function StageInspector() {
                 <Sparkles className="h-5 w-5 text-white/35" />
               )}
             </span>
-            <span className="block px-2.5 py-2">
+            <span className="block px-2.5 py-2.5">
               <strong className="block truncate text-[11px] font-medium text-neutral-200">
                 {translateText(template.name)}
               </strong>
-              <span className="mt-0.5 block min-h-6 text-[9px] leading-3 text-neutral-500">
+              <span className="mt-0.5 block text-[9px] leading-3 text-neutral-500">
                 {translateText(template.description)}
               </span>
             </span>
