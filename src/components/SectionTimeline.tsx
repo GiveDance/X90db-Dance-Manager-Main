@@ -6,6 +6,8 @@ import type { DanceSection, Segment } from "@/lib/types";
 import { nearestSegEnd, nearestSegStart, sectionTimeRange } from "@/lib/segments";
 import { formatTime } from "@/lib/format";
 import { cn } from "@/lib/cn";
+import { useLanguage } from "@/i18n/LanguageProvider";
+import { localizeSectionName } from "@/i18n/sectionNames";
 import {
   shouldCondenseTimelineBeats,
   shouldShowTimelineBeat,
@@ -40,6 +42,7 @@ export function SectionTimeline({
   onCreateSection,
   onStopLoop,
 }: SectionTimelineProps) {
+  const { language, t, translateText } = useLanguage();
   const trackRef = useRef<HTMLDivElement>(null);
   const seekingRef = useRef<number | null>(null);
   const createRef = useRef<{ startT: number; moved: boolean } | null>(null);
@@ -48,7 +51,7 @@ export function SectionTimeline({
   const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
   const [dragOffset, setDragOffset] = useState(0);
   const navigation = useTimelineNavigation(duration);
-  const { zoom, viewportRef, syncScrollMetrics } = navigation;
+  const { zoom, viewportId, viewportRef, syncScrollMetrics } = navigation;
 
   const pct = (t: number) => (duration ? (t / duration) * 100 : 0);
 
@@ -198,7 +201,11 @@ export function SectionTimeline({
   }
   if (duration > 0) ticks.push(duration);
 
-  const loopName = sectionLoopKey != null ? sections[sectionLoopKey]?.name : null;
+  const loopSection =
+    sectionLoopKey != null ? sections[sectionLoopKey] : undefined;
+  const loopName = loopSection
+    ? localizeSectionName(loopSection, language, translateText)
+    : null;
   const beatGuides = segments
     .flatMap((segment) => segment.beats)
     .filter(
@@ -225,12 +232,12 @@ export function SectionTimeline({
           <div className="flex items-center gap-2">
             <span className="flex items-center gap-1 rounded-md bg-blue-500/20 px-2 py-0.5 text-xs text-blue-300">
               <Repeat className="h-3 w-3" />
-              循环: {loopName}
+              {t("循环:")} {loopName}
               <button
                 type="button"
                 onClick={onStopLoop}
-                data-tooltip="取消循环"
-                aria-label="取消循环"
+                data-tooltip={t("取消循环")}
+                aria-label={t("取消循环")}
                 className="ml-0.5 hover:text-white"
               >
                 <X className="h-3 w-3" />
@@ -242,6 +249,7 @@ export function SectionTimeline({
 
       <div
         ref={viewportRef}
+        id={viewportId}
         onScroll={syncScrollMetrics}
         className="overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
@@ -318,6 +326,11 @@ export function SectionTimeline({
           const looping = sectionLoopKey === i;
           const active =
             sectionLoopKey == null && activeSectionIndex === i;
+          const displayName = localizeSectionName(
+            sec,
+            language,
+            translateText,
+          );
           return (
             <div
               key={sec.id}
@@ -327,7 +340,11 @@ export function SectionTimeline({
                 if (suppressLoopClickRef.current) return;
                 onToggleSectionLoop(i);
               }}
-              title={`${sec.name}（拖动移动，点击循环）`}
+              title={
+                language === "en"
+                  ? `${displayName}. Drag to move; select to toggle looping.`
+                  : `${sec.name}（拖动移动，点击循环）`
+              }
               className={cn(
                 "group absolute bottom-1 top-1 flex min-w-8 cursor-grab items-center overflow-hidden rounded-md border py-0 pl-4 pr-3 transition-colors active:cursor-grabbing",
                 looping
@@ -348,17 +365,25 @@ export function SectionTimeline({
             >
               <button
                 type="button"
-                aria-label={`调整 ${sec.name} 的开始位置`}
+                aria-label={
+                  language === "en"
+                    ? `Adjust the start of ${displayName}`
+                    : `调整 ${sec.name} 的开始位置`
+                }
                 onPointerDown={(event) => startResize(event, i, "left")}
                 onClick={(e) => e.stopPropagation()}
                 className="absolute inset-y-0 left-0 z-10 w-2 cursor-ew-resize bg-[#1d4268db] hover:bg-[#2b5f91db]"
               />
               <p className="w-full truncate text-left text-[11px] font-medium">
-                {sec.name}
+                {displayName}
               </p>
               <button
                 type="button"
-                aria-label={`调整 ${sec.name} 的结束位置`}
+                aria-label={
+                  language === "en"
+                    ? `Adjust the end of ${displayName}`
+                    : `调整 ${sec.name} 的结束位置`
+                }
                 onPointerDown={(event) => startResize(event, i, "right")}
                 onClick={(e) => e.stopPropagation()}
                 className="absolute inset-y-0 right-0 w-2 cursor-ew-resize bg-[#1d4268db] hover:bg-[#2b5f91db]"
@@ -388,7 +413,7 @@ export function SectionTimeline({
                 trackRef.current?.setPointerCapture(event.pointerId);
               }}
               role="slider"
-              aria-label="拖动当前时间"
+              aria-label={t("拖动当前时间")}
               aria-valuemin={0}
               aria-valuemax={duration}
               aria-valuenow={currentTime}

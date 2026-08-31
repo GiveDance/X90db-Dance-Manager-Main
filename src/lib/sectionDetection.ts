@@ -19,6 +19,7 @@ function buildSections(boundaries: number[], total: number, lowEnergyFirst: bool
     out.push({
       id: crypto.randomUUID(),
       name: "",
+      generatedName: true,
       startSeg,
       endSeg,
     });
@@ -49,7 +50,13 @@ export function detectSectionsFromChannel(
   if (N < MIN_SECTION_LEN * 2) {
     // 太短，整首作为一段
     return N > 0
-      ? [{ id: crypto.randomUUID(), name: "第1段", startSeg: 0, endSeg: N - 1 }]
+      ? [{
+          id: crypto.randomUUID(),
+          name: "第1段",
+          generatedName: true,
+          startSeg: 0,
+          endSeg: N - 1,
+        }]
       : [];
   }
 

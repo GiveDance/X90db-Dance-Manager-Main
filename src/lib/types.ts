@@ -60,6 +60,7 @@ export interface Marker {
 export interface DanceSection {
   id: string;
   name: string;
+  generatedName?: boolean;
   startSeg: number; // 起始八拍序号（含）
   endSeg: number; // 结束八拍序号（含）
 }

@@ -7,6 +7,7 @@ import type {
   CountPointStyle,
 } from "@/lib/types";
 import { cn } from "@/lib/cn";
+import { useLanguage } from "@/i18n/LanguageProvider";
 
 interface CountPointDockProps {
   style: CountPointStyle;
@@ -33,6 +34,7 @@ export function CountPointDock({
   preRoll,
   secondsPerBeat,
 }: CountPointDockProps) {
+  const { t } = useLanguage();
   const vertical = position === "left" || position === "right";
   const orientation = vertical ? "vertical" : "horizontal";
 
@@ -54,7 +56,7 @@ export function CountPointDock({
     >
       {preRoll && (
         <span className="absolute left-2 top-1 z-10 text-[10px] font-semibold tracking-[0.18em] text-neutral-500">
-          预拍
+          {t("预拍")}
         </span>
       )}
       {style === "tiles" ? (

@@ -44,6 +44,7 @@ export interface ExportParams {
   vizConfig: BeatVizConfig;
   onProgress?: (ratio: number) => void;
   signal?: AbortSignal;
+  language?: "zh-CN" | "en";
 }
 
 export interface ExportResult {
@@ -638,10 +639,13 @@ function drawFormationAudience(
   ctx: CanvasRenderingContext2D,
   stage: ExportRect,
   audiencePosition: FormationAudiencePosition,
+  language: "zh-CN" | "en",
 ) {
   const horizontal =
     audiencePosition === "top" || audiencePosition === "bottom";
-  const pillWidth = horizontal ? stage.width * 0.18 : stage.width * 0.09;
+  const pillWidth = horizontal
+    ? stage.width * 0.18
+    : stage.width * (language === "en" ? 0.14 : 0.09);
   const pillHeight = horizontal ? stage.height * 0.1 : stage.height * 0.2;
   const inset = Math.max(4, Math.min(stage.width, stage.height) * 0.025);
   const x =
@@ -664,10 +668,18 @@ function drawFormationAudience(
   ctx.fill();
   ctx.stroke();
   ctx.fillStyle = "rgba(255,255,255,0.82)";
-  ctx.font = `600 ${Math.max(8, pillHeight * 0.46)}px sans-serif`;
+  const label = language === "en" ? "Audience" : "观众";
+  let fontSize = Math.max(8, pillHeight * 0.46);
+  ctx.font = `600 ${fontSize}px sans-serif`;
+  const maxTextWidth = pillWidth * 0.76;
+  const measuredWidth = ctx.measureText(label).width;
+  if (measuredWidth > maxTextWidth) {
+    fontSize = Math.max(8, fontSize * (maxTextWidth / measuredWidth));
+    ctx.font = `600 ${fontSize}px sans-serif`;
+  }
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillText("观众", x + pillWidth / 2, y + pillHeight / 2);
+  ctx.fillText(label, x + pillWidth / 2, y + pillHeight / 2);
 }
 
 function drawFormation(
@@ -676,6 +688,7 @@ function drawFormation(
   positions: FormationPosition[],
   audiencePosition: FormationAudiencePosition,
   overlay: boolean,
+  language: "zh-CN" | "en",
 ) {
   const radius = Math.max(10, Math.min(rect.width, rect.height) * 0.045);
   const panelRadius = Math.max(10, Math.min(rect.width, rect.height) * 0.045);
@@ -720,7 +733,7 @@ function drawFormation(
   }
   ctx.restore();
 
-  drawFormationAudience(ctx, stage, audiencePosition);
+  drawFormationAudience(ctx, stage, audiencePosition, language);
   for (const position of positions) {
     const x = stage.x + position.x * stage.width;
     const y = stage.y + position.y * stage.height;
@@ -1019,6 +1032,7 @@ export async function exportVideoWithOverlays(params: ExportParams): Promise<Exp
         formationAtTime(formationChanges, t),
         formationAudiencePosition,
         options.formationPlacement === "overlay",
+        params.language ?? "zh-CN",
       );
     }
     if (

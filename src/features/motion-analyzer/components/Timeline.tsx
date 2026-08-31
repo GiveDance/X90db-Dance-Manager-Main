@@ -2,6 +2,7 @@
 
 import { useCallback, useState } from "react";
 import type { TimelineIssue } from "@/features/motion-analyzer/types";
+import { useLanguage } from "@/i18n/LanguageProvider";
 
 interface TimelineProps {
   currentFrame: number;
@@ -52,6 +53,7 @@ export function Timeline({
   fps = 10,
   syncMethod,
 }: TimelineProps) {
+  const { language, t, translateText } = useLanguage();
   const progress = totalFrames > 0 ? (currentFrame / (totalFrames - 1)) * 100 : 0;
   const [hoveredIssue, setHoveredIssue] = useState<TimelineIssue | null>(null);
 
@@ -84,32 +86,38 @@ export function Timeline({
             return (
               <button
                 key={i}
+                type="button"
+                aria-label={translateText(issue.title)}
                 className={`absolute top-0.5 -translate-x-1/2 h-4 w-4 rounded-full ring-2 ${issueColors[issue.type]} ${issueDotBorder[issue.type]} cursor-pointer transition-transform hover:scale-150 z-10`}
                 style={{ left: `${leftPct}%` }}
                 onClick={() => onFrameChange(issue.frame)}
                 onMouseEnter={() => setHoveredIssue(issue)}
                 onMouseLeave={() => setHoveredIssue(null)}
-                title={issue.title}
+                title={translateText(issue.title)}
               />
             );
           })}
           {/* Tooltip */}
           {hoveredIssue && (
             <div
-              className="absolute -top-14 -translate-x-1/2 px-3 py-1.5 rounded-lg bg-[#2e2e2e] border border-white/12 text-[11px] text-white/80 whitespace-nowrap z-20 shadow-lg pointer-events-none"
+              className="pointer-events-none absolute -top-16 z-20 max-w-[min(28rem,calc(100vw-3rem))] -translate-x-1/2 rounded-lg border border-white/12 bg-[#2e2e2e] px-3 py-1.5 text-[11px] leading-relaxed text-white/80 shadow-lg"
               style={{ left: `${(hoveredIssue.frame / (totalFrames - 1)) * 100}%` }}
             >
-              <span className="font-medium">{hoveredIssue.title}</span>
-              <span className="text-white/40 ml-1.5">{hoveredIssue.description.slice(0, 60)}</span>
+              <span className="font-medium">{translateText(hoveredIssue.title)}</span>
+              <span className="text-white/40 ml-1.5">
+                {translateText(hoveredIssue.description)}
+              </span>
             </div>
           )}
         </div>
       )}
 
       {/* Controls */}
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <button
+          type="button"
           onClick={onPlayPause}
+          aria-label={t("播放 / 暂停对比")}
           className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white/70 hover:bg-white/10 hover:text-white transition-colors shrink-0"
         >
           {isPlaying ? (
@@ -129,14 +137,21 @@ export function Timeline({
             {SPEED_OPTIONS.map((speed) => (
               <button
                 key={speed}
+                type="button"
                 onClick={() => onSpeedChange(speed)}
+                aria-label={
+                  language === "en"
+                    ? `Playback speed ${speed}×`
+                    : `播放速度 ${speed}倍`
+                }
+                aria-pressed={playbackSpeed === speed}
                 className={`px-2 py-1 rounded-md text-[11px] font-medium tabular-nums transition-all ${
                   playbackSpeed === speed
                     ? "bg-[#fe2c55] text-white shadow-sm shadow-[#fe2c55]/30"
                     : "text-white/40 hover:text-white/70 hover:bg-white/5"
                 }`}
               >
-                {speed === 1 ? "1x" : `${speed}x`}
+                {speed}×
               </button>
             ))}
           </div>
@@ -148,6 +163,12 @@ export function Timeline({
           max={Math.max(0, totalFrames - 1)}
           value={currentFrame}
           onChange={handleScrub}
+          aria-label={t("复盘时间线")}
+          aria-valuetext={
+            language === "en"
+              ? `Frame ${currentFrame + 1} of ${totalFrames}`
+              : `第 ${currentFrame + 1} 帧，共 ${totalFrames} 帧`
+          }
           className="flex-1 h-1.5 appearance-none rounded-full bg-white/10 cursor-pointer
             [&::-webkit-slider-thumb]:appearance-none
             [&::-webkit-slider-thumb]:h-4
@@ -173,59 +194,74 @@ export function Timeline({
 
       {/* Manual alignment offset */}
       {onAlignmentOffsetChange && (
-        <div className="flex items-center gap-3 pt-1 border-t border-white/5">
+        <div className="flex flex-wrap items-center gap-2.5 border-t border-white/5 pt-2">
           <div className="flex items-center gap-1.5 shrink-0">
-            <span className="text-[11px] text-white/40">对齐微调</span>
+            <span className="text-[11px] text-white/40">{t("对齐微调")}</span>
             {syncMethod && (
               <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium ${
                 syncMethod === "audio"
                   ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/20"
                   : "bg-blue-500/15 text-blue-400 border border-blue-500/20"
               }`}>
-                {syncMethod === "audio" ? "♪ 音乐对齐" : "◎ 动作对齐"}
+                {syncMethod === "audio" ? t("♪ 音乐对齐") : t("◎ 动作对齐")}
               </span>
             )}
           </div>
           <button
+            type="button"
             onClick={() => onAlignmentOffsetChange(alignmentOffset - 5)}
+            aria-label={t("向前调5帧")}
             className="flex h-6 w-6 items-center justify-center rounded-md border border-white/10 bg-white/5 text-white/50 hover:bg-white/10 hover:text-white text-xs transition-colors"
-            title="向前调5帧"
+            title={t("向前调5帧")}
           >
             ⟪
           </button>
           <button
+            type="button"
             onClick={() => onAlignmentOffsetChange(alignmentOffset - 1)}
+            aria-label={t("向前调1帧")}
             className="flex h-6 w-6 items-center justify-center rounded-md border border-white/10 bg-white/5 text-white/50 hover:bg-white/10 hover:text-white text-xs transition-colors"
-            title="向前调1帧"
+            title={t("向前调1帧")}
           >
             ◀
           </button>
           <span className="text-[11px] tabular-nums text-white/60 min-w-[80px] text-center">
-            {alignmentOffset >= 0 ? "+" : ""}{alignmentOffset} 帧
+            {alignmentOffset >= 0 ? "+" : ""}
+            {alignmentOffset}{" "}
+            {language === "en"
+              ? Math.abs(alignmentOffset) === 1
+                ? "frame"
+                : "frames"
+              : t("帧")}
             <span className="text-white/30 ml-1">
               ({alignmentOffset >= 0 ? "+" : ""}{(alignmentOffset / fps).toFixed(1)}s)
             </span>
           </span>
           <button
+            type="button"
             onClick={() => onAlignmentOffsetChange(alignmentOffset + 1)}
+            aria-label={t("向后调1帧")}
             className="flex h-6 w-6 items-center justify-center rounded-md border border-white/10 bg-white/5 text-white/50 hover:bg-white/10 hover:text-white text-xs transition-colors"
-            title="向后调1帧"
+            title={t("向后调1帧")}
           >
             ▶
           </button>
           <button
+            type="button"
             onClick={() => onAlignmentOffsetChange(alignmentOffset + 5)}
+            aria-label={t("向后调5帧")}
             className="flex h-6 w-6 items-center justify-center rounded-md border border-white/10 bg-white/5 text-white/50 hover:bg-white/10 hover:text-white text-xs transition-colors"
-            title="向后调5帧"
+            title={t("向后调5帧")}
           >
             ⟫
           </button>
           {alignmentOffset !== 0 && (
             <button
+              type="button"
               onClick={() => onAlignmentOffsetChange(0)}
               className="text-[10px] text-[#fe2c55]/70 hover:text-[#fe2c55] transition-colors ml-1"
             >
-              重置
+              {t("重置")}
             </button>
           )}
         </div>
@@ -246,7 +282,10 @@ export function Timeline({
               <div key={type} className="flex items-center gap-1.5">
                 <span className={`h-2 w-2 rounded-full ${issueColors[type]}`} />
                 <span className="text-[10px] text-white/30">
-                  {label} ({count})
+                  {language === "en" && type === "highlight"
+                    ? "Highlights"
+                    : translateText(label)}{" "}
+                  ({count})
                 </span>
               </div>
             );

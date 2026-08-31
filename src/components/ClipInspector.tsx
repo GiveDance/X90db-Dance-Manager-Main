@@ -4,6 +4,7 @@ import { Trash2 } from "lucide-react";
 import type { PlacedPerformingClip } from "@/lib/composition";
 import type { GeneratedStageTemplate } from "@/lib/types";
 import { Toggle } from "./Toggle";
+import { useLanguage } from "@/i18n/LanguageProvider";
 
 const GENERATED_NAMES: Record<GeneratedStageTemplate, string> = {
   street: "棱彩波谱",
@@ -40,6 +41,7 @@ export function ClipInspector({
   onChange,
   onDelete,
 }: ClipInspectorProps) {
+  const { language, t, translateText } = useLanguage();
   if (clip.kind === "generated") {
     const displayName = clip.generatedTemplate
       ? GENERATED_NAMES[clip.generatedTemplate]
@@ -50,15 +52,19 @@ export function ClipInspector({
           <div className="min-w-0 flex-1">
             <p
               className="truncate text-sm font-medium text-white"
-              title={displayName}
+              title={translateText(displayName)}
             >
-              {displayName}
+              {translateText(displayName)}
             </p>
           </div>
           <button
             type="button"
             onClick={() => onDelete(clip.id)}
-            aria-label={`删除 ${displayName}`}
+            aria-label={
+              language === "en"
+                ? `Delete ${translateText(displayName)}`
+                : `删除 ${displayName}`
+            }
             className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-neutral-500 hover:bg-red-500/10 hover:text-red-300"
           >
             <Trash2 className="h-4 w-4" />
@@ -66,13 +72,13 @@ export function ClipInspector({
         </div>
         <div className="!mt-3 grid grid-cols-2 gap-2">
           <div className="rounded-lg border border-white/[0.07] bg-black/40 px-3 py-2">
-            <span className="block text-[11px] text-neutral-500">开始</span>
+            <span className="block text-[11px] text-neutral-500">{t("开始")}</span>
             <span className="mt-1 block text-xs tabular-nums text-neutral-300">
               {clip.timelineStart.toFixed(1)}s
             </span>
           </div>
           <div className="rounded-lg border border-white/[0.07] bg-black/40 px-3 py-2">
-            <span className="block text-[11px] text-neutral-500">结束</span>
+            <span className="block text-[11px] text-neutral-500">{t("结束")}</span>
             <span className="mt-1 block text-xs tabular-nums text-neutral-300">
               {clip.timelineEnd.toFixed(1)}s
             </span>
@@ -93,7 +99,7 @@ export function ClipInspector({
         <button
           type="button"
           onClick={() => onDelete(clip.id)}
-          aria-label={`删除 ${clip.name}`}
+          aria-label={language === "en" ? `Delete ${clip.name}` : `删除 ${clip.name}`}
           className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-neutral-500 hover:bg-red-500/10 hover:text-red-300"
         >
           <Trash2 className="h-4 w-4" />
@@ -127,7 +133,7 @@ export function ClipInspector({
           className={index === 0 ? "!mt-3 block" : "block"}
         >
           <span className="flex items-center justify-between text-[11px] text-neutral-500">
-            {control.label}
+            {translateText(control.label)}
             <span className="tabular-nums text-neutral-200">
               {control.value.toFixed(control.key === "playbackRate" ? 2 : 1)}
               {control.unit}
@@ -147,25 +153,25 @@ export function ClipInspector({
             className="mt-2 w-full accent-[#30E6FF]"
           />
           <span className="mt-1.5 block text-[11px] leading-4 text-neutral-500">
-            {control.help}
+            {translateText(control.help)}
           </span>
         </label>
       ))}
 
       <div className="h-px bg-white/5" />
 
-      <div>
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm font-medium text-neutral-200">循环播放</p>
+      <div className="min-w-0 pr-3">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-neutral-200">{t("循环播放")}</p>
             <p className="mt-1 text-[11px] leading-4 text-neutral-500">
-              循环原视频以填充更长的时间范围。
+              {t("循环原视频以填充更长的时间范围。")}
             </p>
           </div>
           <Toggle
             checked={clip.repeat === true}
             onChange={(repeat) => onChange(clip.id, { repeat })}
-            label="循环播放"
+            label={t("循环播放")}
           />
         </div>
       </div>

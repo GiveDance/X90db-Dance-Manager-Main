@@ -7,6 +7,7 @@ import {
   LANDING_VIDEO_PLAYBACK_RATE,
   landingCharacterAt,
 } from "@/lib/landingRhythm";
+import { useLanguage } from "@/i18n/LanguageProvider";
 
 const VERTEX_SHADER = `
   attribute vec2 aPosition;
@@ -99,6 +100,7 @@ function compileShader(
 }
 
 export function LandingExperience() {
+  const { t } = useLanguage();
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -292,16 +294,16 @@ export function LandingExperience() {
 
       <header className="absolute inset-x-0 top-7 z-10 mx-auto flex max-w-5xl justify-center px-6">
         <p className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-center font-mono text-[11px] tracking-[0.16em] text-white/58">
-          <span>听障人士舞蹈小助手</span>
+          <span>{t("听障人士舞蹈小助手")}</span>
           <span className="text-white/38">
-            Designed for X90dB 聋人街舞团 by Studio 8 × Give
+            {t("Designed for X90dB 聋人街舞团 by Studio 8 × Give")}
           </span>
         </p>
       </header>
 
       <span className="absolute inset-x-6 bottom-8 z-10 flex items-center justify-center gap-2 font-mono text-[10px] uppercase tracking-[0.24em] text-white/45">
         <ArrowDown className="h-3.5 w-3.5 animate-bounce" />
-        选择模式开始
+        {t("选择模式开始")}
       </span>
     </section>
   );

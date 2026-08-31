@@ -53,6 +53,7 @@ import { PerformingExportDialog } from "./PerformingExportDialog";
 import { PerformerSignalRenderer } from "./PerformerSignalRenderer";
 import { PerformanceStageRenderer } from "./PerformanceStageRenderer";
 import { StageInspector } from "./StageInspector";
+import { useLanguage } from "@/i18n/LanguageProvider";
 
 type LibraryTab = "clips" | "generated";
 
@@ -135,6 +136,7 @@ export function PerformingWorkspace({
   onBack,
   onProjectChange,
 }: PerformingWorkspaceProps) {
+  const { language, t, translateText } = useLanguage();
   const { videoRef, videoProps, state, actions } = usePlayer();
   const clipVideoRef = useRef<HTMLVideoElement>(null);
   const clipInputRef = useRef<HTMLInputElement>(null);
@@ -658,20 +660,23 @@ export function PerformingWorkspace({
 
   return (
     <div className="flex h-full w-full flex-col bg-black">
-      <header className="flex h-12 shrink-0 items-center gap-2 border-b border-white/5 bg-neutral-950 px-4">
+      <header className="flex min-h-12 shrink-0 flex-wrap items-center gap-x-2 gap-y-1 border-b border-white/5 bg-neutral-950 px-4 py-1.5">
         <button
           type="button"
           onClick={onBack}
-          className="flex items-center gap-1.5 rounded-lg bg-white/5 px-3 py-1.5 text-xs text-neutral-300 transition-colors hover:bg-white/10 hover:text-white"
+          className="flex shrink-0 items-center gap-1.5 rounded-lg bg-white/5 px-3 py-1.5 text-xs text-neutral-300 transition-colors hover:bg-white/10 hover:text-white"
         >
           <ArrowLeft className="h-3.5 w-3.5" />
-          返回
+          {t("返回")}
         </button>
-        <span className="min-w-0 flex-1 truncate text-xs text-neutral-500">
+        <span
+          className="min-w-24 flex-1 truncate text-xs text-neutral-500"
+          title={project.name}
+        >
           {project.name}
         </span>
-        <span className="rounded-full border border-violet-400/20 bg-violet-400/10 px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.16em] text-violet-300">
-          Performing
+        <span className="shrink-0 rounded-full border border-violet-400/20 bg-violet-400/10 px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.16em] text-violet-300">
+          {t("演出")}
         </span>
         <button
           type="button"
@@ -679,11 +684,11 @@ export function PerformingWorkspace({
             actions.pause();
             setExportOpen(true);
           }}
-          title="导出视频"
-          className="flex items-center gap-1.5 rounded-lg bg-white/5 px-3 py-1.5 text-xs text-neutral-300 transition-colors hover:bg-white/10 hover:text-white"
+          title={t("导出视频")}
+          className="flex shrink-0 items-center gap-1.5 rounded-lg bg-white/5 px-3 py-1.5 text-xs text-neutral-300 transition-colors hover:bg-white/10 hover:text-white"
         >
           <Download className="h-3.5 w-3.5" />
-          导出
+          {t("导出")}
         </button>
         <DevToolsButton />
       </header>
@@ -734,8 +739,12 @@ export function PerformingWorkspace({
             />
           )}
           {displayedVideoClip && !activeClipUrl && (
-            <div className="relative z-[1] text-sm text-neutral-600">
-              正在加载素材预览…
+            <div
+              className="relative z-[1] text-sm text-neutral-600"
+              role="status"
+              aria-live="polite"
+            >
+              {t("正在加载素材预览…")}
             </div>
           )}
           {trackVisibility.overlay && (
@@ -782,10 +791,10 @@ export function PerformingWorkspace({
         <div className="shrink-0 bg-neutral-950 px-3 pb-0">
           <div className="flex items-center justify-between py-4 pl-2 pr-3">
             <span className="text-xs font-medium text-neutral-300">
-              合成时间线
+              {t("合成时间线")}
             </span>
             <span className="flex items-baseline gap-1.5">
-              <span className="text-[10px] text-neutral-600">当前拍</span>
+              <span className="text-[10px] text-neutral-600">{t("当前拍")}</span>
               <span className="text-xs font-medium tabular-nums text-neutral-300">
                 {currentBeatLabel}
               </span>
@@ -846,11 +855,17 @@ export function PerformingWorkspace({
         />
       </div>
 
-      <aside className="flex h-full w-[clamp(300px,28vw,380px)] shrink-0 flex-col border-l border-white/5 bg-neutral-950">
+      <aside
+        className={`flex h-full shrink-0 flex-col border-l border-white/5 bg-neutral-950 ${
+          language === "en"
+            ? "w-[clamp(340px,30vw,420px)]"
+            : "w-[clamp(300px,28vw,380px)]"
+        }`}
+      >
         <section className="flex min-h-0 flex-[3] flex-col border-b border-white/5">
           <div className="shrink-0 p-5">
             <p className="text-xs font-medium text-neutral-300">
-              素材设置
+              {t("素材设置")}
             </p>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto">
@@ -868,12 +883,12 @@ export function PerformingWorkspace({
                 />
               </div>
             ) : (
-              <div className="flex h-full min-h-32 flex-col items-center justify-center px-3 text-center">
-                <p className="text-xs text-neutral-600">
-                  请在时间线中选择一个素材
+              <div className="flex h-full min-h-32 flex-col items-center justify-center px-5 text-center">
+                <p className="text-xs text-neutral-500">
+                  {t("请在时间线中选择一个素材")}
                 </p>
-                <p className="mt-2 text-[11px] leading-5 text-neutral-700">
-                  素材的时间、速度与播放设置会显示在这里
+                <p className="mt-2 max-w-64 text-[11px] leading-5 text-neutral-600">
+                  {t("素材的时间、速度与播放设置会显示在这里")}
                 </p>
               </div>
             )}
@@ -883,10 +898,14 @@ export function PerformingWorkspace({
         <section className="flex min-h-0 flex-[2] flex-col">
           <div className="shrink-0 p-5">
             <p className="text-xs font-medium text-neutral-300">
-              素材库
+              {t("素材库")}
             </p>
           </div>
-          <div className="mx-3 grid shrink-0 grid-cols-2 rounded-lg bg-neutral-900 text-sm">
+          <div
+            role="tablist"
+            aria-label={t("素材库")}
+            className="mx-3 grid shrink-0 grid-cols-2 rounded-lg bg-neutral-900 p-0.5 text-sm"
+          >
             {([
               ["generated", "生成素材", Sparkles],
               ["clips", "视频素材", Clapperboard],
@@ -894,6 +913,8 @@ export function PerformingWorkspace({
               <button
                 key={id}
                 type="button"
+                role="tab"
+                aria-selected={libraryTab === id}
                 onClick={() => setLibraryTab(id)}
                 onDragOver={(event) => {
                   if (
@@ -914,7 +935,7 @@ export function PerformingWorkspace({
                   setClipDropActive(false);
                   void addClipFiles(event.dataTransfer.files);
                 }}
-                className={`flex items-center justify-center gap-1.5 rounded-md px-3 py-2 text-xs transition-colors ${
+                className={`flex min-w-0 items-center justify-center gap-1.5 rounded-md px-2 py-2 text-xs transition-colors ${
                   libraryTab === id
                     ? id === "clips"
                       ? "bg-[#30E6FF] text-black"
@@ -923,7 +944,11 @@ export function PerformingWorkspace({
                 }`}
               >
                 <Icon className="h-3.5 w-3.5" />
-                {label}
+                <span className="min-w-0 truncate">
+                  {language === "en"
+                    ? t(id === "generated" ? "生成片段" : "上传片段")
+                    : translateText(label)}
+                </span>
               </button>
             ))}
           </div>
@@ -984,14 +1009,17 @@ export function PerformingWorkspace({
                 <Plus className="h-4 w-4" />
               )}
               {addingClips
-                ? "正在添加…"
+                ? t("正在添加…")
                 : clipDropActive
-                  ? "松开以上传视频"
-                  : "点击或拖放视频素材"}
+                  ? t("松开以上传视频")
+                  : t("点击或拖放视频素材")}
             </button>
             {clipError && (
-              <p className="mt-2 text-[11px] leading-5 text-red-300/80">
-                {clipError}
+              <p
+                role="alert"
+                className="mt-2 text-[11px] leading-5 text-red-300/80"
+              >
+                {translateText(clipError)}
               </p>
             )}
 
@@ -1011,7 +1039,11 @@ export function PerformingWorkspace({
                     key={clip.id}
                     type="button"
                     draggable
-                    aria-label={`拖拽 ${clip.name} 到合成时间线`}
+                    aria-label={
+                      language === "en"
+                        ? `Drag ${clip.name} to the composition timeline`
+                        : `拖拽 ${clip.name} 到合成时间线`
+                    }
                     onDragStart={(event) => {
                       event.dataTransfer.effectAllowed = "copyMove";
                       event.dataTransfer.setData(VIDEO_CLIP_DRAG_TYPE, clip.id);
@@ -1065,7 +1097,7 @@ export function PerformingWorkspace({
                         <span>{formatTime(clip.sourceDuration)}</span>
                         {instanceCount > 0 && (
                           <span className="rounded bg-[#30E6FF]/10 px-1.5 py-0.5 text-[#30E6FF]">
-                            时间线 ×{instanceCount}
+                            {t("时间线 ×")}{instanceCount}
                           </span>
                         )}
                       </span>

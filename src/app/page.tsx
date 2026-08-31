@@ -732,6 +732,11 @@ export default function HomePage() {
   if (phase === "motion-analyzer") {
     return (
       <MotionAnalyzer
+        backLabel={
+          motionAnalyzerOrigin === "player"
+            ? "返回练习播放器"
+            : "返回 Dance Manager 首页"
+        }
         onBack={() => {
           if (motionAnalyzerOrigin === "player" && current) {
             setPhase("player");

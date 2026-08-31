@@ -5,6 +5,7 @@ import { X } from "lucide-react";
 import { MARKER_COLORS, type Marker } from "@/lib/types";
 import { formatTime } from "@/lib/format";
 import { cn } from "@/lib/cn";
+import { useLanguage } from "@/i18n/LanguageProvider";
 
 const DISPLAY = 4.5; // 每条标记的显示时长（秒）
 
@@ -21,6 +22,7 @@ interface DanmakuLayerProps {
  * 该层不参与镜像翻转。
  */
 export function DanmakuLayer({ markers, currentTime, enabled, onRemove }: DanmakuLayerProps) {
+  const { t } = useLanguage();
   if (!enabled) return null;
 
   const active = markers.filter(
@@ -52,8 +54,8 @@ export function DanmakuLayer({ markers, currentTime, enabled, onRemove }: Danmak
                 {m.text && <span className="text-white/90">{m.text}</span>}
                 <button
                   onClick={() => onRemove(m.id)}
-                  data-tooltip="删除提示"
-                  aria-label="删除提示"
+                  data-tooltip={t("删除提示")}
+                  aria-label={t("删除提示")}
                   className="ml-0.5 hidden h-5 w-5 items-center justify-center rounded-full bg-white/10 text-white/70 transition-colors hover:bg-red-500/80 hover:text-white group-hover:flex"
                 >
                   <X className="h-3 w-3" />

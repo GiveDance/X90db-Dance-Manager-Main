@@ -3,6 +3,7 @@
 import { useCallback, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import type { VideoRole, VideoFile } from "@/features/motion-analyzer/types";
+import { useLanguage } from "@/i18n/LanguageProvider";
 
 interface VideoUploadCardProps {
   role: VideoRole;
@@ -17,6 +18,7 @@ export function VideoUploadCard({
   onUpload,
   onRemove,
 }: VideoUploadCardProps) {
+  const { language, t } = useLanguage();
   const inputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
 
@@ -63,19 +65,22 @@ export function VideoUploadCard({
           />
           <div className="absolute top-3 left-3">
             <span className="text-xs font-semibold text-white bg-black/60 backdrop-blur-md px-3 py-1 rounded-full border border-white/10">
-              {label}
+              {t(label)}
             </span>
           </div>
         </div>
-        <div className="flex items-center justify-between px-4 py-3">
-          <p className="text-sm text-white/60 truncate max-w-[200px]">
+        <div className="flex items-center justify-between gap-3 px-4 py-3">
+          <p className="min-w-0 flex-1 truncate text-sm text-white/60">
             {video.name}
           </p>
           <button
             onClick={onRemove}
-            className="text-xs text-white/30 hover:text-red-400 transition-colors"
+            aria-label={
+              language === "en" ? `Remove ${t(label).toLowerCase()}` : `移除${label}`
+            }
+            className="shrink-0 text-xs text-white/30 transition-colors hover:text-red-400"
           >
-            移除
+            {t("移除")}
           </button>
         </div>
       </motion.div>
@@ -87,14 +92,23 @@ export function VideoUploadCard({
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       onClick={() => inputRef.current?.click()}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          inputRef.current?.click();
+        }
+      }}
       onDrop={handleDrop}
       onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
       onDragLeave={() => setIsDragging(false)}
       style={{ aspectRatio: '16 / 7.2' }}
+      role="button"
+      tabIndex={0}
+      aria-label={t(sublabel)}
       className={`
         relative flex flex-col items-center justify-center gap-3
         rounded-2xl border-2 border-dashed cursor-pointer
-        transition-all duration-200
+        transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#fe2c55]
         ${isDragging
           ? "border-[#fe2c55]/50 bg-[#fe2c55]/5"
           : "border-white/15 bg-[#1c1c1c] hover:border-white/25 hover:bg-[#252525]"
@@ -107,10 +121,10 @@ export function VideoUploadCard({
         </svg>
       </div>
       <div className="text-center">
-        <p className="text-sm font-medium text-white/90">{label}</p>
-        <p className="text-xs text-white/45 mt-0.5">{sublabel}</p>
+        <p className="text-sm font-medium text-white/90">{t(label)}</p>
+        <p className="text-xs text-white/45 mt-0.5">{t(sublabel)}</p>
       </div>
-      <p className="text-[11px] text-white/35">拖放文件或点击浏览</p>
+      <p className="text-[11px] text-white/35">{t("拖放文件或点击浏览")}</p>
       <input
         ref={inputRef}
         type="file"

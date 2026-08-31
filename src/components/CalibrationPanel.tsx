@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { X, Plus, Minus, Crosshair, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { useLanguage } from "@/i18n/LanguageProvider";
 
 interface CalibrationPanelProps {
   bpm: number;
@@ -32,6 +33,7 @@ export function CalibrationPanel({
   onReset,
   onClose,
 }: CalibrationPanelProps) {
+  const { language, t } = useLanguage();
   const taps = useRef<number[]>([]);
   const [tapCount, setTapCount] = useState(0);
   const spb = 60 / bpm;
@@ -80,22 +82,22 @@ export function CalibrationPanel({
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Crosshair className="h-4 w-4 text-blue-400" />
-          <h3 className="text-sm font-semibold text-white">节奏校准</h3>
+          <h3 className="text-sm font-semibold text-white">{t("节奏校准")}</h3>
         </div>
         <div className="flex items-center gap-1">
           <button
             onClick={onReset}
-            title="恢复首次解析值"
+            title={t("恢复首次解析值")}
             className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-neutral-400 hover:bg-white/10 hover:text-white"
           >
             <RotateCcw className="h-3.5 w-3.5" />
-            重置
+            {t("重置")}
           </button>
           <button
             type="button"
             onClick={onClose}
-            data-tooltip="关闭"
-            aria-label="关闭节奏校准"
+            data-tooltip={t("关闭")}
+            aria-label={t("关闭节奏校准")}
             className="rounded-md p-1 text-neutral-500 hover:text-white"
           >
             <X className="h-4 w-4" />
@@ -104,8 +106,13 @@ export function CalibrationPanel({
       </div>
 
       {/* 当前拍大字提示，便于对齐验证（听障也可视觉确认） */}
-      <div className="mb-3 flex items-center gap-3 rounded-xl bg-black/40 px-3 py-2">
-        <span className="text-xs text-neutral-500">当前拍</span>
+      <div
+        className={cn(
+          "mb-3 flex items-center gap-3 rounded-xl bg-black/40 px-3 py-2",
+          language === "en" && "flex-wrap",
+        )}
+      >
+        <span className="text-xs text-neutral-500">{t("当前拍")}</span>
         <span
           className={cn(
             "flex h-9 w-9 items-center justify-center rounded-lg text-lg font-bold tabular-nums transition-colors",
@@ -114,8 +121,13 @@ export function CalibrationPanel({
         >
           {currentCount > 0 ? currentCount : "–"}
         </span>
-        <span className="min-w-0 flex-1 text-xs text-neutral-500">
-          播放并观察顶部节拍点 / 此数字是否与音乐、动作对齐
+        <span
+          className={cn(
+            "min-w-0 flex-1 text-xs leading-relaxed text-neutral-500",
+            language === "en" && "basis-full",
+          )}
+        >
+          {t("播放并观察顶部节拍点 / 此数字是否与音乐、动作对齐")}
         </span>
       </div>
 
@@ -126,8 +138,8 @@ export function CalibrationPanel({
           <button
             type="button"
             onClick={() => onSetBpm(clampBpm(Math.round((bpm - 1) * 10) / 10))}
-            data-tooltip="BPM 减 1"
-            aria-label="BPM 减 1"
+            data-tooltip={t("BPM 减 1")}
+            aria-label={t("BPM 减 1")}
             className="flex h-9 items-center justify-center rounded-lg border border-white/10 text-neutral-300 hover:bg-white/10"
           >
             <Minus className="h-4 w-4" />
@@ -152,8 +164,8 @@ export function CalibrationPanel({
           <button
             type="button"
             onClick={() => onSetBpm(clampBpm(Math.round((bpm + 1) * 10) / 10))}
-            data-tooltip="BPM 加 1"
-            aria-label="BPM 加 1"
+            data-tooltip={t("BPM 加 1")}
+            aria-label={t("BPM 加 1")}
             className="flex h-9 items-center justify-center rounded-lg border border-white/10 text-neutral-300 hover:bg-white/10"
           >
             <Plus className="h-4 w-4" />
@@ -162,24 +174,28 @@ export function CalibrationPanel({
         <button
           type="button"
           onClick={tap}
-          className="mt-2 flex h-9 w-full items-center justify-center gap-2 rounded-lg bg-blue-500/15 px-4 text-sm font-medium text-blue-300 transition-colors hover:bg-blue-500/25 active:scale-[0.99]"
+          className="mt-2 flex min-h-14 w-full flex-col items-center justify-center gap-0.5 rounded-lg bg-blue-500/15 px-4 py-2.5 text-blue-300 transition-colors hover:bg-blue-500/25 active:scale-[0.99]"
         >
-          Tap 测速
-          <span className="text-xs text-blue-400/70">
-            {tapCount > 0 ? `已敲 ${tapCount}` : "跟着动作敲"}
+          <span className="text-sm font-medium">{t("Tap 测速")}</span>
+          <span className="text-xs font-normal text-blue-400/70">
+            {tapCount > 0
+              ? language === "en"
+                ? `${tapCount} ${tapCount === 1 ? "tap" : "taps"}`
+                : `已敲 ${tapCount}`
+              : t("跟着动作敲")}
           </span>
         </button>
       </div>
 
       <div className="order-1 mb-3 rounded-xl border border-white/5 bg-black/20 p-3">
-        <h4 className="mb-2 text-xs font-medium text-neutral-300">第1拍</h4>
+        <h4 className="mb-2 text-xs font-medium text-neutral-300">{t("第1拍")}</h4>
         <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] gap-2">
           <button
             type="button"
             onClick={() => onShiftOffset(-spb)}
             className="h-9 rounded-lg border border-white/10 px-3 text-xs text-neutral-300 hover:bg-white/10"
           >
-            −1拍
+            {t("−1拍")}
           </button>
           <div className="relative min-w-0">
             <input
@@ -196,7 +212,7 @@ export function CalibrationPanel({
               onKeyDown={(event) => {
                 if (event.key === "Enter") event.currentTarget.blur();
               }}
-              aria-label="第1拍时间点（秒）"
+              aria-label={t("第1拍时间点（秒）")}
               className="h-9 min-w-0 w-full rounded-lg border border-white/10 bg-neutral-950 pl-3 pr-7 text-center text-sm font-semibold tabular-nums text-white outline-none focus:border-blue-500/60 focus:ring-1 focus:ring-blue-500"
             />
             <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-neutral-500">
@@ -208,7 +224,7 @@ export function CalibrationPanel({
             onClick={() => onShiftOffset(spb)}
             className="h-9 rounded-lg border border-white/10 px-3 text-xs text-neutral-300 hover:bg-white/10"
           >
-            +1拍
+            {t("+1拍")}
           </button>
         </div>
         <button
@@ -216,13 +232,13 @@ export function CalibrationPanel({
           onClick={onSetDownbeat}
           className="mt-2 h-9 w-full rounded-lg bg-white/5 px-3 text-xs font-medium text-neutral-200 hover:bg-white/10"
         >
-          设为当前画面
+          {t("设为当前画面")}
         </button>
       </div>
       </div>
 
       <p className="mt-3 text-[11px] leading-relaxed text-neutral-500">
-        建议流程：先暂停到动作「1」那一帧 →「设为当前画面」→ 再用 Tap 测速或 ± 调 BPM，让后面的拍跟上。
+        {t("建议流程：先暂停到动作「1」那一帧 →「设为当前画面」→ 再用 Tap 测速或 ± 调 BPM，让后面的拍跟上。")}
       </p>
     </motion.div>
   );

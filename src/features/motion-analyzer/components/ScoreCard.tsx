@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import type { AnalysisResult } from "@/features/motion-analyzer/types";
+import { useLanguage } from "@/i18n/LanguageProvider";
 
 interface ScoreCardProps {
   analysis: AnalysisResult;
@@ -41,6 +42,7 @@ function getDimIcon(label: string): string {
 }
 
 export function ScoreCard({ analysis }: ScoreCardProps) {
+  const { t, translateText } = useLanguage();
   const { overallScore, dimensions } = analysis;
   const circumference = 2 * Math.PI * 54;
   const offset = circumference - (overallScore / 100) * circumference;
@@ -51,13 +53,13 @@ export function ScoreCard({ analysis }: ScoreCardProps) {
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.5, ease: "easeOut" }}
-      className="rounded-2xl border border-white/12 bg-[#1c1c1c] p-8"
+      className="rounded-2xl border border-white/12 bg-[#1c1c1c] p-5 sm:p-8"
     >
       <div className="flex flex-col md:flex-row items-center gap-8">
         {/* Overall score ring */}
         <div className="flex flex-col items-center gap-3 shrink-0">
           <h3 className="text-xs font-semibold uppercase tracking-widest text-white/30">
-            综合得分
+            {t("综合得分")}
           </h3>
           <div className="relative flex items-center justify-center">
             <svg width="140" height="140" className="-rotate-90">
@@ -93,14 +95,14 @@ export function ScoreCard({ analysis }: ScoreCardProps) {
             </div>
           </div>
           <p className="text-sm font-medium text-white/50">
-            {getScoreLabel(overallScore)}
+            {translateText(getScoreLabel(overallScore))}
           </p>
         </div>
 
         {/* Dimension breakdown */}
         <div className="flex-1 w-full space-y-4">
           <h3 className="text-xs font-semibold uppercase tracking-widest text-white/30">
-            分项评分
+            {t("分项评分")}
           </h3>
           {dimensions.map((dim, i) => (
             <motion.div
@@ -113,7 +115,7 @@ export function ScoreCard({ analysis }: ScoreCardProps) {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span className="text-sm">{getDimIcon(dim.label)}</span>
-                  <span className="text-sm text-white/70">{dim.label}</span>
+                  <span className="text-sm text-white/70">{translateText(dim.label)}</span>
                 </div>
                 <span className={`text-sm font-bold tabular-nums ${getScoreColor(dim.score)}`}>
                   {dim.score}
@@ -127,7 +129,7 @@ export function ScoreCard({ analysis }: ScoreCardProps) {
                   transition={{ duration: 0.8, delay: 0.6 + i * 0.1, ease: "easeOut" }}
                 />
               </div>
-              <p className="text-[11px] text-white/25">{dim.description}</p>
+              <p className="text-[11px] text-white/25">{translateText(dim.description)}</p>
             </motion.div>
           ))}
         </div>

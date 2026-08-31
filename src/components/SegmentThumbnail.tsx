@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { ThumbnailGenerator } from "@/lib/thumbnailGenerator";
+import { useLanguage } from "@/i18n/LanguageProvider";
 
 interface SegmentThumbnailProps {
   generator: ThumbnailGenerator | null;
@@ -11,6 +12,7 @@ interface SegmentThumbnailProps {
 
 /** 懒加载缩略图：进入可视区域才向生成器请求截帧。 */
 export function SegmentThumbnail({ generator, time, num }: SegmentThumbnailProps) {
+  const { language } = useLanguage();
   const ref = useRef<HTMLDivElement>(null);
   const [url, setUrl] = useState<string | null>(null);
   const requested = useRef(false);
@@ -45,7 +47,11 @@ export function SegmentThumbnail({ generator, time, num }: SegmentThumbnailProps
     >
       {url ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={url} alt={`8拍 ${num}`} className="h-full w-full object-cover" />
+        <img
+          src={url}
+          alt={language === "en" ? `8-count ${num} preview` : `8拍 ${num}`}
+          className="h-full w-full object-cover"
+        />
       ) : (
         <div className="flex h-full w-full items-center justify-center text-xs text-neutral-600">
           {num}

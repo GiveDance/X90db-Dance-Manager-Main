@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { useLanguage } from "@/i18n/LanguageProvider";
 
 interface ProcessingOverlayProps {
   progress: number;
@@ -8,13 +9,21 @@ interface ProcessingOverlayProps {
 }
 
 export function ProcessingOverlay({ progress, stage }: ProcessingOverlayProps) {
+  const { t, translateText } = useLanguage();
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       className="flex flex-col items-center justify-center gap-6 py-16"
     >
-      <div className="relative h-16 w-16">
+      <div
+        className="relative h-16 w-16"
+        role="progressbar"
+        aria-label={translateText(stage)}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={Math.round(progress)}
+      >
         <svg className="h-16 w-16 animate-spin" viewBox="0 0 64 64">
           <circle cx="32" cy="32" r="28" fill="none" stroke="#2e2e2e" strokeWidth="4" />
           <circle
@@ -30,9 +39,9 @@ export function ProcessingOverlay({ progress, stage }: ProcessingOverlayProps) {
           {Math.round(progress)}%
         </span>
       </div>
-      <div className="text-center">
-        <p className="text-sm font-medium text-white/80">{stage}</p>
-        <p className="text-xs text-white/30 mt-1">请稍候，正在处理中...</p>
+      <div className="text-center" role="status" aria-live="polite">
+        <p className="text-sm font-medium text-white/80">{translateText(stage)}</p>
+        <p className="text-xs text-white/30 mt-1">{t("请稍候，正在处理中...")}</p>
       </div>
       <div className="w-64 h-1 rounded-full bg-white/10 overflow-hidden">
         <motion.div

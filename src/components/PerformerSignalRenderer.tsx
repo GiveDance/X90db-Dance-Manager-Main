@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { trackedBeatPreRoll } from "@/lib/countIn";
 import { drawPerformerSignal } from "@/lib/performerSignal";
 import type { PerformingStageSettings } from "@/lib/types";
+import { useLanguage } from "@/i18n/LanguageProvider";
 
 export function PerformerSignalRenderer({
   beats,
@@ -16,6 +17,7 @@ export function PerformerSignalRenderer({
   settings: PerformingStageSettings;
   time: number;
 }) {
+  const { t } = useLanguage();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
 
@@ -95,7 +97,7 @@ export function PerformerSignalRenderer({
     <canvas
       ref={canvasRef}
       role="img"
-      aria-label="八拍节拍信号。当前拍高亮，较大的双边框拍点表示重拍。"
+      aria-label={t("八拍节拍信号。当前拍高亮，较大的双边框拍点表示重拍。")}
       className="pointer-events-none absolute inset-0 z-10 h-full w-full"
     />
   );

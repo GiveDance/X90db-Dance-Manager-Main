@@ -14,6 +14,7 @@ import { SharedModeSelector } from "./SharedModeSelector";
 import { DevToolsButton } from "./DevToolsButton";
 import type { PerformingProject, SavedDanceMeta } from "@/lib/types";
 import { cn } from "@/lib/cn";
+import { useLanguage } from "@/i18n/LanguageProvider";
 
 export type WorkspaceMode = "learning" | "performing";
 type HomeSnapTarget = "landing" | "workspace";
@@ -65,6 +66,7 @@ export function Home({
   onOpenMotionAnalyzer,
   initialTarget = "landing",
 }: HomeProps) {
+  const { t, translateText } = useLanguage();
   const workspaceRef = useRef<HTMLElement>(null);
   const homeScrollRef = useRef<HTMLDivElement>(null);
   const snapTargetRef = useRef<HomeSnapTarget | null>(null);
@@ -231,7 +233,7 @@ export function Home({
       <LandingExperience />
       <section
         ref={workspaceRef}
-        aria-label="Dance Manager 功能区"
+        aria-label={t("Dance Manager 功能区")}
         className="relative z-[3] min-h-full text-sm"
       >
       <div className="mx-auto max-w-5xl px-6 pb-16 pt-11">
@@ -260,7 +262,7 @@ export function Home({
                       : "text-violet-200/70",
                   )}
                 >
-                  {feature}
+                  {translateText(feature)}
                 </span>
               </span>
             ))}
@@ -274,7 +276,7 @@ export function Home({
             role="alert"
             className="mt-5 rounded-xl border border-red-500/25 bg-red-500/10 px-4 py-3 text-sm text-red-200"
           >
-            {libraryError}
+            {translateText(libraryError)}
           </div>
         )}
 
@@ -305,7 +307,7 @@ export function Home({
               id="early-access-heading"
               className="text-sm font-semibold text-white"
             >
-              抢先体验
+              {t("抢先体验")}
             </h2>
           </div>
 
@@ -339,14 +341,14 @@ export function Home({
                       )}
                     </span>
                     <h3 className="truncate text-sm font-medium text-neutral-200">
-                      {title}
+                      {translateText(title)}
                     </h3>
                   </div>
                   <span
                    className="text-ui-secondary ml-4 inline-flex shrink-0 items-center gap-1.5 rounded-full bg-black/25 px-2.5 py-1 text-xs font-medium"
                   >
                    <span className="h-1.5 w-1.5 rounded-full bg-amber-300/60" />
-                   开发中
+                   {t("开发中")}
                   </span>
                   </>
                 );

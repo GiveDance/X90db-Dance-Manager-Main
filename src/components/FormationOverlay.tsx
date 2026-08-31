@@ -8,6 +8,7 @@ import type {
 } from "@/lib/types";
 import { formationAtTime } from "@/lib/formations";
 import { FormationStageEditor } from "./FormationStageEditor";
+import { useLanguage } from "@/i18n/LanguageProvider";
 
 interface Position {
   x: number;
@@ -29,6 +30,7 @@ export function FormationOverlay({
   audiencePosition: FormationAudiencePosition;
   currentTime: number;
 }) {
+  const { t } = useLanguage();
   const panelRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{
     pointerId: number;
@@ -116,8 +118,8 @@ export function FormationOverlay({
       <div className="pointer-events-none absolute right-2 top-2 z-10 flex items-center gap-1 rounded-lg bg-black/25 p-1 opacity-0 backdrop-blur-md transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100">
         <button
           type="button"
-          data-tooltip="编辑走位"
-          aria-label="编辑走位"
+          data-tooltip={t("编辑走位")}
+          aria-label={t("编辑走位")}
           onPointerDown={(event) => event.stopPropagation()}
           onClick={onEdit}
           className="flex h-8 w-8 items-center justify-center rounded-lg text-neutral-300 transition-colors hover:bg-white/10 hover:text-white"
@@ -126,8 +128,8 @@ export function FormationOverlay({
         </button>
         <button
           type="button"
-          data-tooltip="关闭走位"
-          aria-label="关闭走位"
+          data-tooltip={t("关闭走位")}
+          aria-label={t("关闭走位")}
           onPointerDown={(event) => event.stopPropagation()}
           onClick={onDismiss}
           className="flex h-8 w-8 items-center justify-center rounded-lg text-neutral-300 transition-colors hover:bg-white/10 hover:text-white"
@@ -156,7 +158,7 @@ export function FormationOverlay({
             className="flex items-center gap-2 rounded-lg bg-white/10 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-white/15"
           >
             <Pencil className="h-4 w-4" />
-            编辑走位
+            {t("编辑走位")}
           </button>
         </div>
       )}

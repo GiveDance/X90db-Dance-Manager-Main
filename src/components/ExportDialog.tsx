@@ -28,6 +28,7 @@ import type {
   RhythmBeat,
 } from "@/lib/types";
 import { cn } from "@/lib/cn";
+import { useLanguage } from "@/i18n/LanguageProvider";
 
 interface ExportDialogProps {
   src: string;
@@ -77,6 +78,7 @@ function FormationPlacementPreview({
   onChange: (placement: FormationExportPlacement) => void;
   disabled: boolean;
 }) {
+  const { t, translateText } = useLanguage();
   const videoClass = cn(
     "absolute flex items-center justify-center border border-white/15 bg-neutral-800 text-[9px] text-neutral-500",
     placement === "top" &&
@@ -138,12 +140,12 @@ function FormationPlacementPreview({
   return (
     <div className="border-t border-white/10 bg-black px-3 pb-3 pt-2.5">
       <div className="mb-2 flex items-center justify-between">
-        <span className="text-xs font-medium text-neutral-300">走位位置</span>
-        <span className="text-[10px] text-neutral-600">布局示意</span>
+        <span className="text-xs font-medium text-neutral-300">{t("走位位置")}</span>
+        <span className="text-[10px] text-neutral-600">{t("布局示意")}</span>
       </div>
       <div className="relative mx-auto h-32 w-full max-w-72 overflow-hidden rounded-lg border border-white/10 bg-black">
         <div className={contentClass}>
-          <div className={videoClass}>视频</div>
+          <div className={videoClass}>{t("视频")}</div>
           <div className={formationClass}>
             <span className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px)] bg-[size:20%_25%]" />
             <span className="relative h-2.5 w-2.5 rounded-full border border-white bg-teal-700" />
@@ -205,7 +207,7 @@ function FormationPlacementPreview({
                 : "border-white/10 text-neutral-500 hover:bg-white/5 hover:text-neutral-300",
             )}
           >
-            {item.label}
+            {translateText(item.label)}
           </button>
         ))}
       </div>
@@ -230,6 +232,7 @@ export function ExportDialog({
   markersEnabled = true,
   onClose,
 }: ExportDialogProps) {
+  const { language, t, translateText } = useLanguage();
   const [options, setOptions] = useState<ExportOverlayOptions>({
     mirror: mirrorEnabled,
     beatViz: true,
@@ -289,6 +292,7 @@ export function ExportDialog({
         vizConfig,
         onProgress: setProgress,
         signal: ac.signal,
+        language,
       });
       setResultExt(ext);
       triggerDownload(blob, ext);
@@ -324,20 +328,22 @@ export function ExportDialog({
       key: "beatViz",
       label: "节拍视觉",
       desc: enabledVizLabels.length
-        ? `烧录当前启用的${enabledVizLabels.join("、")}`
+        ? language === "en"
+          ? enabledVizLabels.map(translateText).join(", ")
+          : enabledVizLabels.join("、")
         : "当前未启用任何节拍视觉效果",
       icon: <CircleDot className="h-4 w-4" />,
     },
     {
       key: "countIn",
-      label: "倒计时",
-      desc: "在音乐真实开始前烧录 5-6-7-8，结束点与拍点由灰转彩完全一致",
+      label: "预拍",
+      desc: "音乐开始前加入 5-6-7-8",
       icon: <Timer className="h-4 w-4" />,
     },
     {
       key: "mirror",
-      label: "镜像",
-      desc: "左右翻转视频画面，便于跟练时直接模仿",
+      label: "镜像跟练",
+      desc: "水平翻转视频",
       icon: <FlipHorizontal2 className="h-4 w-4" />,
     },
     {
@@ -345,15 +351,15 @@ export function ExportDialog({
       label: "走位",
       desc:
         formationChanges.length > 0
-          ? "烧录随时间连续变化的编号走位，可置于画外或叠加在视频上"
-          : "当前视频还没有可导出的走位数据",
+          ? "在视频中加入走位"
+          : "没有可导出的走位",
       icon: <Users className="h-4 w-4" />,
       disabled: formationChanges.length === 0,
     },
     {
       key: "markers",
-      label: "动作标记",
-      desc: "烧录已添加动作提示的时间、提示、说明与颜色",
+      label: "动作提示",
+      desc: "在视频中加入动作提示",
       icon: <MessageSquareText className="h-4 w-4" />,
     },
   ];
@@ -365,15 +371,15 @@ export function ExportDialog({
         animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={{ duration: 0.15 }}
         onClick={(e) => e.stopPropagation()}
-        className="max-h-[calc(100vh-32px)] w-[520px] overflow-y-auto rounded-2xl border border-white/10 bg-neutral-900 p-5 shadow-2xl"
+        className="max-h-[calc(100dvh-2rem)] w-[min(520px,calc(100vw-2rem))] overflow-y-auto rounded-2xl border border-white/10 bg-neutral-900 p-4 shadow-2xl sm:p-5"
       >
         <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-base font-semibold text-white">导出视频</h3>
+          <h3 className="text-base font-semibold text-white">{t("导出视频")}</h3>
           <button
             type="button"
             onClick={onClose}
-            data-tooltip="关闭"
-            aria-label="关闭导出"
+            data-tooltip={t("关闭")}
+            aria-label={t("关闭导出")}
             className="text-neutral-500 hover:text-white"
           >
             <X className="h-5 w-5" />
@@ -382,11 +388,10 @@ export function ExportDialog({
 
         {!supported ? (
           <p className="rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-300">
-            当前浏览器不支持视频录制导出。请使用最新版 Chrome 或 Edge。
+            {t("当前浏览器不支持视频录制导出。请使用最新版 Chrome 或 Edge。")}
           </p>
         ) : (
           <>
-            <p className="mb-3 text-xs text-neutral-500">勾选要烧录进视频的内容：</p>
             <div className="space-y-2">
               {OPTION_ROWS.map((row) => {
                 const checked = options[row.key];
@@ -433,12 +438,12 @@ export function ExportDialog({
                       >
                         {row.icon}
                       </span>
-                      <span className="flex-1">
+                      <span className="min-w-0 flex-1">
                         <span className="block text-sm font-medium text-white">
-                          {row.label}
+                          {translateText(row.label)}
                         </span>
                         <span className="block text-xs text-neutral-500">
-                          {row.desc}
+                          {translateText(row.desc)}
                         </span>
                       </span>
                       <span
@@ -476,7 +481,7 @@ export function ExportDialog({
                 <div className="mb-1.5 flex items-center justify-between text-xs text-neutral-400">
                   <span className="flex items-center gap-1.5">
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    导出中…（耗时约等于视频时长）
+                    {t("导出中…（耗时约等于视频时长）")}
                   </span>
                   <span className="tabular-nums">{Math.round(progress * 100)}%</span>
                 </div>
@@ -492,30 +497,32 @@ export function ExportDialog({
             {status === "done" && (
               <p className="mt-4 flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2.5 text-sm text-emerald-300">
                 <Check className="h-4 w-4" />
-                已导出 {resultExt.toUpperCase()}，下载已开始。
+                {t("导出完成，{format} 下载已开始。", {
+                  format: resultExt.toUpperCase(),
+                })}
               </p>
             )}
 
             {status === "error" && (
               <p className="mt-4 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2.5 text-sm text-red-300">
-                {errorMsg}
+                {translateText(errorMsg)}
               </p>
             )}
 
-            <div className="mt-5 flex justify-end gap-2">
+            <div className="mt-5 flex flex-wrap justify-end gap-2">
               {status === "exporting" ? (
                 <button
                   onClick={cancel}
                   className="rounded-lg px-3 py-2 text-sm text-neutral-300 hover:bg-white/10"
                 >
-                  取消
+                  {t("取消")}
                 </button>
               ) : (
                 <button
                   onClick={onClose}
                   className="rounded-lg px-3 py-2 text-sm text-neutral-400 hover:text-white"
                 >
-                  {status === "done" ? "关闭" : "取消"}
+                  {status === "done" ? t("关闭") : t("取消")}
                 </button>
               )}
               <button
@@ -524,7 +531,7 @@ export function ExportDialog({
                 className="flex items-center gap-2 rounded-lg bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-600 disabled:opacity-50"
               >
                 <Download className="h-4 w-4" />
-                {status === "done" ? "重新导出" : "导出 MP4"}
+                {status === "done" ? t("重新导出") : t("导出 MP4")}
               </button>
             </div>
           </>

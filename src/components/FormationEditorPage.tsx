@@ -35,6 +35,8 @@ import { FormationTimeline } from "./FormationTimeline";
 import { FormationControls } from "./Controls";
 import { cn } from "@/lib/cn";
 import { PausedVideoFrame } from "./PausedVideoFrame";
+import { useLanguage } from "@/i18n/LanguageProvider";
+import { DevToolsButton } from "./DevToolsButton";
 
 type Endpoint = "start" | "end";
 const HISTORY_LIMIT = 5;
@@ -187,6 +189,7 @@ export function FormationEditorPage({
   onBack,
   onChange,
 }: FormationEditorPageProps) {
+  const { language, t, translateText } = useLanguage();
   const resumeTimeRef = useRef(currentTime);
   const [changes, setChanges] = useState<FormationChange[]>(() =>
     linkFormationStarts(
@@ -512,17 +515,18 @@ export function FormationEditorPage({
 
   return (
     <div className="flex h-full w-full flex-col bg-black">
-      <header className="flex h-12 shrink-0 items-center gap-2 border-b border-white/5 bg-neutral-950 px-4">
+      <header className="flex min-h-12 shrink-0 flex-wrap items-center gap-x-2 gap-y-1 border-b border-white/5 bg-neutral-950 px-4 py-1.5">
         <button
           type="button"
           onClick={onBack}
-          data-tooltip="返回播放器"
-          className="flex items-center gap-1.5 rounded-lg bg-white/5 px-3 py-1.5 text-xs text-neutral-300 transition-colors hover:bg-white/10 hover:text-white"
+          data-tooltip={t("返回播放器")}
+          className="flex shrink-0 items-center gap-1.5 rounded-lg bg-white/5 px-3 py-1.5 text-xs text-neutral-300 transition-colors hover:bg-white/10 hover:text-white"
         >
           <ArrowLeft className="h-3.5 w-3.5" />
-          返回
+          {t("返回")}
         </button>
-        <span className="flex-1 text-sm font-semibold text-white">编辑走位</span>
+        <span className="flex-1 text-sm font-semibold text-white">{t("编辑走位")}</span>
+        <DevToolsButton />
       </header>
 
       <div className="flex min-h-0 flex-1">
@@ -560,21 +564,27 @@ export function FormationEditorPage({
           </div>
 
           <div className="flex min-h-[240px] flex-[2] flex-col bg-neutral-950">
-            <div className="flex shrink-0 items-center gap-2 px-4 py-2">
+            <div
+              className={cn(
+                "flex shrink-0 items-center gap-2 px-4 py-2",
+                language === "en" && "flex-wrap",
+              )}
+            >
               {selectedChange ? (
-                <span className="ml-1 whitespace-nowrap text-xs font-medium text-neutral-300">
+                <span className="ml-1 min-w-0 flex-1 truncate text-xs font-medium text-neutral-300">
                   {selected?.endpoint === "start"
-                    ? "初始走位"
-                    : `走位 ${selectedIndex + 1}`}
+                    ? t("初始走位")
+                    : language === "en"
+                      ? `Formation ${selectedIndex + 1}`
+                      : `走位 ${selectedIndex + 1}`}
                 </span>
               ) : (
-                <span className="ml-1 text-xs font-medium text-neutral-500">
-                  选中走位变化进行编辑
+                <span className="ml-1 min-w-0 flex-1 text-xs font-medium text-neutral-500">
+                  {t("选中走位变化进行编辑")}
                 </span>
               )}
-              <div className="min-w-2 flex-1" />
-              <label className="flex items-center gap-2 text-xs text-neutral-500">
-                人数
+              <label className="flex shrink-0 items-center gap-2 text-xs text-neutral-500">
+                {t("人数")}
                 <select
                   value={dancerCount}
                   onChange={(event) =>
@@ -585,14 +595,16 @@ export function FormationEditorPage({
                   {Array.from({ length: 12 }, (_, index) => index + 1).map(
                     (count) => (
                       <option key={count} value={count}>
-                        {count} 人
+                        {language === "en"
+                          ? `${count} ${count === 1 ? "performer" : "performers"}`
+                          : `${count} 人`}
                       </option>
                     ),
                   )}
                 </select>
               </label>
-              <label className="flex items-center gap-2 text-xs text-neutral-500">
-                观众
+              <label className="flex shrink-0 items-center gap-2 text-xs text-neutral-500">
+                {t("观众")}
                 <select
                   value={audiencePosition}
                   onChange={(event) =>
@@ -600,19 +612,19 @@ export function FormationEditorPage({
                       event.target.value as FormationAudiencePosition,
                     )
                   }
-                  aria-label="观众位置"
+                  aria-label={t("观众位置")}
                   className="h-8 rounded-lg border border-white/10 bg-neutral-900 px-2 text-xs text-neutral-200 outline-none"
                 >
-                  <option value="bottom">下方</option>
-                  <option value="top">上方</option>
-                  <option value="left">左侧</option>
-                  <option value="right">右侧</option>
+                  <option value="bottom">{t("下方")}</option>
+                  <option value="top">{t("上方")}</option>
+                  <option value="left">{t("左侧")}</option>
+                  <option value="right">{t("右侧")}</option>
                 </select>
               </label>
               <button
                 type="button"
-                data-tooltip={resetLabel}
-                aria-label={resetLabel}
+                data-tooltip={translateText(resetLabel)}
+                aria-label={translateText(resetLabel)}
                 onClick={resetSelectedFormation}
                 className="flex h-9 w-9 items-center justify-center rounded-lg text-neutral-300 transition-colors hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
               >
@@ -626,8 +638,8 @@ export function FormationEditorPage({
               <button
                 type="button"
                 disabled={undoStack.length === 0}
-                data-tooltip="撤回"
-                aria-label="撤回"
+                data-tooltip={t("撤回")}
+                aria-label={t("撤回")}
                 onClick={undo}
                 className="flex h-9 w-9 items-center justify-center rounded-lg text-neutral-300 transition-colors hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
               >
@@ -636,8 +648,8 @@ export function FormationEditorPage({
               <button
                 type="button"
                 disabled={redoStack.length === 0}
-                data-tooltip="前进"
-                aria-label="前进"
+                data-tooltip={t("前进")}
+                aria-label={t("前进")}
                 onClick={redo}
                 className="flex h-9 w-9 items-center justify-center rounded-lg text-neutral-300 transition-colors hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
               >

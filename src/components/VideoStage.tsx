@@ -14,6 +14,7 @@ import type {
   Marker,
 } from "@/lib/types";
 import { cn } from "@/lib/cn";
+import { useLanguage } from "@/i18n/LanguageProvider";
 
 interface VideoStageProps {
   src: string;
@@ -70,6 +71,7 @@ export function VideoStage({
   onEditFormation,
   onDismissFormation,
 }: VideoStageProps) {
+  const { t } = useLanguage();
   const verticalLayout =
     vizConfig.countPoints &&
     (vizConfig.countPointPosition === "top" ||
@@ -198,7 +200,7 @@ export function VideoStage({
                 {countdown}
               </motion.span>
               <span className="relative mt-4 text-lg text-white/75 [text-shadow:0_1px_8px_rgba(0,0,0,0.8)]">
-                准备开始…
+                {t("准备开始…")}
               </span>
             </motion.div>
           )}

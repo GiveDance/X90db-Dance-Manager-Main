@@ -5,6 +5,7 @@ import {
   LANDING_BEAT_EVENT,
   LANDING_SLOGAN_CHARACTERS,
 } from "@/lib/landingRhythm";
+import { useLanguage } from "@/i18n/LanguageProvider";
 
 interface SharedHomeHeadlineProps {
   scrollerRef: RefObject<HTMLDivElement | null>;
@@ -19,6 +20,7 @@ function mix(start: number, end: number, progress: number) {
 export function SharedHomeHeadline({
   scrollerRef,
 }: SharedHomeHeadlineProps) {
+  const { language, t } = useLanguage();
   const titleRef = useRef<HTMLHeadingElement>(null);
   const sloganRef = useRef<HTMLParagraphElement>(null);
   const [animateSlogan, setAnimateSlogan] = useState(true);
@@ -93,6 +95,19 @@ export function SharedHomeHeadline({
     };
   }, [scrollerRef]);
 
+  const localizedSloganLines = SLOGAN_LINES.map((line) => t(line));
+  const sloganUnits = localizedSloganLines.map((line) =>
+    language === "en" ? line.split(" ") : [...line],
+  );
+  const totalSloganUnits = sloganUnits.reduce(
+    (total, units) => total + units.length,
+    0,
+  );
+  const activeSloganUnit =
+    language === "en" && activeCharacter >= 0
+      ? activeCharacter % totalSloganUnits
+      : activeCharacter;
+
   return (
     <div className="pointer-events-none fixed inset-0 z-[9]" aria-live="off">
       <h1
@@ -103,25 +118,31 @@ export function SharedHomeHeadline({
       </h1>
       <p
         ref={sloganRef}
-        aria-label={SLOGAN_LINES.join("，")}
+        aria-label={localizedSloganLines.join(language === "en" ? ". " : "，")}
         className="absolute flex whitespace-nowrap font-semibold tracking-[-0.015em]"
       >
-        {SLOGAN_LINES.map((line, lineIndex) => {
-          const lineOffset = lineIndex * line.length;
+        {sloganUnits.map((units, lineIndex) => {
+          const lineOffset = sloganUnits
+            .slice(0, lineIndex)
+            .reduce((total, previousUnits) => total + previousUnits.length, 0);
           return (
             <span
-              key={line}
+              key={localizedSloganLines[lineIndex]}
               aria-hidden="true"
               className={lineIndex === 0 ? "mr-[0.9em]" : undefined}
             >
-              {[...line].map((character, characterIndex) => {
-                const index = lineOffset + characterIndex;
+              {units.map((unit, unitIndex) => {
+                const index = lineOffset + unitIndex;
                 const isActive =
-                  animateSlogan && index === activeCharacter;
+                  animateSlogan && index === activeSloganUnit;
                 return (
                   <span
-                    key={`${line}-${characterIndex}`}
-                    className="relative inline-block"
+                    key={`${localizedSloganLines[lineIndex]}-${unitIndex}`}
+                    className={`relative inline-block ${
+                      language === "en" && unitIndex < units.length - 1
+                        ? "mr-[0.28em]"
+                        : ""
+                    }`}
                   >
                     <span
                       className={
@@ -132,7 +153,7 @@ export function SharedHomeHeadline({
                           : "text-inherit"
                       }
                     >
-                      {character}
+                      {unit}
                     </span>
                     {animateSlogan && (
                       <span
@@ -140,7 +161,7 @@ export function SharedHomeHeadline({
                         className={`absolute left-1/2 top-[calc(100%+0.2em)] w-px -translate-x-1/2 transition-all duration-100 ${
                           isActive
                             ? "h-2.5 bg-white"
-                            : characterIndex === 0
+                            : index === 0
                               ? "h-2 bg-blue-300/65"
                               : "h-1.5 bg-white/25"
                         }`}

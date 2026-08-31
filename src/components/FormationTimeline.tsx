@@ -11,6 +11,7 @@ import {
   TimelineNavigationControls,
   useTimelineNavigation,
 } from "./TimelineNavigation";
+import { useLanguage } from "@/i18n/LanguageProvider";
 
 interface FormationTimelineProps {
   changes: FormationChange[];
@@ -41,6 +42,7 @@ export function FormationTimeline({
   onResize,
   onCreate,
 }: FormationTimelineProps) {
+  const { language, t } = useLanguage();
   const trackRef = useRef<HTMLDivElement>(null);
   const seekingRef = useRef<number | null>(null);
   const createRef = useRef<{ startTime: number; moved: boolean } | null>(null);
@@ -51,7 +53,7 @@ export function FormationTimeline({
     currentTime: number;
   } | null>(null);
   const navigation = useTimelineNavigation(duration);
-  const { zoom, viewportRef, syncScrollMetrics } = navigation;
+  const { zoom, viewportId, viewportRef, syncScrollMetrics } = navigation;
   const pct = (time: number) => (duration > 0 ? (time / duration) * 100 : 0);
   const rawTimeFromX = (clientX: number) => {
     const track = trackRef.current;
@@ -170,6 +172,7 @@ export function FormationTimeline({
       />
       <div
         ref={viewportRef}
+        id={viewportId}
         onScroll={syncScrollMetrics}
         className="order-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
@@ -311,18 +314,26 @@ export function FormationTimeline({
             >
               <button
                 type="button"
-                aria-label={`调整变化 ${index + 1} 的开始位置`}
+                aria-label={
+                  language === "en"
+                    ? `Adjust the start of transition ${index + 1}`
+                    : `调整变化 ${index + 1} 的开始位置`
+                }
                 onPointerDown={(event) =>
                   startResize(event, change, "start")
                 }
                 className="absolute inset-y-0 left-0 z-10 w-2 cursor-ew-resize bg-[#1d4268db] hover:bg-[#2b5f91db]"
               />
               <p className="w-full truncate text-left text-[11px] font-medium">
-                变化 {index + 1}
+                {language === "en" ? `Transition ${index + 1}` : `变化 ${index + 1}`}
               </p>
               <button
                 type="button"
-                aria-label={`调整变化 ${index + 1} 的结束位置`}
+                aria-label={
+                  language === "en"
+                    ? `Adjust the end of transition ${index + 1}`
+                    : `调整变化 ${index + 1} 的结束位置`
+                }
                 onPointerDown={(event) => startResize(event, change, "end")}
                 className="absolute inset-y-0 right-0 w-2 cursor-ew-resize bg-[#1d4268db] hover:bg-[#2b5f91db]"
               />
@@ -352,7 +363,7 @@ export function FormationTimeline({
             trackRef.current?.setPointerCapture(event.pointerId);
           }}
           role="slider"
-          aria-label="拖动当前时间"
+          aria-label={t("拖动当前时间")}
           aria-valuemin={0}
           aria-valuemax={duration}
           aria-valuenow={currentTime}

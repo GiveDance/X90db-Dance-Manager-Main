@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
 import { TooltipProvider } from "@/components/TooltipProvider";
+import { LanguageProvider } from "@/i18n/LanguageProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -40,9 +41,11 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="h-full">
-        <ServiceWorkerRegister />
-        {children}
-        <TooltipProvider />
+        <LanguageProvider>
+          <ServiceWorkerRegister />
+          {children}
+          <TooltipProvider />
+        </LanguageProvider>
       </body>
     </html>
   );

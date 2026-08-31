@@ -14,12 +14,20 @@ import { extractPoseFromVideo } from "@/features/motion-analyzer/lib/pose-extrac
 import { analyzeMotion } from "@/features/motion-analyzer/lib/analysis";
 import { syncViaAudio } from "@/features/motion-analyzer/lib/audio-sync";
 import type { AudioSyncResult } from "@/features/motion-analyzer/lib/audio-sync";
+import { useLanguage } from "@/i18n/LanguageProvider";
+import type { TranslationKey } from "@/i18n/messages";
+import { DevToolsButton } from "@/components/DevToolsButton";
 
 interface MotionAnalyzerProps {
   onBack: () => void;
+  backLabel?: TranslationKey;
 }
 
-export function MotionAnalyzer({ onBack }: MotionAnalyzerProps) {
+export function MotionAnalyzer({
+  onBack,
+  backLabel = "返回 Dance Manager 首页",
+}: MotionAnalyzerProps) {
+  const { t, translateText } = useLanguage();
   const [stage, setStage] = useState<AppStage>("upload");
   const [referenceVideo, setReferenceVideo] = useState<VideoFile | null>(null);
   const [practiceVideo, setPracticeVideo] = useState<VideoFile | null>(null);
@@ -174,7 +182,7 @@ export function MotionAnalyzer({ onBack }: MotionAnalyzerProps) {
       ) {
         return;
       }
-      setError(err instanceof Error ? err.message : "Analysis failed");
+      setError(err instanceof Error ? err.message : "分析失败，请重试。");
       setStage("upload");
     } finally {
       if (analysisAbortRef.current === controller) {
@@ -275,47 +283,48 @@ export function MotionAnalyzer({ onBack }: MotionAnalyzerProps) {
 
   return (
     <div className="motion-analyzer h-full overflow-y-auto bg-[#121212]">
-      <header className="sticky top-0 z-50 flex h-12 shrink-0 items-center gap-2 border-b border-white/5 bg-neutral-950 px-4">
+      <header className="sticky top-0 z-50 flex min-h-12 shrink-0 flex-wrap items-center gap-x-2 gap-y-1 border-b border-white/5 bg-neutral-950 px-4 py-1.5">
         <button
           type="button"
           onClick={handleBack}
-          className="flex items-center gap-1.5 rounded-lg bg-white/5 px-3 py-1.5 text-xs text-neutral-300 transition-colors hover:bg-white/10 hover:text-white"
-          aria-label="返回 Dance Manager 首页"
+          className="flex shrink-0 items-center gap-1.5 rounded-lg bg-white/5 px-3 py-1.5 text-xs text-neutral-300 transition-colors hover:bg-white/10 hover:text-white"
+          aria-label={t(backLabel)}
         >
           <ArrowLeft className="h-3.5 w-3.5" />
-          返回
+          {t("返回")}
         </button>
         <h1 className="min-w-0 flex-1 truncate text-xs font-normal text-neutral-500">
-          舞蹈动作分析
+          {t("舞蹈动作分析")}
         </h1>
-        <span className="rounded-full border border-blue-400/20 bg-blue-400/10 px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.16em] text-blue-300">
-          Learning
+        <span className="shrink-0 rounded-full border border-blue-400/20 bg-blue-400/10 px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.16em] text-blue-300">
+          {t("练习")}
         </span>
         {stage === "results" && (
           <button
             type="button"
             onClick={handleReset}
-            className="flex items-center gap-1.5 rounded-lg bg-white/5 px-3 py-1.5 text-xs text-neutral-300 transition-colors hover:bg-white/10 hover:text-white"
+            className="flex shrink-0 items-center gap-1.5 rounded-lg bg-white/5 px-3 py-1.5 text-xs text-neutral-300 transition-colors hover:bg-white/10 hover:text-white"
           >
             <RotateCcw className="h-3.5 w-3.5" />
-            重新分析
+            {t("重新分析")}
           </button>
         )}
+        <DevToolsButton />
       </header>
 
-      <main className="mx-auto max-w-6xl px-6 py-10">
+      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-10">
         <AnimatePresence mode="wait">
           {stage === "upload" && (
             <motion.div key="upload" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-10">
               <div className="text-center space-y-3">
-                <h2 className="text-3xl font-bold text-white tracking-tight">对比你的舞蹈</h2>
-                <p className="text-sm text-white/60">上传标准视频和你的练习视频，获取即时动作反馈</p>
+                <h2 className="text-3xl font-bold text-white tracking-tight">{t("对比你的舞蹈")}</h2>
+                <p className="mx-auto max-w-2xl text-sm leading-relaxed text-white/60">{t("上传标准视频和你的练习视频，获取即时动作反馈")}</p>
               </div>
 
               {error && (
                 <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
                   className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
-                  {error}
+                  {translateText(error)}
                 </motion.div>
               )}
 
@@ -335,7 +344,7 @@ export function MotionAnalyzer({ onBack }: MotionAnalyzerProps) {
                       ? "bg-gradient-to-r from-[#fe2c55] to-[#ff6f61] text-white shadow-lg shadow-[#fe2c55]/25 hover:shadow-[#fe2c55]/40"
                       : "bg-white/5 text-white/30 cursor-not-allowed"
                   }`}>
-                  开始分析
+                  {t("开始分析")}
                 </motion.button>
               </div>
             </motion.div>
@@ -351,7 +360,7 @@ export function MotionAnalyzer({ onBack }: MotionAnalyzerProps) {
             <motion.div key="results" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-8">
               <ScoreCard analysis={analysis} />
               <div className="space-y-4">
-                <h3 className="text-xs font-semibold uppercase tracking-widest text-white/30">骨骼对比</h3>
+                <h3 className="text-xs font-semibold uppercase tracking-widest text-white/30">{t("骨骼对比")}</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <SkeletonCanvas
                     landmarks={currentRefLandmarks}
@@ -384,7 +393,7 @@ export function MotionAnalyzer({ onBack }: MotionAnalyzerProps) {
 
       <footer className="border-t border-white/5 mt-20">
         <div className="mx-auto max-w-6xl px-6 py-4">
-          <p className="text-xs text-white/20 text-center">舞蹈动作分析 · 基于 MediaPipe</p>
+          <p className="text-xs text-white/20 text-center">{t("舞蹈动作分析 · 基于 MediaPipe")}</p>
         </div>
       </footer>
     </div>

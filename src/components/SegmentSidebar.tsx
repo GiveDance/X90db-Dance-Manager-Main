@@ -20,6 +20,8 @@ import { MARKER_COLORS, type DanceSection, type Marker, type Segment } from "@/l
 import { sectionTimeRange } from "@/lib/segments";
 import { formatTime } from "@/lib/format";
 import { cn } from "@/lib/cn";
+import { useLanguage } from "@/i18n/LanguageProvider";
+import { localizeSectionName } from "@/i18n/sectionNames";
 
 export type SidebarTab = "beat" | "section";
 type BeatView = "list" | "tile";
@@ -63,6 +65,7 @@ interface SegmentSidebarProps {
 }
 
 function SegmentSidebarImpl(props: SegmentSidebarProps) {
+  const { language, t, translateText } = useLanguage();
   const {
     tab,
     onTabChange,
@@ -119,14 +122,21 @@ function SegmentSidebarImpl(props: SegmentSidebarProps) {
   }, [activeIndex, tab, beatView]);
 
   return (
-    <aside className="flex h-full w-[clamp(300px,28vw,380px)] shrink-0 flex-col border-l border-white/5 bg-neutral-950">
-      <div className="relative flex items-center justify-between pb-2 pl-5 pr-3 pt-4">
-        <h2 className="text-base font-semibold text-white">舞蹈分段</h2>
-        <div className="flex items-center gap-1.5">
+    <aside
+      className={cn(
+        "flex h-full shrink-0 flex-col border-l border-white/5 bg-neutral-950",
+        language === "en"
+          ? "w-[clamp(340px,30vw,420px)]"
+          : "w-[clamp(300px,28vw,380px)]",
+      )}
+    >
+      <div className="relative flex items-center justify-between gap-2 pb-2 pl-5 pr-3 pt-4">
+        <h2 className="min-w-0 text-base font-semibold text-white">{t("舞蹈分段")}</h2>
+        <div className="flex shrink-0 items-center gap-1.5">
           <button
             type="button"
-            data-tooltip="节奏校准"
-            aria-label="节奏校准"
+            data-tooltip={t("节奏校准")}
+            aria-label={t("节奏校准")}
             aria-expanded={calibrating}
             onClick={onToggleCalibration}
             className={cn(
@@ -153,7 +163,7 @@ function SegmentSidebarImpl(props: SegmentSidebarProps) {
                   tab === key ? "bg-blue-500 text-white" : "text-neutral-400 hover:text-white",
                 )}
               >
-                {label}
+                {translateText(label)}
               </button>
             ))}
           </div>
@@ -180,16 +190,16 @@ function SegmentSidebarImpl(props: SegmentSidebarProps) {
       {tab === "beat" ? (
         <>
           <div className="flex items-center justify-between py-1.5 pl-5 pr-3">
-            <span className="text-xs font-medium text-neutral-500">八拍视图</span>
+            <span className="text-xs font-medium text-neutral-500">{t("八拍视图")}</span>
             <div
               role="group"
-              aria-label="八拍视图"
+              aria-label={t("八拍视图")}
               className="flex rounded-lg bg-neutral-900 p-0.5"
             >
               <button
                 type="button"
-                data-tooltip="列表视图"
-                aria-label="列表视图"
+                data-tooltip={t("列表视图")}
+                aria-label={t("列表视图")}
                 aria-pressed={beatView === "list"}
                 onClick={() => setBeatView("list")}
                 className={cn(
@@ -203,8 +213,8 @@ function SegmentSidebarImpl(props: SegmentSidebarProps) {
               </button>
               <button
                 type="button"
-                data-tooltip="方格视图"
-                aria-label="方格视图"
+                data-tooltip={t("方格视图")}
+                aria-label={t("方格视图")}
                 aria-pressed={beatView === "tile"}
                 onClick={() => setBeatView("tile")}
                 className={cn(
@@ -251,7 +261,9 @@ function SegmentSidebarImpl(props: SegmentSidebarProps) {
                   <SegmentThumbnail generator={generator} time={seg.start} num={seg.num} />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-white">8拍 {seg.num}</span>
+                      <span className="text-sm font-medium text-white">
+                        {language === "en" ? `8-count ${seg.num}` : `8拍 ${seg.num}`}
+                      </span>
                       {isActive && <BarChart3 className="h-3.5 w-3.5 text-blue-400" />}
                     </div>
                     <div className="text-xs tabular-nums text-neutral-500">
@@ -272,9 +284,15 @@ function SegmentSidebarImpl(props: SegmentSidebarProps) {
                     <span
                       role="checkbox"
                       aria-checked={isSelected}
-                      aria-label={isSelected ? `取消选择第 ${seg.num} 个八拍` : `选择第 ${seg.num} 个八拍`}
+                      aria-label={
+                        language === "en"
+                          ? `${isSelected ? "Deselect" : "Select"} 8-count ${seg.num}`
+                          : isSelected
+                            ? `取消选择第 ${seg.num} 个八拍`
+                            : `选择第 ${seg.num} 个八拍`
+                      }
                       tabIndex={0}
-                      data-tooltip={isSelected ? "取消选择" : "选择该八拍"}
+                      data-tooltip={isSelected ? t("取消选择") : t("选择该八拍")}
                       onClick={(event) => {
                         event.stopPropagation();
                         onToggleBeatSelection(i);
@@ -302,7 +320,7 @@ function SegmentSidebarImpl(props: SegmentSidebarProps) {
                     <span
                       role="button"
                       tabIndex={0}
-                      data-tooltip={isLooping ? "关闭单段循环" : "循环当前 8 拍"}
+                      data-tooltip={isLooping ? t("关闭单段循环") : t("循环当前 8 拍")}
                       onClick={(e) => {
                         e.stopPropagation();
                         onToggleBeatLoop(i, seg);
@@ -365,7 +383,11 @@ function SegmentSidebarImpl(props: SegmentSidebarProps) {
                                 type="button"
                                 ref={isActive ? activeRef : undefined}
                                 onClick={() => onJump(seg)}
-                                aria-label={`播放第 ${seg.num} 个八拍`}
+                                aria-label={
+                                  language === "en"
+                                    ? `Play 8-count ${seg.num}`
+                                    : `播放第 ${seg.num} 个八拍`
+                                }
                                 className={cn(
                                   "flex h-full w-full flex-col items-center justify-center gap-0.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-300",
                                   isActive
@@ -391,12 +413,14 @@ function SegmentSidebarImpl(props: SegmentSidebarProps) {
                               <button
                                 type="button"
                                 aria-label={
-                                  isSelected
-                                    ? `取消选择第 ${seg.num} 个八拍`
-                                    : `选择第 ${seg.num} 个八拍`
+                                  language === "en"
+                                    ? `${isSelected ? "Deselect" : "Select"} 8-count ${seg.num}`
+                                    : isSelected
+                                      ? `取消选择第 ${seg.num} 个八拍`
+                                      : `选择第 ${seg.num} 个八拍`
                                 }
                                 aria-pressed={isSelected}
-                                data-tooltip={isSelected ? "取消选择" : "选择该八拍"}
+                                data-tooltip={isSelected ? t("取消选择") : t("选择该八拍")}
                                 onClick={() => onToggleBeatSelection(index)}
                                 className={cn(
                                   "absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-200",
@@ -415,11 +439,13 @@ function SegmentSidebarImpl(props: SegmentSidebarProps) {
                               <button
                                 type="button"
                                 aria-label={
-                                  isLooping
-                                    ? `关闭第 ${seg.num} 个八拍循环`
-                                    : `循环第 ${seg.num} 个八拍`
+                                  language === "en"
+                                    ? `${isLooping ? "Stop looping" : "Loop"} 8-count ${seg.num}`
+                                    : isLooping
+                                      ? `关闭第 ${seg.num} 个八拍循环`
+                                      : `循环第 ${seg.num} 个八拍`
                                 }
-                                data-tooltip={isLooping ? "关闭单段循环" : "循环当前 8 拍"}
+                                data-tooltip={isLooping ? t("关闭单段循环") : t("循环当前 8 拍")}
                                 onClick={() => onToggleBeatLoop(index, seg)}
                                 className={cn(
                                   "absolute bottom-1.5 right-1.5 flex h-5 w-5 items-center justify-center rounded transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-200",
@@ -449,8 +475,8 @@ function SegmentSidebarImpl(props: SegmentSidebarProps) {
                 aria-live="polite"
                 title={
                   selectionIsContinuous
-                    ? "将选中的连续八拍添加为段落"
-                    : "请选择连续的八拍"
+                    ? t("将选中的连续八拍添加为段落")
+                    : t("请选择连续的八拍")
                 }
                 onClick={onCreateSectionFromSelection}
                 className={cn(
@@ -462,14 +488,14 @@ function SegmentSidebarImpl(props: SegmentSidebarProps) {
               >
                 <Plus className="h-4 w-4" />
                 {selectionIsContinuous
-                  ? "添加选中八拍为段落"
-                  : "添加连续八拍为段落"}
+                  ? t("添加选中八拍为段落")
+                  : t("添加连续八拍为段落")}
               </button>
             </div>
           ) : (
             <div className="flex items-center gap-2 px-5 py-3 text-xs text-neutral-500">
               <Repeat className="h-3.5 w-3.5" />
-              点击循环图标可开启当前 8 拍的单段循环
+              {t("点击循环图标可开启当前 8 拍的单段循环")}
             </div>
           )}
         </>
@@ -479,11 +505,11 @@ function SegmentSidebarImpl(props: SegmentSidebarProps) {
             {detectingSections ? (
               <div className="flex items-center justify-center gap-2 py-10 text-sm text-neutral-500">
                 <Loader2 className="h-4 w-4 animate-spin" />
-                正在识别段落…
+                {t("正在识别段落…")}
               </div>
             ) : sections.length === 0 ? (
               <p className="px-2 py-8 text-center text-sm text-neutral-600">
-                还没有段落。点下方「手动添加段落」自己划分。
+                {t("还没有段落。点下方「手动添加段落」自己划分。")}
               </p>
             ) : (
               sections.map((sec, i) => {
@@ -491,6 +517,11 @@ function SegmentSidebarImpl(props: SegmentSidebarProps) {
                 const isActive = i === activeSectionIndex;
                 const isLooping = sectionLoopKey === i;
                 const beats = sec.endSeg - sec.startSeg + 1;
+                const displayName = localizeSectionName(
+                  sec,
+                  language,
+                  translateText,
+                );
                 return (
                   <button
                     key={sec.id}
@@ -503,17 +534,24 @@ function SegmentSidebarImpl(props: SegmentSidebarProps) {
                     )}
                   >
                     <div className="min-w-0 flex-1">
-                      <div className="truncate text-base font-semibold text-white">{sec.name}</div>
+                      <div className="truncate text-base font-semibold text-white">
+                        {displayName}
+                      </div>
                       <div className="text-xs tabular-nums text-neutral-500">
                         {r ? `${formatTime(r.start)} - ${formatTime(r.end)}` : "—"}
-                        <span className="ml-2 text-neutral-600">· {beats} 个八拍</span>
+                        <span className="ml-2 text-neutral-600">
+                          ·{" "}
+                          {language === "en"
+                            ? `${beats} ${beats === 1 ? "8-count" : "8-counts"}`
+                            : `${beats} ${t("个八拍")}`}
+                        </span>
                       </div>
                     </div>
                     <span className="flex shrink-0 items-center gap-0.5">
                       <span
                         role="button"
                         tabIndex={0}
-                        title="编辑段落"
+                        title={t("编辑段落")}
                         onClick={(e) => {
                           e.stopPropagation();
                           onEditSection(i);
@@ -532,7 +570,7 @@ function SegmentSidebarImpl(props: SegmentSidebarProps) {
                       <span
                         role="button"
                         tabIndex={0}
-                        title={isLooping ? "关闭段落循环" : "循环该段落"}
+                        title={isLooping ? t("关闭段落循环") : t("循环该段落")}
                         onClick={(e) => {
                           e.stopPropagation();
                           onToggleSectionLoop(i);
@@ -565,7 +603,7 @@ function SegmentSidebarImpl(props: SegmentSidebarProps) {
               className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 py-3 text-sm font-medium text-neutral-200 transition-colors hover:bg-white/10 hover:text-white"
             >
               <Plus className="h-4 w-4" />
-              手动添加段落
+              {t("手动添加段落")}
             </button>
           </div>
         </>

@@ -17,6 +17,7 @@ import type {
   StageSignalPosition,
 } from "@/lib/types";
 import { Toggle } from "./Toggle";
+import { useLanguage } from "@/i18n/LanguageProvider";
 
 interface OverlayInspectorProps {
   settings: PerformingStageSettings;
@@ -39,9 +40,12 @@ function ColorField({
   value: string;
   onChange: (value: string) => void;
 }) {
+  const { translateText } = useLanguage();
   return (
     <label className="block">
-      <span className="mb-1 block text-[11px] text-neutral-500">{label}</span>
+      <span className="mb-1 block text-[11px] text-neutral-500">
+        {translateText(label)}
+      </span>
       <span className="flex h-8 items-center gap-1.5 rounded-md border border-white/[0.08] bg-black/30 px-1.5">
         <input
           type="color"
@@ -79,11 +83,12 @@ function ThemePicker({
   onBeatColorChange: (value: string) => void;
   onAccentColorChange: (value: string) => void;
 }) {
+  const { t, translateText } = useLanguage();
   const rgbToHex = (rgb: [number, number, number]) =>
     `#${rgb.map((value) => value.toString(16).padStart(2, "0")).join("")}`;
   return (
     <div>
-      <p className="mb-1.5 text-[11px] text-neutral-500">配色</p>
+      <p className="mb-1.5 text-[11px] text-neutral-500">{t("配色")}</p>
       <div className="grid grid-cols-2 gap-1">
         {PERFORMER_SIGNAL_THEMES.map((theme) => (
           (() => {
@@ -112,7 +117,7 @@ function ThemePicker({
                     background: `linear-gradient(135deg, rgb(${theme.beat.join(",")}) 50%, rgb(${theme.down.join(",")}) 50%)`,
                   }}
                 />
-                {theme.label}
+                {translateText(theme.label)}
               </button>
             );
           })()
@@ -120,12 +125,12 @@ function ThemePicker({
       </div>
       <div className="mt-2 grid grid-cols-2 gap-2">
         <ColorField
-          label="轻拍色"
+          label={t("轻拍色")}
           value={beatColor}
           onChange={onBeatColorChange}
         />
         <ColorField
-          label="重拍色"
+          label={t("重拍色")}
           value={accentColor}
           onChange={onAccentColorChange}
         />
@@ -151,10 +156,11 @@ function RangeControl({
   display: string;
   onChange: (value: number) => void;
 }) {
+  const { translateText } = useLanguage();
   return (
     <label className="block">
       <span className="flex justify-between text-[11px] text-neutral-500">
-        {label}
+        {translateText(label)}
         <span className="tabular-nums text-neutral-300">{display}</span>
       </span>
       <input
@@ -177,9 +183,10 @@ function PositionPicker({
   value: StageSignalPosition[];
   onChange: (value: StageSignalPosition[]) => void;
 }) {
+  const { t, translateText } = useLanguage();
   return (
     <div>
-      <p className="mb-1.5 text-[11px] text-neutral-500">位置 · 可多选</p>
+      <p className="mb-1.5 text-[11px] text-neutral-500">{t("位置 · 可多选")}</p>
       <div className="grid grid-cols-4 gap-1 rounded-lg bg-black/25 p-1">
         {POSITIONS.map((position) => {
           const active = value.includes(position.id);
@@ -201,7 +208,7 @@ function PositionPicker({
                   : "text-neutral-500 hover:bg-white/5 hover:text-neutral-300"
               }`}
             >
-              {position.label}
+              {translateText(position.label)}
             </button>
           );
         })}
@@ -231,6 +238,8 @@ function SignalCard({
   onEnabledChange: (enabled: boolean) => void;
   children: React.ReactNode;
 }) {
+  const { language, translateText } = useLanguage();
+  const localizedTitle = translateText(title);
   return (
     <section
       className={`${order} overflow-hidden rounded-lg border transition-colors ${
@@ -253,16 +262,20 @@ function SignalCard({
           </span>
           <span className="min-w-0 flex-1">
             <span className="block text-sm font-medium text-neutral-200">
-              {title}
+              {localizedTitle}
             </span>
-            <span className="block truncate text-[11px] text-neutral-500">
-              {description}
+            <span className="block text-[11px] leading-4 text-neutral-500">
+              {translateText(description)}
             </span>
           </span>
         </button>
         <button
           type="button"
-          aria-label={`${expanded ? "收起" : "展开"}${title}`}
+          aria-label={
+            language === "en"
+              ? `${expanded ? "Collapse" : "Expand"} ${localizedTitle}`
+              : `${expanded ? "收起" : "展开"}${title}`
+          }
           aria-expanded={expanded}
           onClick={() => onExpandedChange(!expanded)}
           className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-neutral-600 transition-colors hover:bg-white/5 hover:text-neutral-300"
@@ -276,7 +289,7 @@ function SignalCard({
         <Toggle
           checked={enabled}
           onChange={onEnabledChange}
-          label={title}
+          label={localizedTitle}
           accent="violet"
         />
       </div>
@@ -297,30 +310,33 @@ export function OverlayInspector({
   settings,
   onChange,
 }: OverlayInspectorProps) {
+  const { language, t, translateText } = useLanguage();
   const [beatPointsExpanded, setBeatPointsExpanded] = useState(true);
   const [cornerExpanded, setCornerExpanded] = useState(false);
 
   return (
     <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-3 pt-0">
       <div className="pl-2">
-        <p className="text-sm font-semibold text-white">节拍信号</p>
+        <p className="text-sm font-semibold text-white">{t("节拍信号")}</p>
       </div>
 
       <section className="mt-3">
         <div className="pl-2">
-          <p className="text-xs font-medium text-neutral-300">节拍设定</p>
+          <p className="text-xs font-medium text-neutral-300">{t("节拍设定")}</p>
         </div>
         <div className="mt-2 rounded-lg border border-white/[0.06] bg-white/[0.025] p-3">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-xs font-medium text-neutral-300">次重拍</p>
+              <p className="text-xs font-medium text-neutral-300">{t("次重拍")}</p>
               <p className="mt-0.5 text-[11px] text-neutral-500">
-                选择使用重拍色的拍点
+                {t("选择使用重拍色的拍点")}
               </p>
             </div>
             <span className="rounded bg-violet-400/10 px-1.5 py-0.5 text-[10px] tabular-nums text-violet-300">
               {settings.secondaryAccentCount === 0
-                ? "关闭"
+                ? language === "en"
+                  ? t("关")
+                  : t("关闭")
                 : `${settings.secondaryAccentCount}/8`}
             </span>
           </div>
@@ -336,7 +352,7 @@ export function OverlayInspector({
                     : "text-neutral-600 hover:text-neutral-300"
                 }`}
               >
-                {count === 0 ? "关" : count}
+                {count === 0 ? t("关") : count}
               </button>
             ))}
           </div>
@@ -345,12 +361,12 @@ export function OverlayInspector({
 
       <section className="mt-4">
         <div className="pl-2">
-          <p className="text-xs font-medium text-neutral-300">信号视觉</p>
+          <p className="text-xs font-medium text-neutral-300">{t("信号视觉")}</p>
         </div>
         <div className="mt-2 flex flex-col gap-2">
           <SignalCard
-          title="四角闪烁"
-          description="在四角随每拍闪烁"
+          title={t("四角闪烁")}
+          description={t("在四角随每拍闪烁")}
           enabled={settings.cornerSignalEnabled}
           icon={<Sparkles className="h-4 w-4" />}
           expanded={cornerExpanded}
@@ -361,7 +377,7 @@ export function OverlayInspector({
           }
         >
           <div>
-            <p className="mb-1.5 text-[11px] text-neutral-500">样式</p>
+            <p className="mb-1.5 text-[11px] text-neutral-500">{t("样式")}</p>
             <div className="grid grid-cols-2 gap-1 rounded-lg bg-black/25 p-1">
               {CORNER_SIGNAL_SHAPES.map((shape) => (
                 <button
@@ -374,7 +390,7 @@ export function OverlayInspector({
                       : "text-neutral-500 hover:bg-white/5 hover:text-neutral-300"
                   }`}
                 >
-                  {shape.label}
+                  {translateText(shape.label)}
                 </button>
               ))}
             </div>
@@ -402,7 +418,7 @@ export function OverlayInspector({
             }
           />
           <RangeControl
-            label="大小"
+            label={t("大小")}
             value={settings.cornerSignalSize}
             min={0.6}
             max={1.8}
@@ -411,7 +427,7 @@ export function OverlayInspector({
             onChange={(cornerSignalSize) => onChange({ cornerSignalSize })}
           />
           <RangeControl
-            label="透明度"
+            label={t("透明度")}
             value={settings.cornerSignalOpacity}
             min={0.2}
             max={1}
@@ -424,8 +440,8 @@ export function OverlayInspector({
           </SignalCard>
 
           <SignalCard
-          title="拍点视觉"
-          description="显示当前八拍和计数位置"
+          title={t("拍点视觉")}
+          description={t("显示当前八拍和计数位置")}
           enabled={settings.showBeatCode}
           icon={<Grid2X2 className="h-4 w-4" />}
           expanded={beatPointsExpanded}
@@ -434,7 +450,7 @@ export function OverlayInspector({
           onEnabledChange={(showBeatCode) => onChange({ showBeatCode })}
         >
           <div>
-            <p className="mb-1.5 text-[11px] text-neutral-500">样式</p>
+            <p className="mb-1.5 text-[11px] text-neutral-500">{t("样式")}</p>
             <div className="grid grid-cols-2 gap-1 rounded-lg bg-black/25 p-1">
               {BEAT_POINT_SHAPES.map((shape) => (
                 <button
@@ -447,7 +463,7 @@ export function OverlayInspector({
                       : "text-neutral-500 hover:bg-white/5 hover:text-neutral-300"
                   }`}
                 >
-                  {shape.label}
+                  {translateText(shape.label)}
                 </button>
               ))}
             </div>
@@ -479,7 +495,7 @@ export function OverlayInspector({
             onChange={(beatCodePositions) => onChange({ beatCodePositions })}
           />
           <div>
-            <p className="mb-1.5 text-[11px] text-neutral-500">排列</p>
+            <p className="mb-1.5 text-[11px] text-neutral-500">{t("排列")}</p>
             <div className="grid grid-cols-2 gap-1 rounded-lg bg-black/25 p-1">
               {([1, 2] as const).map((rows) => (
                 <button
@@ -492,13 +508,13 @@ export function OverlayInspector({
                       : "text-neutral-500 hover:bg-white/5 hover:text-neutral-300"
                   }`}
                 >
-                  {rows === 1 ? "单行" : "双行"}
+                  {rows === 1 ? t("单行") : t("双行")}
                 </button>
               ))}
             </div>
           </div>
           <RangeControl
-            label="大小"
+            label={t("大小")}
             value={settings.beatPointSize}
             min={0.6}
             max={1.8}
@@ -507,7 +523,7 @@ export function OverlayInspector({
             onChange={(beatPointSize) => onChange({ beatPointSize })}
           />
           <RangeControl
-            label="拍点间距"
+            label={t("拍点间距")}
             value={settings.beatPointSpacing}
             min={0.5}
             max={1.5}
@@ -516,7 +532,7 @@ export function OverlayInspector({
             onChange={(beatPointSpacing) => onChange({ beatPointSpacing })}
           />
           <RangeControl
-            label="透明度"
+            label={t("透明度")}
             value={settings.beatPointOpacity}
             min={0.2}
             max={1}
@@ -546,10 +562,10 @@ export function OverlayInspector({
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block text-sm font-medium text-neutral-200">
-                    视觉预告
+                    {t("视觉预告")}
                   </span>
                   <span className="block truncate text-[11px] text-neutral-500">
-                    显示开头预数拍
+                    {t("显示开头预数拍")}
                   </span>
                 </span>
                 <Toggle
@@ -557,7 +573,7 @@ export function OverlayInspector({
                   onChange={(visualLeadEnabled) =>
                     onChange({ visualLeadEnabled })
                   }
-                  label="视觉预告"
+                  label={t("视觉预告")}
                   accent="violet"
                 />
               </div>

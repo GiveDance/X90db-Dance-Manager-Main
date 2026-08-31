@@ -66,7 +66,7 @@ function waitForVideoReady(
     };
     const onError = () => {
       cleanup();
-      reject(new Error("Failed to load video"));
+      reject(new Error("Could not load the video."));
     };
     const onAbort = () => {
       cleanup();
@@ -175,7 +175,7 @@ export async function extractPoseFromVideo(
 
     if (frames.length === 0) {
       throw new Error(
-        "No pose landmarks detected. Ensure the video shows a person with visible body."
+        "No pose landmarks were detected. Make sure the person’s full body is clearly visible in the video."
       );
     }
 

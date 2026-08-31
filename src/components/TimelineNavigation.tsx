@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { ZoomIn, ZoomOut } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { useLanguage } from "@/i18n/LanguageProvider";
 
 const ZOOM_LEVELS = [1, 1.5, 2, 3, 4, 6, 8] as const;
 const BEATS_PER_EIGHT_COUNT = 8;
@@ -28,6 +29,7 @@ export function shouldShowTimelineBeat(
 }
 
 export function useTimelineNavigation(contentKey: number) {
+  const viewportId = useId();
   const viewportRef = useRef<HTMLDivElement>(null);
   const scrollbarRef = useRef<HTMLDivElement>(null);
   const scrollbarDragRef = useRef<{
@@ -137,6 +139,7 @@ export function useTimelineNavigation(contentKey: number) {
 
   return {
     zoom,
+    viewportId,
     viewportRef,
     scrollbarRef,
     scrollMetrics,
@@ -160,8 +163,10 @@ export function TimelineNavigationControls({
   navigation: TimelineNavigationState;
   className?: string;
 }) {
+  const { t } = useLanguage();
   const {
     zoom,
+    viewportId,
     scrollbarRef,
     scrollMetrics,
     changeZoom,
@@ -183,8 +188,8 @@ export function TimelineNavigationControls({
         <button
           type="button"
           disabled={zoom === ZOOM_LEVELS[0]}
-          aria-label="缩小时间线"
-          data-tooltip="缩小时间线"
+          aria-label={t("缩小时间线")}
+          data-tooltip={t("缩小时间线")}
           onClick={() => changeZoom(-1)}
           className="flex h-7 w-7 items-center justify-center rounded-md text-neutral-400 transition-colors hover:bg-white/10 hover:text-white active:bg-white/15 disabled:cursor-not-allowed disabled:opacity-25"
         >
@@ -196,8 +201,8 @@ export function TimelineNavigationControls({
         <button
           type="button"
           disabled={zoom === ZOOM_LEVELS.at(-1)}
-          aria-label="放大时间线"
-          data-tooltip="放大时间线"
+          aria-label={t("放大时间线")}
+          data-tooltip={t("放大时间线")}
           onClick={() => changeZoom(1)}
           className="flex h-7 w-7 items-center justify-center rounded-md text-neutral-400 transition-colors hover:bg-white/10 hover:text-white active:bg-white/15 disabled:cursor-not-allowed disabled:opacity-25"
         >
@@ -209,7 +214,8 @@ export function TimelineNavigationControls({
         <div
           ref={scrollbarRef}
           role="scrollbar"
-          aria-label="移动时间线"
+          aria-label={t("移动时间线")}
+          aria-controls={viewportId}
           aria-orientation="horizontal"
           aria-valuemin={0}
           aria-valuemax={100}

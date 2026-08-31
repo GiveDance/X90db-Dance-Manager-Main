@@ -7,6 +7,7 @@ import type {
 } from "@/lib/types";
 import { FORMATION_COLORS } from "@/lib/formations";
 import { cn } from "@/lib/cn";
+import { useLanguage } from "@/i18n/LanguageProvider";
 
 interface FormationStageEditorProps {
   positions: FormationPosition[];
@@ -41,6 +42,7 @@ export function FormationStageEditor({
   framed = true,
   transparentBackground = false,
 }: FormationStageEditorProps) {
+  const { t } = useLanguage();
   const svgRef = useRef<SVGSVGElement>(null);
   const draggingRef = useRef<{
     pointerId: number;
@@ -288,7 +290,7 @@ export function FormationStageEditor({
         transparentBackground ? "bg-transparent" : "bg-black",
         framed && "rounded-xl",
       )}
-      aria-label="走位舞台"
+      aria-label={t("走位舞台")}
     >
       <rect
         x="0"
@@ -369,7 +371,7 @@ export function FormationStageEditor({
           fontSize="22"
           fontWeight="500"
         >
-          观众
+          {t("观众")}
         </text>
       </g>
       {positions.map((position) => (

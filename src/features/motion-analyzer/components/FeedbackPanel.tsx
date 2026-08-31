@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import type { CoachingTip } from "@/features/motion-analyzer/types";
+import { useLanguage } from "@/i18n/LanguageProvider";
 
 interface FeedbackPanelProps {
   coachingTips?: CoachingTip[];
@@ -31,7 +32,7 @@ function TipIcon({ category }: { category: CoachingTip["category"] }) {
 }
 
 export function FeedbackPanel({ coachingTips, onJumpToFrame }: FeedbackPanelProps) {
-
+  const { t, translateText } = useLanguage();
   return (
     <div className="space-y-6">
       {/* AI Coach Tips */}
@@ -45,7 +46,7 @@ export function FeedbackPanel({ coachingTips, onJumpToFrame }: FeedbackPanelProp
           <div className="flex items-center gap-2 mb-4">
             <span className="text-base">🤖</span>
             <h3 className="text-xs font-semibold uppercase tracking-widest text-white/30">
-              AI 教练
+              {t("AI 教练")}
             </h3>
           </div>
           <div className="space-y-3">
@@ -59,13 +60,15 @@ export function FeedbackPanel({ coachingTips, onJumpToFrame }: FeedbackPanelProp
               >
                 <TipIcon category={tip.category} />
                 <div className="flex-1 pt-0.5">
-                  <p className="text-sm text-white/70 leading-relaxed">{tip.message}</p>
+                  <p className="text-sm text-white/70 leading-relaxed">
+                    {translateText(tip.message)}
+                  </p>
                   {tip.relatedFrame !== undefined && onJumpToFrame && (
                     <button
                       onClick={() => onJumpToFrame(tip.relatedFrame!)}
                       className="mt-1 text-[11px] text-[#fe2c55] hover:text-[#ff4470] transition-colors"
                     >
-                      跳转到该时刻 →
+                      {t("跳转到该时刻 →")}
                     </button>
                   )}
                 </div>

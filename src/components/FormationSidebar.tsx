@@ -16,6 +16,7 @@ import type {
 import { cn } from "@/lib/cn";
 import { FormationStageEditor } from "./FormationStageEditor";
 import { beatLabelTime, beatTimeLabel } from "@/lib/formations";
+import { useLanguage } from "@/i18n/LanguageProvider";
 
 type Endpoint = "start" | "end";
 
@@ -38,6 +39,13 @@ function BeatTimeInput({
   maxTime: number;
   onChange: (time: number) => void;
 }) {
+  const { language, t } = useLanguage();
+  const localizedLabel =
+    language === "en"
+      ? label
+          .replace(/^走位变化 (\d+) 开始拍子$/, "Start beat for transition $1")
+          .replace(/^走位变化 (\d+) 结束拍子$/, "End beat for transition $1")
+      : label;
   const initialValue = beatTimeLabel(time, bpm, offset, beatTimes);
   const [value, setValue] = useState(initialValue);
   const applyTime = (nextTime: number) => {
@@ -72,8 +80,8 @@ function BeatTimeInput({
     <div className="flex h-9 overflow-hidden rounded-lg border border-white/10 bg-black/30 focus-within:border-blue-500/60 focus-within:ring-1 focus-within:ring-blue-500/40">
       <button
         type="button"
-        aria-label={`${label}提前一拍`}
-        data-tooltip="提前一拍"
+        aria-label={`${localizedLabel} — ${t("提前一拍")}`}
+        data-tooltip={t("提前一拍")}
         onClick={() => step(-1)}
         className="flex w-8 shrink-0 items-center justify-center text-neutral-500 transition-colors hover:text-white"
       >
@@ -88,14 +96,14 @@ function BeatTimeInput({
             event.currentTarget.blur();
           }
         }}
-        aria-label={label}
+        aria-label={localizedLabel}
         placeholder="1-1"
         className="min-w-0 flex-1 cursor-text appearance-none border-x border-white/10 bg-transparent px-1 text-center text-sm tabular-nums text-white outline-none hover:bg-transparent"
       />
       <button
         type="button"
-        aria-label={`${label}延后一拍`}
-        data-tooltip="延后一拍"
+        aria-label={`${localizedLabel} — ${t("延后一拍")}`}
+        data-tooltip={t("延后一拍")}
         onClick={() => step(1)}
         className="flex w-8 shrink-0 items-center justify-center text-neutral-500 transition-colors hover:text-white"
       >
@@ -118,11 +126,20 @@ function FormationKeyframeThumbnail({
   selected: boolean;
   onClick: () => void;
 }) {
+  const { language, translateText } = useLanguage();
+  const localizedLabel = translateText(label);
+  const editLabel =
+    language === "en"
+      ? `Edit ${localizedLabel.toLocaleLowerCase("en")}${
+          localizedLabel === "Initial" ? " formation" : ""
+        }`
+      : `编辑${label}走位`;
   return (
     <button
       type="button"
       onClick={onClick}
-      data-tooltip={`编辑${label}走位`}
+      data-tooltip={editLabel}
+      aria-label={editLabel}
       data-formation-thumbnail={label}
       className={cn(
         "relative z-10 h-14 w-24 shrink-0 overflow-hidden rounded-lg border bg-neutral-900 transition-colors",
@@ -139,7 +156,7 @@ function FormationKeyframeThumbnail({
         onChange={() => undefined}
       />
       <span className="absolute bottom-1 left-1 rounded bg-black/70 px-1.5 py-0.5 text-[9px] text-white">
-        {label}
+        {localizedLabel}
       </span>
     </button>
   );
@@ -174,10 +191,18 @@ export function FormationSidebar({
   ) => void;
   onTimeChange: (id: string, endpoint: Endpoint, time: number) => void;
 }) {
+  const { language, t } = useLanguage();
   return (
-    <aside className="flex h-full w-[clamp(310px,28vw,380px)] shrink-0 flex-col border-l border-white/5 bg-neutral-950">
+    <aside
+      className={cn(
+        "flex h-full shrink-0 flex-col border-l border-white/5 bg-neutral-950",
+        language === "en"
+          ? "w-[clamp(350px,30vw,420px)]"
+          : "w-[clamp(310px,28vw,380px)]",
+      )}
+    >
       <div className="flex shrink-0 items-center justify-between px-5 pb-2 pt-4">
-        <h2 className="text-base font-semibold text-white">走位变化</h2>
+        <h2 className="text-base font-semibold text-white">{t("走位变化")}</h2>
         <span className="text-xs tabular-nums text-neutral-600">
           {changes.length}
         </span>
@@ -186,9 +211,9 @@ export function FormationSidebar({
       <div className="scrollbar-thin flex-1 space-y-3 overflow-y-auto px-3 pb-3 pt-1">
         {changes.length === 0 && (
           <div className="flex h-full min-h-48 flex-col items-center justify-center px-6 text-center">
-            <p className="text-sm font-medium text-neutral-400">暂无走位变化</p>
+            <p className="text-sm font-medium text-neutral-400">{t("暂无走位变化")}</p>
             <p className="mt-1 text-xs leading-relaxed text-neutral-600">
-              添加后设置目标走位与变化的开始、结束拍子。
+              {t("添加后设置目标走位与变化的开始、结束拍子。")}
             </p>
           </div>
         )}
@@ -237,12 +262,18 @@ export function FormationSidebar({
 
               <div className="mb-3 flex h-7 items-center justify-between pl-[108px]">
                 <span className="text-sm font-medium text-neutral-200">
-                  走位变化 {index + 1}
+                  {language === "en"
+                    ? `Transition ${index + 1}`
+                    : `走位变化 ${index + 1}`}
                 </span>
                 <button
                   type="button"
-                  data-tooltip="删除走位变化"
-                  aria-label={`删除走位变化 ${index + 1}`}
+                  data-tooltip={t("删除走位变化")}
+                  aria-label={
+                    language === "en"
+                      ? `Delete transition ${index + 1}`
+                      : `删除走位变化 ${index + 1}`
+                  }
                   onClick={() => onDelete(change.id)}
                   className="flex h-7 w-7 items-center justify-center rounded-md text-neutral-500 transition-colors hover:bg-red-500/15 hover:text-red-300"
                 >
@@ -270,7 +301,7 @@ export function FormationSidebar({
                 />
                 <div className="min-w-0 flex-1">
                   <span className="mb-1 block text-[10px] text-neutral-500">
-                    开始
+                    {t("开始")}
                   </span>
                   <BeatTimeInput
                     key={`${change.id}-start-${change.startTime}-${bpm}-${offset}`}
@@ -300,7 +331,7 @@ export function FormationSidebar({
                 />
                 <div className="min-w-0 flex-1">
                   <span className="mb-1 block text-[10px] text-neutral-500">
-                    结束
+                    {t("结束")}
                   </span>
                   <BeatTimeInput
                     key={`${change.id}-end-${change.endTime}-${bpm}-${offset}`}
@@ -341,11 +372,11 @@ export function FormationSidebar({
         <button
           type="button"
           onClick={onAdd}
-          data-tooltip="添加走位变化"
+          data-tooltip={t("添加走位变化")}
           className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 py-3 text-sm font-medium text-neutral-200 transition-colors hover:bg-white/10 hover:text-white"
         >
           <Plus className="h-4 w-4" />
-          添加走位变化
+          {t("添加走位变化")}
         </button>
       </div>
     </aside>

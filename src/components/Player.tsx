@@ -38,6 +38,7 @@ import type {
   RhythmBeat,
   Segment,
 } from "@/lib/types";
+import { useLanguage } from "@/i18n/LanguageProvider";
 
 type LoopTarget = { kind: "beat" | "section"; key: number } | null;
 
@@ -112,6 +113,7 @@ export function Player({
   onOpenMotionAnalyzer,
   onPersist,
 }: PlayerProps) {
+  const { language, t } = useLanguage();
   const { videoRef, videoProps, state, actions } = usePlayer();
   const { currentTime, duration } = state;
 
@@ -382,7 +384,13 @@ export function Player({
     setSectionDialog({
       mode: "new",
       index: -1,
-      draft: { id: crypto.randomUUID(), name: `第${sections.length + 1}段`, startSeg: start, endSeg: end },
+      draft: {
+        id: crypto.randomUUID(),
+        name: `第${sections.length + 1}段`,
+        generatedName: true,
+        startSeg: start,
+        endSeg: end,
+      },
     });
   }, [actions, segments.length, activeIndex, sections.length]);
 
@@ -402,10 +410,18 @@ export function Player({
       setLoopTarget(null);
     }
     setSections((prev) => {
+      const generatedName =
+        data.name === "未命名段落" ||
+        (sectionDialog.draft.generatedName === true &&
+          data.name === sectionDialog.draft.name);
       const next =
         sectionDialog.mode === "new"
-          ? [...prev, { ...sectionDialog.draft, ...data }]
-          : prev.map((s, i) => (i === sectionDialog.index ? { ...s, ...data } : s));
+          ? [...prev, { ...sectionDialog.draft, ...data, generatedName }]
+          : prev.map((s, i) =>
+              i === sectionDialog.index
+                ? { ...s, ...data, generatedName }
+                : s,
+            );
       return next.sort((a, b) => a.startSeg - b.startSeg);
     });
     setSectionDialog(null);
@@ -429,7 +445,13 @@ export function Player({
   // 时间轴框选新建段落
   const createSection = useCallback((startSeg: number, endSeg: number) => {
     setSections((prev) =>
-      [...prev, { id: crypto.randomUUID(), name: "自定义段落", startSeg, endSeg }].sort(
+      [...prev, {
+        id: crypto.randomUUID(),
+        name: "自定义段落",
+        generatedName: true,
+        startSeg,
+        endSeg,
+      }].sort(
         (a, b) => a.startSeg - b.startSeg,
       ),
     );
@@ -459,6 +481,7 @@ export function Player({
         {
           id: crypto.randomUUID(),
           name: `第${current.length + 1}段`,
+          generatedName: true,
           startSeg,
           endSeg,
         },
@@ -656,21 +679,21 @@ export function Player({
   return (
     <div className="flex h-full w-full bg-black">
       <div className="relative flex min-w-0 flex-1 flex-col">
-        <header className="flex h-12 shrink-0 items-center gap-2 border-b border-white/5 bg-neutral-950 px-4">
+        <header className="flex min-h-12 shrink-0 flex-wrap items-center gap-x-2 gap-y-1 border-b border-white/5 bg-neutral-950 px-4 py-1.5">
           <button
             type="button"
             onClick={() => {
               persistCurrentState();
               onReset();
             }}
-            title="返回首页"
-            className="flex items-center gap-1.5 rounded-lg bg-white/5 px-3 py-1.5 text-xs text-neutral-300 transition-colors hover:bg-white/10 hover:text-white"
+            title={t("返回首页")}
+            className="flex shrink-0 items-center gap-1.5 rounded-lg bg-white/5 px-3 py-1.5 text-xs text-neutral-300 transition-colors hover:bg-white/10 hover:text-white"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
-            返回
+            {t("返回")}
           </button>
           <span
-            className="min-w-0 flex-1 truncate text-xs text-neutral-500"
+            className="min-w-24 flex-1 truncate text-xs text-neutral-500"
             title={fileName}
           >
             {fileName}
@@ -682,11 +705,11 @@ export function Player({
               persistCurrentState();
               onOpenMotionAnalyzer();
             }}
-            data-tooltip="上传自己的练舞视频，与当前原视频进行动作对比"
-            className="flex items-center gap-1.5 rounded-lg bg-white/5 px-3 py-1.5 text-xs text-neutral-300 transition-colors hover:bg-white/10 hover:text-white"
+            data-tooltip={t("上传自己的练舞视频，与当前原视频进行动作对比")}
+            className="flex shrink-0 items-center gap-1.5 rounded-lg bg-white/5 px-3 py-1.5 text-xs text-neutral-300 transition-colors hover:bg-white/10 hover:text-white"
           >
             <Upload className="h-3.5 w-3.5" />
-            跟练复盘
+            {t("跟练复盘")}
           </button>
           <button
             type="button"
@@ -694,11 +717,11 @@ export function Player({
               actions.pause();
               setExportOpen(true);
             }}
-            title="导出视频"
-            className="flex items-center gap-1.5 rounded-lg bg-white/5 px-3 py-1.5 text-xs text-neutral-300 transition-colors hover:bg-white/10 hover:text-white"
+            title={t("导出视频")}
+            className="flex shrink-0 items-center gap-1.5 rounded-lg bg-white/5 px-3 py-1.5 text-xs text-neutral-300 transition-colors hover:bg-white/10 hover:text-white"
           >
             <Download className="h-3.5 w-3.5" />
-            导出
+            {t("导出")}
           </button>
           <DevToolsButton />
         </header>
@@ -775,7 +798,9 @@ export function Player({
           onAddMarker={addMarker}
           beatLoopName={
             beatLoopKey != null && segments[beatLoopKey]
-              ? `8拍 ${segments[beatLoopKey].num}`
+              ? language === "en"
+                ? `8-count ${segments[beatLoopKey].num}`
+                : `8拍 ${segments[beatLoopKey].num}`
               : null
           }
           onStopLoop={cancelLoop}

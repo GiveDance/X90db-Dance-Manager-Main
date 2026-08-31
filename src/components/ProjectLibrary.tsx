@@ -14,6 +14,7 @@ import {
 import type { PerformingProject, SavedDanceMeta } from "@/lib/types";
 import { formatTime } from "@/lib/format";
 import type { WorkspaceMode } from "./Home";
+import { useLanguage } from "@/i18n/LanguageProvider";
 
 interface ProjectLibraryProps {
   mode: WorkspaceMode;
@@ -91,8 +92,8 @@ function pairProjects(
   return pairs.sort((first, second) => second.updatedAt - first.updatedAt);
 }
 
-function projectDate(timestamp: number) {
-  return new Date(timestamp).toLocaleDateString("zh-CN", {
+function projectDate(timestamp: number, locale: string) {
+  return new Date(timestamp).toLocaleDateString(locale, {
     month: "numeric",
     day: "numeric",
   });
@@ -115,6 +116,7 @@ export function ProjectLibrary({
   onDeleteLearning,
   onDeletePerforming,
 }: ProjectLibraryProps) {
+  const { language, t } = useLanguage();
   const projects = useMemo(
     () => pairProjects(dances, performingProjects),
     [dances, performingProjects],
@@ -124,17 +126,17 @@ export function ProjectLibrary({
     <section className="mt-10">
       <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold text-white">
         <Music className="h-4 w-4" />
-        我的项目
+        {t("我的项目")}
         {projects.length > 0 && (
           <span className="text-ui-secondary">· {projects.length}</span>
         )}
       </h2>
 
       {loading ? (
-        <p className="text-ui-secondary text-sm">加载中…</p>
+        <p className="text-ui-secondary text-sm">{t("加载中…")}</p>
       ) : projects.length === 0 ? (
         <p className="text-ui-secondary rounded-xl border border-dashed border-neutral-800 px-4 py-8 text-center text-sm">
-          还没有项目。上传视频后会自动保存在这里。
+          {t("还没有项目。上传视频后会自动保存在这里。")}
         </p>
       ) : (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -156,7 +158,7 @@ export function ProjectLibrary({
               learning?.name ??
               performing?.sourceName ??
               performing?.name ??
-              "未命名项目";
+              t("未命名项目");
             const cover = learning?.cover ?? performing?.cover;
             const bpm = learning?.bpm ?? performing?.bpm;
             const duration = learning?.duration ?? performing?.duration ?? 0;
@@ -170,11 +172,23 @@ export function ProjectLibrary({
             };
             const deletePreferred = () => {
               if (preferred === "learning" && learning) {
-                if (confirm(`删除「${name}」的练习项目？`)) {
+                if (
+                  confirm(
+                    language === "en"
+                      ? `Delete the practice project “${name}”?`
+                      : `删除「${name}」的练习项目？`,
+                  )
+                ) {
                   onDeleteLearning(learning.id);
                 }
               } else if (performing) {
-                if (confirm(`删除「${name}」的演出项目？`)) {
+                if (
+                  confirm(
+                    language === "en"
+                      ? `Delete the performance project “${name}”?`
+                      : `删除「${name}」的演出项目？`,
+                  )
+                ) {
                   onDeletePerforming(performing.id);
                 }
               }
@@ -222,7 +236,7 @@ export function ProjectLibrary({
                   </p>
                   <div className="text-ui-secondary mt-1 flex items-center gap-1.5 text-xs">
                     <Clock className="h-3 w-3" />
-                    <span>{projectDate(updatedAt)}</span>
+                    <span>{projectDate(updatedAt, language)}</span>
                     {bpm != null && <span>· {Math.round(bpm)} BPM</span>}
                     {duration > 0 && <span>· {formatTime(duration)}</span>}
                   </div>
@@ -233,7 +247,7 @@ export function ProjectLibrary({
                       data-tooltip={
                         learning
                           ? undefined
-                          : "复用当前视频和节拍数据创建练习项目"
+                          : t("复用当前视频和节拍数据创建练习项目")
                       }
                       onClick={() =>
                         learning
@@ -247,7 +261,7 @@ export function ProjectLibrary({
                       }
                     >
                       <GraduationCap className="h-3.5 w-3.5" />
-                      {creatingLearningId === performing?.id ? "创建中…" : "练习"}
+                      {creatingLearningId === performing?.id ? t("创建中…") : t("练习")}
                     </button>
                     <button
                       type="button"
@@ -255,7 +269,7 @@ export function ProjectLibrary({
                       data-tooltip={
                         performing
                           ? undefined
-                          : "复用当前视频和节拍数据创建演出项目"
+                          : t("复用当前视频和节拍数据创建演出项目")
                       }
                       onClick={() =>
                         performing
@@ -270,8 +284,10 @@ export function ProjectLibrary({
                     >
                       <Sparkles className="h-3.5 w-3.5" />
                       {creatingPerformanceId === learning?.id
-                        ? "创建中…"
-                        : "演出"}
+                        ? t("创建中…")
+                        : language === "en"
+                          ? t("演出操作")
+                          : t("演出")}
                     </button>
                   </div>
                 </div>
@@ -281,7 +297,7 @@ export function ProjectLibrary({
                     <button
                       type="button"
                       onClick={() => onExportLearning(learning.id)}
-                      aria-label={`导出 ${name}`}
+                      aria-label={language === "en" ? `Export ${name}` : `导出 ${name}`}
                       className="text-ui-secondary flex h-7 w-7 items-center justify-center rounded-lg bg-black/60 hover:bg-blue-500/80 hover:text-white"
                     >
                       <Download className="h-3.5 w-3.5" />
@@ -290,7 +306,7 @@ export function ProjectLibrary({
                   <button
                     type="button"
                     onClick={deletePreferred}
-                    aria-label={`删除 ${name}`}
+                    aria-label={language === "en" ? `Delete ${name}` : `删除 ${name}`}
                     className="text-ui-secondary flex h-7 w-7 items-center justify-center rounded-lg bg-black/60 hover:bg-red-500/80 hover:text-white"
                   >
                     <Trash2 className="h-3.5 w-3.5" />

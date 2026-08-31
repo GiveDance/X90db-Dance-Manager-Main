@@ -33,6 +33,7 @@ import type {
   MarkerColor,
 } from "@/lib/types";
 import { MARKER_COLORS } from "@/lib/types";
+import { useLanguage } from "@/i18n/LanguageProvider";
 
 const RATES = [0.5, 0.75, 0.8, 1, 1.25, 1.5, 2];
 const MARKER_COLOR_OPTIONS: MarkerColor[] = [
@@ -60,6 +61,7 @@ function VizModeButton({
   config: BeatVizConfig;
   onChange: (config: BeatVizConfig) => void;
 }) {
+  const { t, translateText } = useLanguage();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -91,8 +93,8 @@ function VizModeButton({
     <div ref={ref} className="relative">
       <button
         type="button"
-        data-tooltip="节拍视觉设置"
-        aria-label="节拍视觉设置"
+        data-tooltip={t("节拍视觉设置")}
+        aria-label={t("节拍视觉设置")}
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
         className={cn(
@@ -106,7 +108,7 @@ function VizModeButton({
       {open && (
         <div className="absolute bottom-full right-0 z-30 mb-2 w-72 rounded-xl border border-white/10 bg-neutral-900 p-2 shadow-2xl">
           <div className="px-2 pb-1.5 pt-1 text-[11px] font-medium text-neutral-500">
-            节拍视觉
+            {t("节拍视觉")}
           </div>
 
           <div
@@ -137,10 +139,10 @@ function VizModeButton({
                   <CircleDot className="h-4 w-4" />
                 )}
               </span>
-              <span className="flex-1">
-                <span className="block text-sm font-medium">计数拍点</span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-medium">{t("计数拍点")}</span>
                 <span className="block text-[11px] text-neutral-500">
-                  显示当前八拍和计数位置
+                  {t("显示当前八拍和计数位置")}
                 </span>
               </span>
               <span
@@ -157,7 +159,7 @@ function VizModeButton({
 
             {config.countPoints && (
               <div className="border-t border-blue-500/20 bg-black/25 p-2.5">
-                <div className="mb-1.5 text-[11px] text-neutral-500">样式</div>
+                <div className="mb-1.5 text-[11px] text-neutral-500">{t("样式")}</div>
                 <div className="grid grid-cols-2 gap-1 rounded-lg bg-black/25 p-1">
                   {(
                     [
@@ -177,13 +179,13 @@ function VizModeButton({
                           : "text-neutral-400 hover:bg-white/5 hover:text-neutral-200",
                       )}
                     >
-                      {label}
+                      {translateText(label)}
                     </button>
                   ))}
                 </div>
 
                 <div className="mb-1.5 mt-2.5 text-[11px] text-neutral-500">
-                  位置
+                  {t("位置")}
                 </div>
                 <div className="grid grid-cols-4 gap-1 rounded-lg bg-black/25 p-1">
                   {(
@@ -206,7 +208,7 @@ function VizModeButton({
                           : "text-neutral-400 hover:bg-white/5 hover:text-neutral-200",
                       )}
                     >
-                      {label}
+                      {translateText(label)}
                     </button>
                   ))}
                 </div>
@@ -233,9 +235,13 @@ function VizModeButton({
                 <span className="flex h-7 w-7 items-center justify-center rounded-md bg-white/5">
                   {mode.icon}
                 </span>
-                <span className="flex-1">
-                  <span className="block text-sm font-medium">{mode.label}</span>
-                  <span className="block text-[11px] text-neutral-500">{mode.desc}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-medium">
+                    {translateText(mode.label)}
+                  </span>
+                  <span className="block text-[11px] text-neutral-500">
+                    {translateText(mode.desc)}
+                  </span>
                 </span>
                 <span
                   className={cn(
@@ -293,12 +299,14 @@ function IconBtn({
   onClick,
   title,
   active,
+  pressed,
   className,
 }: {
   children: React.ReactNode;
   onClick: () => void;
   title: string;
   active?: boolean;
+  pressed?: boolean;
   className?: string;
 }) {
   return (
@@ -306,6 +314,7 @@ function IconBtn({
       type="button"
       data-tooltip={title}
       aria-label={title}
+      aria-pressed={pressed}
       onClick={onClick}
       className={cn(
         "flex h-9 items-center justify-center rounded-lg px-2.5 text-neutral-300 transition-colors hover:bg-white/10 hover:text-white [&_svg]:size-5 [&_svg]:shrink-0 [&_svg]:stroke-[1.75]",
@@ -347,6 +356,7 @@ function RateButton({
   value: number;
   onChange: (rate: number) => void;
 }) {
+  const { language, t } = useLanguage();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -383,8 +393,8 @@ function RateButton({
     >
       <button
         type="button"
-        title="播放速度"
-        aria-label={`播放速度 ${value}倍`}
+        title={t("播放速度")}
+        aria-label={language === "en" ? `Playback speed ${value}×` : `播放速度 ${value}倍`}
         aria-expanded={open}
         onClick={() => setOpen(true)}
         className={cn(
@@ -434,6 +444,7 @@ function VolumeControl(props: {
   onToggleMute: () => void;
   onChange: (volume: number) => void;
 }) {
+  const { t, translateText } = useLanguage();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const displayedVolume = props.muted ? 0 : props.volume;
@@ -473,8 +484,8 @@ function VolumeControl(props: {
       <button
         type="button"
         onClick={props.onToggleMute}
-        data-tooltip={open ? undefined : muteLabel}
-        aria-label={muteLabel}
+        data-tooltip={open ? undefined : translateText(muteLabel)}
+        aria-label={translateText(muteLabel)}
         aria-expanded={open}
         className="flex h-9 items-center justify-center rounded-lg px-2.5 text-neutral-300 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 [&_svg]:size-5 [&_svg]:shrink-0 [&_svg]:stroke-[1.75]"
       >
@@ -505,7 +516,7 @@ function VolumeControl(props: {
                 onChange={(event) =>
                   props.onChange(parseFloat(event.target.value))
                 }
-                aria-label="音量"
+                aria-label={t("音量")}
                 className="peer absolute h-8 w-20 -rotate-90 cursor-pointer opacity-0"
               />
               <span
@@ -531,6 +542,7 @@ function HintMenu(props: {
   onOpen: () => void;
   onAdd: ControlsProps["onAddMarker"];
 }) {
+  const { language, t } = useLanguage();
   const [open, setOpen] = useState(props.initiallyOpen);
   const [time, setTime] = useState(() => formatTime(props.currentTime));
   const [label, setLabel] = useState("");
@@ -589,7 +601,7 @@ function HintMenu(props: {
     <div ref={ref} className="relative">
       {props.showTrigger && (
         <IconBtn
-          title="动作提示"
+          title={t("动作提示")}
           onClick={toggleOpen}
           active={open || props.enabled}
         >
@@ -599,68 +611,90 @@ function HintMenu(props: {
       {open && (
         <div className="absolute bottom-full right-0 z-30 mb-2 max-h-[calc(100dvh-5rem)] w-80 max-w-[calc(100vw-1.5rem)] overflow-y-auto rounded-xl border border-white/10 bg-neutral-900 p-3 shadow-2xl">
           <h3 className="mb-3 text-sm font-semibold text-white">
-            {props.showToggle ? "动作提示" : "添加提示"}
+            {props.showToggle ? t("动作提示") : t("添加提示")}
           </h3>
 
           {props.showToggle && (
             <>
               <div className="flex items-center justify-between rounded-lg bg-white/5 px-3 py-2.5">
-                <div>
-                  <div className="text-sm text-neutral-200">显示提示</div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm text-neutral-200">
+                    {language === "en" ? t("动作提示") : t("显示提示")}
+                  </div>
                   <div className="text-[11px] text-neutral-500">
-                    在视频上显示已添加的动作提示
+                    {t("在视频上显示已添加的动作提示")}
                   </div>
                 </div>
                 <Toggle
                   checked={props.enabled}
                   onChange={props.onToggle}
-                  label="显示动作提示"
+                  label={
+                    language === "en" ? t("动作提示") : t("显示动作提示")
+                  }
                 />
               </div>
               <div className="my-3 h-px bg-white/10" />
               <div className="mb-2 text-xs font-medium text-neutral-300">
-                添加提示
+                {t("添加提示")}
               </div>
             </>
           )}
           <div className="space-y-2.5">
             <label className="block">
-              <span className="mb-1 block text-[11px] text-neutral-500">时间点</span>
+              <span className="mb-1 block text-[11px] text-neutral-500">{t("时间点")}</span>
               <input
                 value={time}
                 onChange={(event) => setTime(event.target.value)}
                 aria-invalid={!validTime}
+                aria-describedby={!validTime ? "movement-cue-time-error" : undefined}
                 className={cn(inputClass, !validTime && "border-red-500/60")}
               />
+              {!validTime && (
+                <span
+                  id="movement-cue-time-error"
+                  role="alert"
+                  className="mt-1 block text-[11px] text-red-300"
+                >
+                  {t("请输入视频范围内的时间。")}
+                </span>
+              )}
             </label>
             <label className="block">
-              <span className="mb-1 block text-[11px] text-neutral-500">提示</span>
+              <span className="mb-1 block text-[11px] text-neutral-500">{t("提示")}</span>
               <input
                 value={label}
                 onChange={(event) => setLabel(event.target.value)}
-                placeholder="转身"
+                placeholder={t("转身")}
                 className={inputClass}
               />
             </label>
             <label className="block">
-              <span className="mb-1 block text-[11px] text-neutral-500">说明</span>
+              <span className="mb-1 block text-[11px] text-neutral-500">{t("说明")}</span>
               <input
                 value={text}
                 onChange={(event) => setText(event.target.value)}
                 onKeyDown={(event) => event.key === "Enter" && addHint()}
-                placeholder="注意走位"
+                placeholder={t("注意走位")}
                 className={inputClass}
               />
             </label>
             <fieldset>
-              <legend className="mb-1.5 text-[11px] text-neutral-500">颜色</legend>
-              <div className="flex gap-2">
+              <legend className="mb-1.5 text-[11px] text-neutral-500">{t("颜色")}</legend>
+              <div className="flex flex-wrap gap-2">
                 {MARKER_COLOR_OPTIONS.map((option) => (
                   <button
                     type="button"
                     key={option}
-                    data-tooltip={`选择${option}颜色`}
-                    aria-label={`提示颜色 ${option}`}
+                    data-tooltip={
+                      language === "en"
+                        ? `Select ${option.charAt(0).toUpperCase()}${option.slice(1)}`
+                        : `选择${option}颜色`
+                    }
+                    aria-label={
+                      language === "en"
+                        ? `${option.charAt(0).toUpperCase()}${option.slice(1)} cue color`
+                        : `提示颜色 ${option}`
+                    }
                     aria-pressed={color === option}
                     onClick={() => setColor(option)}
                     className={cn(
@@ -682,7 +716,7 @@ function HintMenu(props: {
             className="mt-4 flex h-9 w-full items-center justify-center gap-1.5 rounded-lg bg-blue-500 text-sm font-medium text-white transition-colors hover:bg-blue-600 disabled:cursor-not-allowed disabled:bg-neutral-600 disabled:text-white"
           >
             <Plus className="h-4 w-4" />
-            添加提示
+            {t("添加提示")}
           </button>
         </div>
       )}
@@ -699,6 +733,7 @@ function MoreMenu(props: {
   onToggleHints: () => void;
   onAddHint: () => void;
 }) {
+  const { language, t } = useLanguage();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -742,7 +777,7 @@ function MoreMenu(props: {
   return (
     <div ref={ref} className="relative">
       <IconBtn
-        title="更多工具"
+        title={t("更多工具")}
         onClick={() => setOpen((current) => !current)}
         active={open}
       >
@@ -761,7 +796,7 @@ function MoreMenu(props: {
             className={cn(itemClass, props.mirrored && "text-blue-300")}
           >
             <FlipHorizontal2 className="h-4 w-4" />
-            <span className="flex-1">镜像跟练</span>
+            <span className="flex-1">{t("镜像跟练")}</span>
             {checkbox(props.mirrored)}
           </button>
           <button
@@ -772,7 +807,7 @@ function MoreMenu(props: {
             className={cn(itemClass, props.formationOpen && "text-blue-300")}
           >
             <UsersRound className="h-4 w-4" />
-            <span className="flex-1">走位</span>
+            <span className="flex-1">{t("走位")}</span>
             {checkbox(props.formationOpen)}
           </button>
           <button
@@ -783,7 +818,9 @@ function MoreMenu(props: {
             className={cn(itemClass, props.hintsEnabled && "text-blue-300")}
           >
             <MessageSquareText className="h-4 w-4" />
-            <span className="flex-1">显示提示</span>
+            <span className="flex-1">
+              {language === "en" ? t("动作提示") : t("显示提示")}
+            </span>
             {checkbox(props.hintsEnabled)}
           </button>
           <button
@@ -793,7 +830,7 @@ function MoreMenu(props: {
             className={itemClass}
           >
             <Plus className="h-4 w-4" />
-            添加提示
+            {t("添加提示")}
           </button>
         </div>
       )}
@@ -802,6 +839,7 @@ function MoreMenu(props: {
 }
 
 export function Controls(props: ControlsProps) {
+  const { t } = useLanguage();
   const {
     isPlaying,
     currentTime,
@@ -841,11 +879,11 @@ export function Controls(props: ControlsProps) {
             <div className="mb-1.5 flex items-center">
               <span className="flex items-center gap-1 rounded-md bg-blue-500/20 px-2 py-0.5 text-xs text-blue-300">
                 <Repeat className="h-3 w-3" />
-                循环: {props.beatLoopName}
+                {t("循环:")} {props.beatLoopName}
                 <button
                   type="button"
-                  data-tooltip="取消循环"
-                  aria-label="取消八拍循环"
+                  data-tooltip={t("取消循环")}
+                  aria-label={t("取消八拍循环")}
                   onClick={props.onStopLoop}
                   className="ml-0.5 rounded-sm hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
                 >
@@ -866,13 +904,13 @@ export function Controls(props: ControlsProps) {
           compact ? "gap-0.5 px-2" : "gap-1 px-3 sm:px-5",
         )}
       >
-        <IconBtn title="播放 / 暂停 (Space)" onClick={props.onTogglePlay}>
+        <IconBtn title={t("播放 / 暂停 (Space)")} onClick={props.onTogglePlay}>
           {isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
         </IconBtn>
-        <IconBtn title="上一拍 (←)" onClick={props.onPrevBeat}>
+        <IconBtn title={t("上一拍 (←)")} onClick={props.onPrevBeat}>
           <SkipBack className="h-4 w-4" />
         </IconBtn>
-        <IconBtn title="下一拍 (→)" onClick={props.onNextBeat}>
+        <IconBtn title={t("下一拍 (→)")} onClick={props.onNextBeat}>
           <SkipForward className="h-4 w-4" />
         </IconBtn>
 
@@ -897,16 +935,22 @@ export function Controls(props: ControlsProps) {
           />
 
           {!compact && (
-            <IconBtn title="镜像跟练" onClick={props.onToggleMirror} active={mirrored}>
+            <IconBtn
+              title={t("镜像跟练")}
+              onClick={props.onToggleMirror}
+              active={mirrored}
+              pressed={mirrored}
+            >
               <FlipHorizontal2 className="h-5 w-5" />
             </IconBtn>
           )}
 
           {!compact && (
             <IconBtn
-              title="走位"
+              title={t("走位")}
               onClick={props.onToggleFormation}
               active={formationOpen}
+              pressed={formationOpen}
             >
               <UsersRound className="h-5 w-5" />
             </IconBtn>
@@ -991,6 +1035,7 @@ interface FormationControlsProps {
 }
 
 export function FormationControls(props: FormationControlsProps) {
+  const { t } = useLanguage();
   const rowRef = useRef<HTMLDivElement>(null);
   const [rowWidth, setRowWidth] = useState(Number.POSITIVE_INFINITY);
   const narrow = rowWidth < 480;
@@ -1030,17 +1075,17 @@ export function FormationControls(props: FormationControlsProps) {
           narrow ? "gap-0.5 px-2" : "gap-1 px-3 sm:px-5",
         )}
       >
-        <IconBtn title="播放 / 暂停 (Space)" onClick={props.onTogglePlay}>
+        <IconBtn title={t("播放 / 暂停 (Space)")} onClick={props.onTogglePlay}>
           {props.isPlaying ? (
             <Pause className="h-5 w-5" />
           ) : (
             <Play className="h-5 w-5" />
           )}
         </IconBtn>
-        <IconBtn title="上一个小拍" onClick={props.onPrevBeat}>
+        <IconBtn title={t("上一个小拍")} onClick={props.onPrevBeat}>
           <SkipBack className="h-4 w-4" />
         </IconBtn>
-        <IconBtn title="下一个小拍" onClick={props.onNextBeat}>
+        <IconBtn title={t("下一个小拍")} onClick={props.onNextBeat}>
           <SkipForward className="h-4 w-4" />
         </IconBtn>
 
@@ -1061,9 +1106,10 @@ export function FormationControls(props: FormationControlsProps) {
         <div className="flex shrink-0 items-center gap-0.5">
           {props.showMirror !== false && (
             <IconBtn
-              title="镜像跟练"
+              title={t("镜像跟练")}
               onClick={props.onToggleMirror}
               active={props.mirrored}
+              pressed={props.mirrored}
             >
               <FlipHorizontal2 className="h-5 w-5" />
             </IconBtn>

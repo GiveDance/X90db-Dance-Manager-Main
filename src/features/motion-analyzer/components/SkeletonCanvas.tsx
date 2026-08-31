@@ -3,6 +3,7 @@
 import { useRef, useEffect, useState, useCallback } from "react";
 import type { Landmark } from "@/features/motion-analyzer/types";
 import { SKELETON_CONNECTIONS, POSE_LANDMARKS } from "@/features/motion-analyzer/lib/pose-constants";
+import { useLanguage } from "@/i18n/LanguageProvider";
 
 // Landmark indices to draw: NOSE (head) + body (11+), skip face details (1-10)
 const DRAWABLE_LANDMARKS = new Set<number>([
@@ -25,6 +26,7 @@ export function SkeletonCanvas({
   videoUrl,
   currentTime = 0,
 }: SkeletonCanvasProps) {
+  const { t, translateText } = useLanguage();
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -105,7 +107,7 @@ export function SkeletonCanvas({
   return (
     <div className="flex flex-col items-center gap-2">
       <span className="text-xs font-semibold uppercase tracking-wider text-white/30">
-        {label}
+        {translateText(label)}
       </span>
       <div
         ref={containerRef}
@@ -124,7 +126,7 @@ export function SkeletonCanvas({
           />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center bg-[#1c1c1c]">
-            <span className="text-sm text-white/20">暂无视频</span>
+            <span className="text-sm text-white/20">{t("暂无视频")}</span>
           </div>
         )}
         <canvas

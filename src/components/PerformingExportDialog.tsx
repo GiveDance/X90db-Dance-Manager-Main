@@ -17,6 +17,7 @@ import {
   type PerformingExportVisibility,
 } from "@/lib/performingExport";
 import type { PerformingProject } from "@/lib/types";
+import { useLanguage } from "@/i18n/LanguageProvider";
 
 interface PerformingExportDialogProps {
   project: PerformingProject;
@@ -43,6 +44,7 @@ export function PerformingExportDialog({
   visibility,
   onClose,
 }: PerformingExportDialogProps) {
+  const { language, t, translateText } = useLanguage();
   const [resolution, setResolution] =
     useState<PerformingExportResolution>("1080p");
   const [status, setStatus] = useState<ExportStatus>("idle");
@@ -145,25 +147,25 @@ export function PerformingExportDialog({
         aria-modal="true"
         aria-labelledby="performing-export-title"
         onClick={(event) => event.stopPropagation()}
-        className="w-full max-w-[480px] overflow-hidden rounded-2xl border border-white/10 bg-neutral-950 shadow-2xl"
+        className="max-h-[calc(100dvh-2rem)] w-full max-w-[520px] overflow-y-auto rounded-2xl border border-white/10 bg-neutral-950 shadow-2xl"
       >
         <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
-          <div>
+          <div className="min-w-0 pr-3">
             <h2
               id="performing-export-title"
               className="text-sm font-semibold text-white"
             >
-              导出 Performing 视频
+              {t("导出 Performing 视频")}
             </h2>
             <p className="mt-1 text-[11px] text-neutral-500">
-              烧录当前编排、舞台模板和节拍信号
+              {t("烧录当前编排、舞台模板和节拍信号")}
             </p>
           </div>
           <button
             type="button"
             disabled={exporting}
             onClick={onClose}
-            aria-label="关闭导出"
+            aria-label={t("关闭导出")}
             className="rounded-lg p-1.5 text-neutral-500 transition-colors hover:bg-white/5 hover:text-white disabled:opacity-30"
           >
             <X className="h-4 w-4" />
@@ -172,16 +174,19 @@ export function PerformingExportDialog({
 
         <div className="space-y-4 p-5">
           {!supported ? (
-            <div className="rounded-xl border border-amber-400/20 bg-amber-400/10 px-4 py-3 text-xs leading-5 text-amber-200">
-              当前浏览器不支持本地视频录制，请使用最新版 Chrome 或 Edge。
+            <div
+              role="alert"
+              className="rounded-xl border border-amber-400/20 bg-amber-400/10 px-4 py-3 text-xs leading-5 text-amber-200"
+            >
+              {t("当前浏览器不支持本地视频录制，请使用最新版 Chrome 或 Edge。")}
             </div>
           ) : (
             <>
               <div>
                 <div className="mb-2 text-[11px] font-medium text-neutral-400">
-                  导出清晰度
+                  {t("导出清晰度")}
                 </div>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   {(
                     [
                       ["1080p", "最高 1920 × 1080"],
@@ -192,6 +197,7 @@ export function PerformingExportDialog({
                       key={value}
                       type="button"
                       disabled={exporting}
+                      aria-pressed={resolution === value}
                       onClick={() => setResolution(value)}
                       className={`rounded-xl border px-3 py-3 text-left transition-colors ${
                         resolution === value
@@ -200,25 +206,25 @@ export function PerformingExportDialog({
                       } disabled:opacity-50`}
                     >
                       <span className="block text-xs font-semibold text-white">
-                        {value.toUpperCase()}
+                        {value}
                       </span>
                       <span className="mt-1 block text-[10px] text-neutral-500">
-                        {description}
+                        {translateText(description)}
                       </span>
                     </button>
                   ))}
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.025] px-3 py-3">
                   <Film className="h-4 w-4 text-violet-300" />
                   <span>
                     <span className="block text-[11px] text-neutral-300">
-                      画面
+                      {t("画面")}
                     </span>
                     <span className="block text-[10px] text-neutral-600">
-                      素材、模板、节拍
+                      {t("素材、模板、节拍")}
                     </span>
                   </span>
                 </div>
@@ -226,25 +232,29 @@ export function PerformingExportDialog({
                   <Music2 className="h-4 w-4 text-cyan-300" />
                   <span>
                     <span className="block text-[11px] text-neutral-300">
-                      音频
+                      {t("音频")}
                     </span>
                     <span className="block text-[10px] text-neutral-600">
-                      项目主音乐轨
+                      {t("项目主音乐轨")}
                     </span>
                   </span>
                 </div>
               </div>
 
               <p className="text-[10px] leading-4 text-neutral-600">
-                导出在本地完成，耗时约等于视频长度。优先输出 MP4，不支持时自动使用 WebM。
+                {t("导出在本地完成，耗时约等于视频长度。优先输出 MP4，不支持时自动使用 WebM。")}
               </p>
 
               {exporting && (
-                <div className="rounded-xl border border-violet-400/20 bg-violet-400/[0.07] p-3">
+                <div
+                  role="status"
+                  aria-live="polite"
+                  className="rounded-xl border border-violet-400/20 bg-violet-400/[0.07] p-3"
+                >
                   <div className="mb-2 flex items-center justify-between text-[11px]">
                     <span className="flex items-center gap-2 text-violet-200">
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      正在合成并编码
+                      {t("正在合成并编码")}
                     </span>
                     <span className="tabular-nums text-neutral-400">
                       {Math.round(progress * 100)}%
@@ -260,30 +270,49 @@ export function PerformingExportDialog({
               )}
 
               {status === "done" && result && (
-                <div className="flex items-center gap-3 rounded-xl border border-emerald-400/20 bg-emerald-400/[0.08] px-3 py-3 text-xs text-emerald-200">
+                <div
+                  role="status"
+                  className="flex items-center gap-3 rounded-xl border border-emerald-400/20 bg-emerald-400/[0.08] px-3 py-3 text-xs leading-5 text-emerald-200"
+                >
                   <Check className="h-4 w-4" />
-                  已导出 {result.ext.toUpperCase()} · {result.width} ×{" "}
-                  {result.height}，下载已开始。
+                  <span className="min-w-0">
+                    {language === "en" ? (
+                      <>
+                        {result.ext.toUpperCase()} export complete at{" "}
+                        {result.width} × {result.height}. Your download has
+                        started.
+                      </>
+                    ) : (
+                      <>
+                        {t("已导出")} {result.ext.toUpperCase()} · {result.width}{" "}
+                        × {result.height}
+                        {t("，下载已开始。")}
+                      </>
+                    )}
+                  </span>
                 </div>
               )}
 
               {status === "error" && (
-                <div className="rounded-xl border border-red-400/20 bg-red-400/[0.08] px-3 py-3 text-xs leading-5 text-red-200">
-                  {error}
+                <div
+                  role="alert"
+                  className="rounded-xl border border-red-400/20 bg-red-400/[0.08] px-3 py-3 text-xs leading-5 text-red-200"
+                >
+                  {translateText(error)}
                 </div>
               )}
             </>
           )}
         </div>
 
-        <div className="flex justify-end gap-2 border-t border-white/10 px-5 py-4">
+        <div className="flex flex-wrap justify-end gap-2 border-t border-white/10 px-5 py-4">
           {exporting ? (
             <button
               type="button"
               onClick={() => abortRef.current?.abort()}
               className="rounded-lg border border-white/10 px-3 py-2 text-xs text-neutral-300 transition-colors hover:bg-white/5"
             >
-              取消导出
+              {t("取消导出")}
             </button>
           ) : (
             <button
@@ -291,7 +320,7 @@ export function PerformingExportDialog({
               onClick={onClose}
               className="rounded-lg px-3 py-2 text-xs text-neutral-500 transition-colors hover:text-white"
             >
-              关闭
+              {t("关闭")}
             </button>
           )}
           <button
@@ -301,7 +330,7 @@ export function PerformingExportDialog({
             className="flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-xs font-semibold text-black transition-colors hover:bg-neutral-200 disabled:cursor-not-allowed disabled:opacity-35"
           >
             <Download className="h-3.5 w-3.5" />
-            {status === "done" ? "重新导出" : "开始导出"}
+            {status === "done" ? t("重新导出") : t("开始导出")}
           </button>
         </div>
       </div>

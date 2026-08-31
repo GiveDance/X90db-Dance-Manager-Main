@@ -3,6 +3,7 @@
 import { Sparkles } from "lucide-react";
 import { GENERATED_TEMPLATE_DRAG_TYPE } from "@/lib/composition";
 import type { GeneratedStageTemplate } from "@/lib/types";
+import { useLanguage } from "@/i18n/LanguageProvider";
 
 const TEMPLATES: Array<{
   id: GeneratedStageTemplate;
@@ -45,6 +46,7 @@ const TEMPLATES: Array<{
 ];
 
 export function StageInspector() {
+  const { language, translateText } = useLanguage();
   return (
     <div className="grid grid-cols-2 gap-2 px-3 pb-3 pt-4">
       {TEMPLATES.map((template) => (
@@ -52,7 +54,11 @@ export function StageInspector() {
             type="button"
             key={template.id}
             draggable
-            aria-label={`拖拽 ${template.name} 到合成时间线`}
+            aria-label={
+              language === "en"
+                ? `Drag ${translateText(template.name)} background to the composition timeline`
+                : `拖拽 ${template.name} 到合成时间线`
+            }
             onDragStart={(event) => {
               event.dataTransfer.effectAllowed = "copy";
               event.dataTransfer.setData(
@@ -68,7 +74,11 @@ export function StageInspector() {
               {template.thumbnail ? (
                 <img
                   src={template.thumbnail}
-                  alt={`${template.name} 模板预览`}
+                  alt={
+                    language === "en"
+                      ? `${translateText(template.name)} background preview`
+                      : `${template.name} 模板预览`
+                  }
                   className="absolute inset-0 h-full w-full object-cover"
                 />
               ) : (
@@ -77,10 +87,10 @@ export function StageInspector() {
             </span>
             <span className="block px-2.5 py-2">
               <strong className="block truncate text-[11px] font-medium text-neutral-200">
-                {template.name}
+                {translateText(template.name)}
               </strong>
-              <span className="mt-0.5 block truncate text-[9px] text-neutral-600">
-                {template.description}
+              <span className="mt-0.5 block min-h-6 text-[9px] leading-3 text-neutral-500">
+                {translateText(template.description)}
               </span>
             </span>
           </button>

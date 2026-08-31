@@ -16,6 +16,7 @@ import {
   TimelineNavigationControls,
   useTimelineNavigation,
 } from "./TimelineNavigation";
+import { useLanguage } from "@/i18n/LanguageProvider";
 
 export type TimelineTrack = "source" | "overlay" | "composition";
 
@@ -44,17 +45,23 @@ function TrackHeader({
   onToggle: () => void;
   onClearSelection: () => void;
 }) {
+  const { language, translateText } = useLanguage();
+  const localizedLabel = translateText(label);
   return (
     <div
       className="flex h-full items-center gap-2 border-r border-white/[0.07] px-2.5"
       onClick={onClearSelection}
     >
       <span className="min-w-0 flex-1 truncate text-[11px] font-medium text-neutral-400">
-        {label}
+        {localizedLabel}
       </span>
       <button
         type="button"
-        aria-label={`${hidden ? "显示" : "隐藏"} ${label} 轨道`}
+        aria-label={
+          language === "en"
+            ? `${hidden ? "Show" : "Hide"} ${localizedLabel} track`
+            : `${hidden ? "显示" : "隐藏"} ${label} 轨道`
+        }
         aria-pressed={hidden}
         onClick={(event) => {
           event.stopPropagation();
@@ -115,6 +122,7 @@ export function CompositionTimeline({
   onDropGenerated,
   onDropVideo,
 }: CompositionTimelineProps) {
+  const { language, t, translateText } = useLanguage();
   const laneRef = useRef<HTMLDivElement>(null);
   const dragReadyIndicatorRef = useRef<HTMLSpanElement>(null);
   const dropIndicatorRef = useRef<HTMLSpanElement>(null);
@@ -127,7 +135,7 @@ export function CompositionTimeline({
     1,
   );
   const navigation = useTimelineNavigation(timelineDuration);
-  const { zoom, viewportRef, syncScrollMetrics } = navigation;
+  const { zoom, viewportId, viewportRef, syncScrollMetrics } = navigation;
   const percentage = (time: number) => (time / timelineDuration) * 100;
   const timeAtX = (clientX: number) => {
     const bounds = laneRef.current?.getBoundingClientRect();
@@ -321,11 +329,16 @@ export function CompositionTimeline({
     <div data-composition-timeline>
       <div
         ref={viewportRef}
+        id={viewportId}
         onScroll={syncScrollMetrics}
         className="overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         <div
-          className="grid min-w-full grid-cols-[112px_minmax(0,1fr)] overflow-hidden rounded-lg border border-white/[0.07] bg-neutral-950"
+          className={`grid min-w-full overflow-hidden rounded-lg border border-white/[0.07] bg-neutral-950 ${
+            language === "en"
+              ? "grid-cols-[clamp(124px,18%,160px)_minmax(0,1fr)]"
+              : "grid-cols-[112px_minmax(0,1fr)]"
+          }`}
           style={{ width: `${zoom * 100}%` }}
         >
           <div className="h-12 border-b border-white/[0.07]">
@@ -361,7 +374,7 @@ export function CompositionTimeline({
               }`}
               style={{ width: `${percentage(duration)}%` }}
             >
-              <span className="truncate">节拍信号</span>
+              <span className="truncate">{t("节拍信号")}</span>
             </button>
             {playhead}
           </div>
@@ -486,11 +499,15 @@ export function CompositionTimeline({
                       ? `translateX(${dragOffset}px)`
                       : undefined,
                   }}
-                  title={displayName}
+                  title={translateText(displayName)}
                 >
                   <button
                     type="button"
-                    aria-label={`调整 ${displayName} 的开始位置`}
+                    aria-label={
+                      language === "en"
+                        ? `Adjust the start of ${translateText(displayName)}`
+                        : `调整 ${displayName} 的开始位置`
+                    }
                     onPointerDown={(event) => startStartResize(event, clip)}
                     className={`absolute inset-y-0 left-0 z-10 w-2 cursor-ew-resize ${
                       generated
@@ -503,11 +520,15 @@ export function CompositionTimeline({
                       generated ? "text-violet-100" : "text-[#30E6FF]"
                     }`}
                   >
-                    {displayName}
+                    {translateText(displayName)}
                   </p>
                   <button
                     type="button"
-                    aria-label={`调整 ${displayName} 的结束位置`}
+                    aria-label={
+                      language === "en"
+                        ? `Adjust the end of ${translateText(displayName)}`
+                        : `调整 ${displayName} 的结束位置`
+                    }
                     onPointerDown={(event) => startEndResize(event, clip)}
                     className={`absolute inset-y-0 right-0 w-2 cursor-ew-resize ${
                       generated

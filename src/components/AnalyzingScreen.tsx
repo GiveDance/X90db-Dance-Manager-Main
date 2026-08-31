@@ -3,6 +3,8 @@
 import { Loader2, Check } from "lucide-react";
 import type { AnalyzeStage } from "@/lib/beatDetection";
 import { cn } from "@/lib/cn";
+import { useLanguage } from "@/i18n/LanguageProvider";
+import { DevToolsButton } from "./DevToolsButton";
 
 const STAGES: { key: AnalyzeStage; label: string }[] = [
   { key: "decode", label: "解码音频" },
@@ -19,16 +21,22 @@ interface AnalyzingScreenProps {
 
 export function AnalyzingScreen({ stage, fileName }: AnalyzingScreenProps) {
   const current = ORDER.indexOf(stage);
+  const { t, translateText } = useLanguage();
 
   return (
-    <div className="flex h-full w-full items-center justify-center bg-black px-6">
-      <div className="w-full max-w-md">
+    <div className="relative flex h-full w-full items-center justify-center bg-black px-6">
+      <div className="absolute right-4 top-4">
+        <DevToolsButton />
+      </div>
+      <div className="w-full max-w-md" role="status" aria-live="polite">
         <div className="mb-8 text-center">
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-blue-500/15 text-blue-400">
             <Loader2 className="h-7 w-7 animate-spin" />
           </div>
-          <h2 className="text-xl font-semibold text-white">正在分析音频…</h2>
-          <p className="mt-1 truncate text-sm text-neutral-500">{fileName}</p>
+          <h2 className="text-xl font-semibold text-white">{t("正在分析音频…")}</h2>
+          <p className="mt-1 truncate text-sm text-neutral-500" title={fileName}>
+            {fileName}
+          </p>
         </div>
 
         <div className="space-y-3">
@@ -71,7 +79,7 @@ export function AnalyzingScreen({ stage, fileName }: AnalyzingScreenProps) {
                     active ? "text-white" : done ? "text-neutral-400" : "text-neutral-600",
                   )}
                 >
-                  {s.label}
+                  {translateText(s.label)}
                 </span>
               </div>
             );
@@ -79,7 +87,7 @@ export function AnalyzingScreen({ stage, fileName }: AnalyzingScreenProps) {
         </div>
 
         <p className="mt-6 text-center text-xs text-neutral-600">
-          节拍检测完全在本地完成，音频不会上传到任何服务器。
+          {t("节拍检测完全在本地完成，音频不会上传到任何服务器。")}
         </p>
       </div>
     </div>
