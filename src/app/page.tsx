@@ -183,6 +183,54 @@ export default function HomePage() {
     [],
   );
 
+  const handlePerformingCalibrationChange = useCallback(
+    (project: PerformingProject) => {
+      const learningProjectId = project.learningProjectId;
+      if (!learningProjectId) return;
+      const patch: Partial<SavedDanceMeta> = {
+        bpm: project.bpm ?? 120,
+        offset: project.offset ?? 0,
+        analysisBeats: project.beats,
+        performanceStart: project.performanceStart ?? null,
+        updatedAt: Date.now(),
+      };
+      const pendingSave = pendingSavesRef.current.get(learningProjectId);
+      const save = (pendingSave ?? Promise.resolve())
+        .catch(() => {})
+        .then(async () => {
+          await updateDanceMeta(learningProjectId, patch);
+        });
+      pendingSavesRef.current.set(learningProjectId, save);
+      void save
+        .catch((error) => {
+          console.error(
+            "Failed to sync Performing calibration to Learning.",
+            error,
+          );
+          setLibraryError("演出中的节奏校准未能同步到练习项目。");
+        })
+        .finally(() => {
+          if (pendingSavesRef.current.get(learningProjectId) === save) {
+            pendingSavesRef.current.delete(learningProjectId);
+          }
+        });
+      setDances((currentDances) =>
+        currentDances.map((dance) =>
+          dance.id === learningProjectId ? { ...dance, ...patch } : dance,
+        ),
+      );
+      setCurrent((currentDance) =>
+        currentDance?.id === learningProjectId
+          ? {
+              ...currentDance,
+              meta: { ...currentDance.meta, ...patch },
+            }
+          : currentDance,
+      );
+    },
+    [],
+  );
+
   const handleOpenPerformingProject = useCallback(
     async (id: string) => {
       const project = performingProjects.find((item) => item.id === id);
@@ -203,6 +251,9 @@ export default function HomePage() {
               ...project,
               bpm: analysis.bpm,
               offset: analysis.offset,
+              detectedBpm: analysis.bpm,
+              detectedOffset: analysis.offset,
+              detectedBeats: analysis.beats,
               musicStart: analysis.musicStart,
               beats: analysis.beats,
               analysisEngine: analysis.engine,
@@ -225,6 +276,39 @@ export default function HomePage() {
             );
           }
         }
+        if (
+          resolvedProject.detectedBpm == null ||
+          resolvedProject.detectedOffset == null ||
+          resolvedProject.detectedBeats == null
+        ) {
+          const linkedDance = resolvedProject.learningProjectId
+            ? dances.find(
+                (dance) => dance.id === resolvedProject.learningProjectId,
+              )
+            : null;
+          resolvedProject = {
+            ...resolvedProject,
+            detectedBpm:
+              resolvedProject.detectedBpm ??
+              linkedDance?.detectedBpm ??
+              resolvedProject.bpm,
+            detectedOffset:
+              resolvedProject.detectedOffset ??
+              linkedDance?.detectedOffset ??
+              resolvedProject.offset,
+            detectedBeats:
+              resolvedProject.detectedBeats ??
+              linkedDance?.detectedBeats ??
+              resolvedProject.beats,
+            updatedAt: Date.now(),
+          };
+          await updatePerformingProject(resolvedProject);
+          setPerformingProjects((projects) =>
+            projects.map((item) =>
+              item.id === resolvedProject.id ? resolvedProject : item,
+            ),
+          );
+        }
         revoke();
         const url = URL.createObjectURL(media);
         urlRef.current = url;
@@ -237,7 +321,7 @@ export default function HomePage() {
         setPerformingOpeningId(null);
       }
     },
-    [performingProjects, revoke],
+    [dances, performingProjects, revoke],
   );
 
   const handleFile = useCallback(
@@ -292,6 +376,9 @@ export default function HomePage() {
           cover,
           bpm,
           offset,
+          detectedBpm: bpm,
+          detectedOffset: offset,
+          detectedBeats: analysisResult?.beats,
           musicStart,
           beats: analysisResult?.beats,
           analysisEngine: analysisResult?.engine,
@@ -537,6 +624,9 @@ export default function HomePage() {
           cover: meta.cover,
           bpm: meta.bpm,
           offset: meta.offset,
+          detectedBpm: meta.detectedBpm ?? meta.bpm,
+          detectedOffset: meta.detectedOffset ?? meta.offset,
+          detectedBeats: meta.detectedBeats ?? beats,
           musicStart: meta.musicStart ?? null,
           performanceStart: meta.performanceStart ?? null,
           beats,
@@ -598,9 +688,9 @@ export default function HomePage() {
           updatedAt: now,
           bpm,
           offset,
-          detectedBpm: bpm,
-          detectedOffset: offset,
-          detectedBeats: project.beats,
+          detectedBpm: project.detectedBpm ?? bpm,
+          detectedOffset: project.detectedOffset ?? offset,
+          detectedBeats: project.detectedBeats ?? project.beats,
           analysisBeats: project.beats,
           analysisEngine: project.analysisEngine,
           analysisConfidence: project.analysisConfidence,
@@ -679,6 +769,36 @@ export default function HomePage() {
       formationAudiencePosition: FormationAudiencePosition;
       duration: number;
     }) => {
+      const learningProjectId = current?.id;
+      if (learningProjectId && data.tempoChanged) {
+        const syncedAt = Date.now();
+        setPerformingProjects((projects) =>
+          projects.map((project) => {
+            if (project.learningProjectId !== learningProjectId) return project;
+            const syncedProject: PerformingProject = {
+              ...project,
+              bpm: data.bpm,
+              offset: data.offset,
+              beats: data.beats,
+              performanceStart: data.performanceStart ?? null,
+              updatedAt: syncedAt,
+            };
+            const write = performingSaveQueueRef.current.then(() =>
+              updatePerformingProject(syncedProject),
+            );
+            performingSaveQueueRef.current = write.catch((error) => {
+              console.error(
+                "Failed to sync Learning calibration to Performing.",
+                error,
+              );
+              setPerformingError(
+                "练习中的节奏校准未能同步到演出项目。",
+              );
+            });
+            return syncedProject;
+          }),
+        );
+      }
       setCurrent((cur) => {
         if (!cur) return cur;
         const { tempoChanged, beats, ...persistedData } = data;
@@ -707,7 +827,7 @@ export default function HomePage() {
         return { ...cur, meta: updated };
       });
     },
-    [],
+    [current?.id],
   );
 
   const returnHome = useCallback((target: HomeTarget) => {
@@ -796,6 +916,7 @@ export default function HomePage() {
         src={currentPerforming.url}
         onBack={backToWorkspace}
         onProjectChange={handlePerformingProjectChange}
+        onCalibrationChange={handlePerformingCalibrationChange}
       />
     );
   }

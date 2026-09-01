@@ -3,6 +3,7 @@
 import {
   ArrowLeft,
   Clapperboard,
+  Crosshair,
   Download,
   Plus,
   Sparkles,
@@ -19,8 +20,10 @@ import { usePlayer } from "@/hooks/usePlayer";
 import {
   adjacentBeatTime,
   beatGridAnchorIndex,
+  calibrateBeatGrid,
   deriveSegments,
 } from "@/lib/segments";
+import { AnimatePresence } from "framer-motion";
 import {
   clipAtTimelineTime,
   fitClipStartToGap,
@@ -42,6 +45,7 @@ import type {
 } from "@/lib/types";
 import { DEFAULT_PERFORMING_STAGE } from "@/lib/types";
 import { ClipInspector } from "./ClipInspector";
+import { CalibrationPanel } from "./CalibrationPanel";
 import {
   CompositionTimeline,
   type TimelineTrack,
@@ -70,6 +74,7 @@ interface PerformingWorkspaceProps {
   src: string;
   onBack: () => void;
   onProjectChange: (project: PerformingProject) => void;
+  onCalibrationChange: (project: PerformingProject) => void;
 }
 
 function mediaMetadata(
@@ -130,11 +135,31 @@ function mediaMetadata(
   });
 }
 
+function performingFirstBeat(project: PerformingProject): number {
+  const beats = project.beats ?? [];
+  const anchorIndex = beatGridAnchorIndex(
+    beats,
+    project.performanceStart ?? project.musicStart ?? null,
+  );
+  return beats[anchorIndex]?.time ?? project.offset ?? 0;
+}
+
+function detectedPerformanceStart(project: PerformingProject): number | null {
+  const beats = project.detectedBeats ?? project.beats ?? [];
+  const reference =
+    project.detectedBeats != null
+      ? project.musicStart ?? null
+      : project.performanceStart ?? project.musicStart ?? null;
+  const anchorIndex = beatGridAnchorIndex(beats, reference);
+  return beats[anchorIndex]?.time ?? reference;
+}
+
 export function PerformingWorkspace({
   project,
   src,
   onBack,
   onProjectChange,
+  onCalibrationChange,
 }: PerformingWorkspaceProps) {
   const { language, t, translateText } = useLanguage();
   const { videoRef, videoProps, state, actions } = usePlayer();
@@ -153,6 +178,21 @@ export function PerformingWorkspace({
   const [clipDropActive, setClipDropActive] = useState(false);
   const [clipError, setClipError] = useState<string | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
+  const [calibrationOpen, setCalibrationOpen] = useState(false);
+  const projectRef = useRef(project);
+  const calibrationBaseRef = useRef({
+    bpm: project.bpm ?? 120,
+    offset: project.offset ?? 0,
+    beats: project.beats ?? [],
+    performanceStart:
+      project.performanceStart ?? project.musicStart ?? null,
+  });
+  const calibrationDefaultsRef = useRef({
+    bpm: project.detectedBpm ?? project.bpm ?? 120,
+    offset: project.detectedOffset ?? project.offset ?? 0,
+    beats: project.detectedBeats ?? project.beats ?? [],
+    performanceStart: detectedPerformanceStart(project),
+  });
   const [mediaAspectRatio, setMediaAspectRatio] = useState(16 / 9);
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
   const [trackVisibility, setTrackVisibility] = useState<
@@ -162,6 +202,9 @@ export function PerformingWorkspace({
     composition: true,
     source: true,
   });
+  useEffect(() => {
+    projectRef.current = project;
+  }, [project]);
   const stageSettings = useMemo(
     () => ({
       ...DEFAULT_PERFORMING_STAGE,
@@ -228,16 +271,19 @@ export function PerformingWorkspace({
     [beatAnchorIndex, fallbackBeats, parsedBeats, project.bpm],
   );
   const performanceStart = beats[0] ?? null;
-  const currentBeatLabel = useMemo(() => {
+  const currentBeatIndex = useMemo(() => {
     let beatIndex = -1;
     for (let index = 0; index < beats.length; index++) {
       if (beats[index] > state.currentTime + 0.001) break;
       beatIndex = index;
     }
-    return beatIndex < 0
-      ? "–"
-      : `${Math.floor(beatIndex / 8) + 1}-${(beatIndex % 8) + 1}`;
+    return beatIndex;
   }, [beats, state.currentTime]);
+  const currentBeatLabel = useMemo(() => {
+    return currentBeatIndex < 0
+      ? "–"
+      : `${Math.floor(currentBeatIndex / 8) + 1}-${(currentBeatIndex % 8) + 1}`;
+  }, [currentBeatIndex]);
   const layout = useMemo(() => layoutPerformingClips(clips), [clips]);
   const videoClips = useMemo(
     () =>
@@ -348,6 +394,96 @@ export function PerformingWorkspace({
     },
     [onProjectChange, project, stageSettings],
   );
+
+  const commitCalibration = useCallback(
+    (
+      nextBpm: number,
+      nextOffset: number,
+      base = calibrationBaseRef.current,
+    ) => {
+      const anchorIndex = beatGridAnchorIndex(
+        base.beats,
+        base.performanceStart,
+      );
+      const calibratedBeats = calibrateBeatGrid(
+        base.beats,
+        base.bpm,
+        base.offset,
+        nextBpm,
+        nextOffset,
+      );
+      const calibratedPresentationBeats = calibrateBeatGrid(
+        base.beats.slice(anchorIndex),
+        base.bpm,
+        base.offset,
+        nextBpm,
+        nextOffset,
+      );
+      const nextPerformanceStart =
+        calibratedPresentationBeats.find((beat) => beat.beatInBar === 1)?.time ??
+        calibratedPresentationBeats[0]?.time ??
+        nextOffset;
+      const currentProject = projectRef.current;
+      const nextProject: PerformingProject = {
+        ...currentProject,
+        bpm: nextBpm,
+        offset: nextOffset,
+        beats: calibratedBeats,
+        performanceStart: nextPerformanceStart,
+        updatedAt: Date.now(),
+      };
+      projectRef.current = nextProject;
+      onProjectChange(nextProject);
+      onCalibrationChange(nextProject);
+    },
+    [onCalibrationChange, onProjectChange],
+  );
+  const setCalibrationBpm = useCallback(
+    (nextBpm: number) => {
+      const currentProject = projectRef.current;
+      commitCalibration(nextBpm, currentProject.offset ?? 0);
+    },
+    [commitCalibration],
+  );
+  const shiftCalibrationOffset = useCallback(
+    (delta: number) => {
+      const currentProject = projectRef.current;
+      commitCalibration(
+        currentProject.bpm ?? 120,
+        (currentProject.offset ?? 0) + delta,
+      );
+    },
+    [commitCalibration],
+  );
+  const setCalibrationFirstBeat = useCallback(
+    (value: number) => {
+      const currentProject = projectRef.current;
+      commitCalibration(
+        currentProject.bpm ?? 120,
+        (currentProject.offset ?? 0) +
+          value -
+          performingFirstBeat(currentProject),
+      );
+    },
+    [commitCalibration],
+  );
+  const setCalibrationToCurrentFrame = useCallback(
+    () => {
+      const currentProject = projectRef.current;
+      commitCalibration(
+        currentProject.bpm ?? 120,
+        (currentProject.offset ?? 0) +
+          state.currentTime -
+          performingFirstBeat(currentProject),
+      );
+    },
+    [commitCalibration, state.currentTime],
+  );
+  const resetCalibration = useCallback(() => {
+    const defaults = calibrationDefaultsRef.current;
+    calibrationBaseRef.current = defaults;
+    commitCalibration(defaults.bpm, defaults.offset, defaults);
+  }, [commitCalibration]);
 
   const addClipFiles = async (files: FileList | null) => {
     if (!files?.length || addingClips) return;
@@ -793,12 +929,49 @@ export function PerformingWorkspace({
             <span className="text-xs font-medium text-neutral-300">
               {t("合成时间线")}
             </span>
-            <span className="flex items-baseline gap-1.5">
-              <span className="text-[10px] text-neutral-600">{t("当前拍")}</span>
-              <span className="text-xs font-medium tabular-nums text-neutral-300">
-                {currentBeatLabel}
+            <div className="relative flex items-center gap-2">
+              <span className="flex items-baseline gap-1.5">
+                <span className="text-[10px] text-neutral-600">
+                  {t("当前拍")}
+                </span>
+                <span className="text-xs font-medium tabular-nums text-neutral-300">
+                  {currentBeatLabel}
+                </span>
               </span>
-            </span>
+              <button
+                type="button"
+                aria-expanded={calibrationOpen}
+                aria-label={t("校准")}
+                data-tooltip={t("校准")}
+                onClick={() => setCalibrationOpen((open) => !open)}
+                className={`flex h-6 w-6 items-center justify-center rounded-md transition-colors ${
+                  calibrationOpen
+                    ? "bg-blue-500/20 text-blue-300"
+                    : "bg-white/5 text-neutral-400 hover:bg-white/10 hover:text-neutral-200"
+                }`}
+              >
+                <Crosshair className="h-3.5 w-3.5" />
+              </button>
+              <AnimatePresence>
+                {calibrationOpen && (
+                  <div className="absolute bottom-full right-0 z-40 mb-2 w-[min(480px,calc(100vw-2rem))]">
+                    <CalibrationPanel
+                      bpm={project.bpm ?? 120}
+                      offset={performanceStart ?? project.offset ?? 0}
+                      currentCount={
+                        currentBeatIndex < 0 ? 0 : (currentBeatIndex % 8) + 1
+                      }
+                      onSetBpm={setCalibrationBpm}
+                      onSetOffset={setCalibrationFirstBeat}
+                      onShiftOffset={shiftCalibrationOffset}
+                      onSetDownbeat={setCalibrationToCurrentFrame}
+                      onReset={resetCalibration}
+                      onClose={() => setCalibrationOpen(false)}
+                    />
+                  </div>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
           <CompositionTimeline
             layout={layout}

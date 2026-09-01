@@ -6,6 +6,7 @@ export const englishMessages = {
   "节拍检测完全在本地完成，音频不会上传到任何服务器。":
     "Beat detection runs entirely on your device. Your audio is never uploaded.",
   "节奏校准": "Beat calibration",
+  "校准": "Calibrate",
   "恢复首次解析值": "Restore detected timing",
   "重置": "Reset",
   "关闭": "Close",
